@@ -15,7 +15,10 @@ const netTicksToDate=t=>{const n=typeof t==='string'?Number(t):t;return n?new Da
 const pick=(a,t,s)=>{const r=(a||[]).find(x=>x.Type===t&&x.SubKey===s);return r?r.Value:null;};
 const nz=v=>v&&v!==0&&v!=='0';
 
-function itemInfo(key){ const i=DB&&DB.items&&(DB.items[key]||DB.items[String(key)]); return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl}:{name:'#'+key,grade:null,type:null,gt:null,lvl:null}; }
+function itemInfo(key){ const i=DB&&DB.items&&(DB.items[key]||DB.items[String(key)]); return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:!!i.mat}:{name:'#'+key,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false}; }
+// enchant stat-mod -> authoritative display name (DB.stats from the game's StatModInfoData). No fabrication.
+function statName(modKey){ const s=DB&&DB.stats&&DB.stats[String(modKey)]; return s?s.sn:('Stat #'+modKey); }
+function resolveMods(ench){ return (ench||[]).filter(m=>m&&m.StatModKey).map(m=>{ const s=DB&&DB.stats&&DB.stats[String(m.StatModKey)]; return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null,stat:s?s.s:null}; }); }
 // Structural icon resolver: the game only ships base (rarity-0) gear icons (TYPE_<id>) plus
 // Item_<id> for materials/currency. A gear key is [type:2][rarity:1][baseIndex:2][sub:1]; the icon
 // for any rarity is the type's base icon at baseIndex (type+'00'+idx). Pure logic so it runs in the
@@ -30,7 +33,7 @@ function heroes(psd){ const party=((psd.commonSaveData||{}).arrangedHeroKey||[])
   return (psd.heroSaveDatas||[]).map(h=>({key:h.heroKey,cls:heroClass(h.heroKey),level:h.HeroLevel,exp:Math.round(h.HeroExp||0),pts:h.AllocatedHeroAbilityPoint,unspent:h.AbilityPoint,gear:(h.equippedItemIds||[]).filter(nz).length,deployed:party.includes(String(h.heroKey))})).sort((a,b)=>b.level-a.level); }
 function inventory(psd){ const occ=a=>(psd[a]||[]).filter(s=>nz(s.ItemUniqueId)).length;
   return { owned:(psd.itemSaveDatas||[]).length, stashFilled:occ('stashSaveDatas'), stashSlots:(psd.stashSaveDatas||[]).length, invFilled:occ('inventorySaveDatas'), invSlots:(psd.inventorySaveDatas||[]).length, tradeFilled:occ('tradingStashSaveDatas') }; }
-function ownedItems(psd){ return (psd.itemSaveDatas||[]).map(it=>({uid:String(it.UniqueId),key:it.ItemKey,icon:iconId(it.ItemKey),ench:(it.EnchantCount||[]).reduce((a,b)=>a+b,0),enchants:it.EnchantData||[],...itemInfo(it.ItemKey)})); }
+function ownedItems(psd){ return (psd.itemSaveDatas||[]).map(it=>{ const info=itemInfo(it.ItemKey); return {uid:String(it.UniqueId),key:String(it.ItemKey),icon:info.ic||iconId(it.ItemKey),ench:(it.EnchantCount||[]).reduce((a,b)=>a+b,0),mods:resolveMods(it.EnchantData),...info}; }); }
 function byRarity(psd){ const g={}; for(const it of ownedItems(psd)){ if(it.grade) g[it.grade]=(g[it.grade]||0)+1; } return g; }
 function trophies(psd){ return ownedItems(psd).filter(it=>rarityRank(it.grade)>=3).sort((a,b)=>rarityRank(b.grade)-rarityRank(a.grade)); }
 function lootDiff(prevPsd,curPsd){ const prev=new Set((prevPsd.itemSaveDatas||[]).map(it=>String(it.UniqueId))); return ownedItems(curPsd).filter(it=>!prev.has(it.uid)); }
@@ -41,4 +44,4 @@ function snapshotFromPsd(psd){ return {capturedAt:new Date().toISOString(),summa
 function snapshot(buffer){ return snapshotFromPsd(loadSave(buffer)); }
 function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev.summary.lastSaved); const h=ms/3600000; const d=(a,b)=>(a==null||b==null)?null:b-a; const ph=v=>(v==null||!h)?null:Math.round(v/h); const dg=d(prev.gold,cur.gold),dk=d(prev.aggregates.totalKills,cur.aggregates.totalKills); return {spanMinutes:+(ms/60000).toFixed(1),goldDelta:dg,goldPerHour:ph(dg),killsDelta:dk,killsPerHour:ph(dk)}; }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,netTicksToDate,itemInfo,heroClass,iconId,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,netTicksToDate,itemInfo,heroClass,iconId,statName,resolveMods,GOLD_KEY};

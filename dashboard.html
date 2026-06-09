@@ -257,7 +257,8 @@ function rrank(g){return RARITY.indexOf(g);}
 function rvar(g){return g?('var(--r-'+g+')'):'var(--line)';}
 function nz(v){return v&&v!==0&&v!=='0';}
 function ticksToDate(t){var n=typeof t==='string'?Number(t):t;return n?new Date(n/10000-NET):null;}
-function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,mat:i.mat}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null,mat:false};}
+function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:i.mat}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false};}
+function statMod(modKey){return DB.stats&&DB.stats[String(modKey)];}
 function heroInfo(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h||{cls:'#'+k,mw:null};}
 /* structural icon resolver — see saveEngine.iconId */
 function iconId(key){var s=String(key);if(s.length!==6)return s;var t=s.slice(0,2),r=s[2],suf=s.slice(3);if(r==='0')return s;return t+'00'+suf.slice(0,2);}
@@ -279,8 +280,10 @@ function analyze(psd){
   function occ(k){return (psd[k]||[]).filter(function(s){return nz(s.ItemUniqueId);}).length;}
   var owned=(psd.itemSaveDatas||[]).map(function(it){
     var info=itemInfo(it.ItemKey);
-    var mods=(it.EnchantData||[]).filter(function(e){return e&&e.StatModKey;});
-    return {uid:String(it.UniqueId),key:String(it.ItemKey),icon:iconId(it.ItemKey),
+    var mods=(it.EnchantData||[]).filter(function(e){return e&&e.StatModKey;}).map(function(m){
+      var s=statMod(m.StatModKey);
+      return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null};});
+    return {uid:String(it.UniqueId),key:String(it.ItemKey),icon:info.ic||iconId(it.ItemKey),
       ench:(it.EnchantCount||[]).reduce(function(x,y){return x+y;},0),mods:mods,
       name:info.name,grade:info.grade,type:info.type,gt:info.gt,lvl:info.lvl,mat:info.mat};
   });
@@ -329,12 +332,10 @@ function iconImg(icon,cls){
 
 /* ---------- tooltip ---------- */
 var tip=$('tip');
-function modText(m){
-  // honest: stat names need the StatName localization table (follow-up); show stat id + value + tier.
-  return {k:'Stat #'+m.StatType, v:'+'+fmt(m.Value)+(m.Tier?(' · T'+m.Tier):'')};
-}
 function showTip(e,it){
-  var mods=(it.mods||[]).map(function(m){var x=modText(m);return '<div class="tmod"><span>'+x.k+'</span><b>'+x.v+'</b></div>';}).join('');
+  // mods are pre-resolved {name,value,tier,mod} from the game's StatModInfoData (authoritative).
+  var mods=(it.mods||[]).map(function(m){var pct=(m.mod==='PERCENT'||/Percent$/.test(m.name))?'%':'';
+    return '<div class="tmod"><span>'+m.name+'</span><b>+'+fmt(m.value)+pct+(m.tier?(' · T'+m.tier):'')+'</b></div>';}).join('');
   var meta=[it.gt||it.type, it.lvl?('Lvl '+it.lvl):null].filter(Boolean).join(' · ');
   tip.innerHTML='<div class="tn">'+it.name+'</div>'+
     (it.grade?'<div class="tr" style="color:'+rvar(it.grade)+'">'+it.grade+'</div>':'')+
@@ -596,19 +597,19 @@ Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),functi
 });
 
 /* ---------- demo / sample ---------- */
-function demoItem(key,grade,gt,lvl,ench){var k=String(key);return {uid:'d'+k,key:k,icon:iconId(k),grade:grade,gt:gt,type:'GEAR',lvl:lvl,ench:ench||0,
-  mods:ench?[{StatType:25,Value:220,Tier:2,StatModKey:1}]:[],name:(grade?grade.charAt(0)+grade.slice(1).toLowerCase()+' ':'')+(gt?gt.charAt(0)+gt.slice(1).toLowerCase():'Item'),mat:false};}
-function demoMat(key,name){var k=String(key);return {uid:'d'+k,key:k,icon:iconId(k),grade:null,gt:null,type:'MATERIAL',lvl:null,ench:0,mods:[],name:name,mat:true};}
+// demo items are real keys resolved through the authoritative DB (real names/icons/grades/levels).
+function demoItem(key,mods){var k=String(key);var i=DB.items[k]||{};return {uid:'d'+k,key:k,icon:i.ic||iconId(k),
+  grade:i.g,gt:i.gt,type:i.t||'GEAR',lvl:i.lvl,ench:mods?mods.length:0,mods:mods||[],name:i.n||('#'+k),mat:!!i.mat};}
 function loadDemo(){
   session=null;
   var owned=[
-    demoItem(423041,'LEGENDARY','ORB',15,1),demoItem(513031,'LEGENDARY','ARMOR',15,0),
-    demoItem(503041,'LEGENDARY','HELMET',15,1),demoItem(532051,'LEGENDARY','BOOTS',10,0),
-    demoItem(342041,'RARE','CROSSBOW',15,0),demoItem(322041,'RARE','STAFF',15,1),
-    demoItem(312031,'RARE','BOW',10,0),demoItem(622031,'RARE','RING',10,0),
-    demoItem(331041,'UNCOMMON','SCEPTER',10,0),demoItem(511051,'UNCOMMON','ARMOR',10,0),
-    demoItem(310003,'COMMON','BOW',10,0),demoItem(520003,'COMMON','GLOVES',10,0),
-    demoMat(190001,'Soulstone - Normal'),demoMat(140002,'Stone'),demoMat(110001,'Minor Ruby')
+    demoItem(423041,[{name:'Cooldown Reduction',value:120,tier:2,mod:'FLAT'}]),demoItem(513031),
+    demoItem(503041,[{name:'Armor',value:130,tier:1,mod:'ADDITIVE'}]),demoItem(532051),
+    demoItem(342041),demoItem(322041,[{name:'Fire Damage Percent',value:220,tier:2,mod:'FLAT'}]),
+    demoItem(312031),demoItem(622031),
+    demoItem(331041),demoItem(511051),
+    demoItem(310003),demoItem(520003),
+    demoItem(190001),demoItem(140002),demoItem(110001)
   ];
   var byR={};owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
   var heroes=[
@@ -619,8 +620,8 @@ function loadDemo(){
     {key:'201',cls:'Ranger',mw:'BOW',level:12,exp:133555,pts:12,unspent:0,gear:1,deployed:false,equipped:[]},
     {key:'101',cls:'Knight',mw:'SWORD',level:1,exp:0,pts:0,unspent:1,gear:0,deployed:false,equipped:[]}
   ];
-  lootLog=[{t:Date.now()-45000,name:'Legendary Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15},
-    {t:Date.now()-220000,name:'Rare Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15}];
+  lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15},
+    {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15}];
   render({version:'1.00.11 (sample)',stage:1208,wave:2,maxStage:1210,playHours:34.4,lastSaved:new Date(),
     pet:6003,gold:77298,heroes:heroes,inv:{owned:owned.length,stash:20,stashSlots:343,trade:0},
     owned:owned,byRarity:byR,
