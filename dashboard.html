@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TBH HUD — Task Bar Hero companion</title>
+<script src="src/engine/gamedata.min.js"></script>
+<style>
+  :root{--bg:#0b0e18;--surface:#141a2b;--surface2:#1b2236;--line:#26304b;--text:#e7ecf7;--muted:#9aa6c4;--dim:#6b76a0;--gold:#f2b441;--teal:#3ed0a3;--blue:#5aa0f0;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  .logo{width:34px;height:34px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:19px}
+  .title{font-weight:600;font-size:16px}
+  .sub{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  button{font:inherit;font-size:14px;color:var(--text);background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:8px 15px;cursor:pointer}
+  button.primary{background:var(--gold);color:#1a1406;border-color:transparent;font-weight:600}
+  button:hover{filter:brightness(1.08)}
+  .status{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+  .dot.live{background:var(--teal);box-shadow:0 0 0 3px rgba(62,208,163,.18)}
+  .dot.err{background:#f0568a}
+  main{max-width:1100px;margin:0 auto;padding:22px}
+  .gate{text-align:center;padding:60px 22px;color:var(--muted)}
+  .gate h2{color:var(--text);font-size:20px;margin:0 0 10px}
+  .gate code{background:var(--surface2);padding:2px 7px;border-radius:5px;font-size:13px}
+  .hidden{display:none}
+  h3.sec{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:26px 0 12px;font-weight:600}
+  .grid{display:grid;gap:12px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(146px,1fr))}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 16px}
+  .card .lab{font-size:12.5px;color:var(--muted)}
+  .card .val{font-size:25px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
+  .card .val.gold{color:var(--gold)} .card .val.teal{color:var(--teal)}
+  .card .s2{font-size:12px;color:var(--dim);margin-top:2px}
+  .heroes{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .hero{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 15px;position:relative}
+  .hero.deployed{border-color:var(--teal)}
+  .hero .cls{font-size:16px;font-weight:600}
+  .hero .lvl{font-size:13px;color:var(--muted);margin-top:1px}
+  .hero .meta{font-size:12px;color:var(--dim);margin-top:8px}
+  .badge{position:absolute;top:11px;right:12px;font-size:10px;letter-spacing:.04em;background:rgba(62,208,163,.16);color:var(--teal);padding:3px 7px;border-radius:6px}
+  .troph{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:13px}
+  .rdot{width:9px;height:9px;border-radius:50%}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+  td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+  .rl{font-weight:600}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--dim)}
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .bar{display:flex;align-items:center;gap:10px;font-size:13px}
+  .bar .name{width:104px;color:var(--muted)}
+  .bar .track{flex:1;height:9px;background:var(--surface2);border-radius:5px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:5px;background:var(--blue)}
+  .bar .num{width:96px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .empty{color:var(--dim);font-size:13px;padding:10px 0}
+  footer{max-width:1100px;margin:0 auto;padding:18px 22px 40px;color:var(--dim);font-size:12px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🎮</div>
+  <div>
+    <div class="title">TBH HUD <span class="sub">· read-only companion</span></div>
+    <div class="sub" id="ver">not connected</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">no save</span></div>
+  <button id="demoBtn">Preview sample</button>
+  <button class="primary" id="connectBtn">Connect save</button>
+  <input type="file" id="fileInput" accept=".es3" class="hidden">
+</header>
+<main>
+  <div class="gate" id="gate">
+    <h2>Connect your Task Bar Hero save</h2>
+    <p>Click <b>Connect save</b> and pick <code>SaveFile_Live.es3</code> from<br>
+    <code>%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\</code></p>
+    <p class="sub">Decrypted and read locally in your browser — nothing is uploaded, the game is never modified.<br>Chrome / Edge keep it live; other browsers load once (re-pick to refresh).</p>
+  </div>
+  <div id="dash" class="hidden">
+    <h3 class="sec">Overview</h3>
+    <div class="grid cards" id="cards"></div>
+    <h3 class="sec">This session</h3>
+    <div class="grid cards" id="rates"></div>
+    <h3 class="sec">Party</h3>
+    <div class="grid heroes" id="heroes"></div>
+    <h3 class="sec">Trophies <span class="sub" id="trophCount"></span></h3>
+    <div class="troph" id="trophies"></div>
+    <h3 class="sec">Loot log <span class="sub">· new drops while this is open</span></h3>
+    <div id="loot"></div>
+    <h3 class="sec">Lifetime</h3>
+    <div class="bars" id="lifetime"></div>
+    <h3 class="sec">Gear <span class="sub" id="gearCount"></span></h3>
+    <table id="gearTbl"><thead><tr><th>Item</th><th>Type</th><th>Rarity</th><th class="r">Lvl</th><th class="r">Ench</th></tr></thead><tbody></tbody></table>
+  </div>
+</main>
+<footer>TBH HUD · unofficial fan tool, not affiliated with Tesseract Studio / Nugem Studio · read-only, never writes to the game. <span id="lastSaved"></span></footer>
+<script>
+var PASSWORD='emuMqG3bLYJ938ZDCfieWJ', GOLD_KEY=100001, NET=62135596800000;
+var RARITY=['COMMON','UNCOMMON','RARE','LEGENDARY','IMMORTAL','ARCANA','BEYOND','CELESTIAL','DIVINE','COSMIC'];
+var RCOLOR={COMMON:'#aab3c5',UNCOMMON:'#5fd35f',RARE:'#4aa3f0',LEGENDARY:'#f2b441',IMMORTAL:'#f0568a',ARCANA:'#c07bf0',BEYOND:'#3ed8c8',CELESTIAL:'#9aa6ff',DIVINE:'#ffd76e',COSMIC:'#ff7ad9'};
+var DB=window.TBH_DB||{items:{},heroes:{}};
+function $(id){return document.getElementById(id);}
+function fmt(n){return n==null?'—':Number(n).toLocaleString();}
+function rrank(g){return RARITY.indexOf(g);}
+function rcol(g){return RCOLOR[g]||'#aab3c5';}
+function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null};}
+function heroClass(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h?h.cls:('#'+k);}
+function nz(v){return v&&v!==0&&v!=='0';}
+function ticksToDate(t){var n=typeof t==='string'?Number(t):t;return n?new Date(n/10000-NET):null;}
+async function decryptSave(buf){
+  var b=new Uint8Array(buf), iv=b.slice(0,16), ct=b.slice(16);
+  var base=await crypto.subtle.importKey('raw',new TextEncoder().encode(PASSWORD),{name:'PBKDF2'},false,['deriveKey']);
+  var key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:iv,iterations:100,hash:'SHA-1'},base,{name:'AES-CBC',length:128},false,['decrypt']);
+  return new TextDecoder().decode(new Uint8Array(await crypto.subtle.decrypt({name:'AES-CBC',iv},key,ct)));
+}
+function loadInner(outerText){
+  var outer=JSON.parse(outerText); var inner=outer.PlayerSaveData?outer.PlayerSaveData.value:outer;
+  if(typeof inner==='string') inner=JSON.parse(inner.replace(/([:\[,])(\s*)(\d{16,})(?=\s*[,\]}])/g,'$1$2"$3"'));
+  return inner;
+}
+function analyze(psd){
+  var c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[], party=(c.arrangedHeroKey||[]).map(String);
+  function pick(t,s){var r=a.find(function(x){return x.Type===t&&x.SubKey===s;});return r?r.Value:null;}
+  function occ(k){return (psd[k]||[]).filter(function(s){return nz(s.ItemUniqueId);}).length;}
+  var owned=(psd.itemSaveDatas||[]).map(function(it){var info=itemInfo(it.ItemKey);return {uid:String(it.UniqueId),key:it.ItemKey,ench:(it.EnchantCount||[]).reduce(function(x,y){return x+y;},0),name:info.name,grade:info.grade,type:info.type,gt:info.gt,lvl:info.lvl};});
+  var byR={}; owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
+  var goldRow=(psd.currenySaveDatas||[]).find(function(x){return x.Key===GOLD_KEY;});
+  return {
+    version:c.version, stage:c.currentStageKey, wave:c.currentStageWave, maxStage:c.maxCompletedStage,
+    playHours:c.playTime?+(c.playTime/3600).toFixed(1):null, lastSaved:ticksToDate(c.lastSavedTime),
+    gold:goldRow?goldRow.Quantity:0,
+    heroes:(psd.heroSaveDatas||[]).map(function(h){return {key:h.heroKey,cls:heroClass(h.heroKey),level:h.HeroLevel,pts:h.AllocatedHeroAbilityPoint,unspent:h.AbilityPoint,gear:(h.equippedItemIds||[]).filter(nz).length,deployed:party.indexOf(String(h.heroKey))>=0};}).sort(function(x,y){return y.level-x.level;}),
+    inv:{owned:owned.length,stash:occ('stashSaveDatas'),trade:occ('tradingStashSaveDatas')},
+    owned:owned, byRarity:byR,
+    trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
+    runes:{total:(psd.RuneSaveData||[]).length,leveled:(psd.RuneSaveData||[]).filter(function(r){return (r.Level||0)>0;}).length},
+    kills:pick(0,0), lifeGold:pick(2,0), perDiff:[0,1,2,3].map(function(d){return pick(16,d);})
+  };
+}
+var lastUids=null, lootLog=[];
+try{ var ls=localStorage.getItem('tbh_loot'); if(ls){var o=JSON.parse(ls); lootLog=o.log||[]; lastUids=o.uids?new Set(o.uids):null;} }catch(e){}
+function processLoot(owned){
+  var uids=new Set(owned.map(function(o){return o.uid;}));
+  if(lastUids===null){ lastUids=uids; persistLoot(); return; }
+  var fresh=owned.filter(function(o){return !lastUids.has(o.uid);});
+  if(fresh.length){ fresh.forEach(function(f){lootLog.unshift({t:Date.now(),name:f.name,grade:f.grade,gt:f.gt});}); lootLog=lootLog.slice(0,80); }
+  lastUids=uids; persistLoot();
+}
+function persistLoot(){ try{ localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uids:Array.from(lastUids)})); }catch(e){} }
+function card(lab,val,cls,s2){ return '<div class="card"><div class="lab">'+lab+'</div><div class="val '+(cls||'')+'">'+val+'</div>'+(s2?('<div class="s2">'+s2+'</div>'):'')+'</div>'; }
+function rChip(grade,name,lvl){ var c=rcol(grade); var l=lvl?(' <span class="mono">lvl'+lvl+'</span>'):''; return '<span class="chip"><span class="rdot" style="background:'+c+'"></span><span class="rl" style="color:'+c+'">'+grade+'</span> '+name+l+'</span>'; }
+function bar(name,pct,num,col){ return '<div class="bar"><div class="name">'+name+'</div><div class="track"><div class="fill" style="width:'+pct+'%;background:'+(col||'var(--blue)')+'"></div></div><div class="num">'+num+'</div></div>'; }
+var session=null;
+function render(d){
+  $('gate').classList.add('hidden'); $('dash').classList.remove('hidden');
+  $('ver').textContent='v'+d.version+' · '+d.playHours+' h played';
+  $('cards').innerHTML=[card('Gold',fmt(d.gold),'gold'),card('Stage',d.stage+' · w'+d.wave,'','max '+d.maxStage),card('Owned items',fmt(d.inv.owned),'',d.inv.stash+' in stash · '+d.inv.trade+' trading'),card('Runes',d.runes.leveled+'/'+d.runes.total,'','leveled')].join('');
+  var now=Date.now(); if(!session) session={t0:now,gold0:d.gold,kills0:d.kills};
+  var hrs=(now-session.t0)/3600000;
+  var gph=hrs>0.0003?Math.round((d.gold-session.gold0)/hrs):null;
+  var kph=(hrs>0.0003&&d.kills!=null)?Math.round((d.kills-session.kills0)/hrs):null;
+  $('rates').innerHTML=[card('Gold / hr', gph==null?'measuring…':fmt(gph),'teal', hrs>0.0003?('+'+fmt(d.gold-session.gold0)+' this session'):'watching…'),card('Kills / hr', kph==null?'measuring…':fmt(kph),'teal'),card('Session', hrs<0.02?'just started':(hrs.toFixed(2)+' h'),'')].join('');
+  $('heroes').innerHTML=d.heroes.map(function(h){var badge=h.deployed?'<span class="badge">DEPLOYED</span>':'';var unspent=h.unspent?(' · +'+h.unspent+' unspent'):'';return '<div class="hero '+(h.deployed?'deployed':'')+'">'+badge+'<div class="cls">'+h.cls+'</div><div class="lvl">Level '+h.level+'</div><div class="meta">'+h.gear+' gear · '+h.pts+' pts'+unspent+'</div></div>';}).join('');
+  $('trophCount').textContent=d.trophies.length?('('+d.trophies.length+')'):'';
+  $('trophies').innerHTML=d.trophies.length?d.trophies.map(function(t){return rChip(t.grade,t.name,t.lvl);}).join(''):'<div class="empty">No Legendary+ items yet.</div>';
+  var lootRows=lootLog.slice(0,15).map(function(l){var c=rcol(l.grade);var gt=l.gt?(' <span class="mono">'+l.gt+'</span>'):'';return '<tr><td class="mono">'+new Date(l.t).toLocaleTimeString()+'</td><td>'+l.name+gt+'</td><td><span class="rl" style="color:'+c+'">'+(l.grade||'—')+'</span></td></tr>';}).join('');
+  $('loot').innerHTML=lootLog.length?('<table><thead><tr><th>Time</th><th>Item</th><th>Rarity</th></tr></thead><tbody>'+lootRows+'</tbody></table>'):'<div class="empty">Watching for drops… new items appear here with a timestamp as you play.</div>';
+  var maxD=Math.max(1,d.perDiff[0]||0,d.perDiff[1]||0,d.perDiff[2]||0,d.perDiff[3]||0);
+  var dn=['Normal','Nightmare','Hell','Torment'];
+  $('lifetime').innerHTML=[bar('Total kills',100,fmt(d.kills),'var(--gold)'),bar('Gold earned',100,fmt(d.lifeGold),'var(--gold)'),bar(dn[0],Math.round((d.perDiff[0]||0)/maxD*100),fmt(d.perDiff[0])),bar(dn[1],Math.round((d.perDiff[1]||0)/maxD*100),fmt(d.perDiff[1])),bar(dn[2],Math.round((d.perDiff[2]||0)/maxD*100),fmt(d.perDiff[2])),bar(dn[3],Math.round((d.perDiff[3]||0)/maxD*100),fmt(d.perDiff[3]))].join('');
+  var order=d.owned.slice().sort(function(a,b){return rrank(b.grade)-rrank(a.grade);});
+  var rsum=Object.keys(d.byRarity).map(function(k){return d.byRarity[k]+' '+k.toLowerCase();}).join(', ');
+  $('gearCount').textContent='('+d.owned.length+(rsum?(' · '+rsum):'')+')';
+  $('gearTbl').querySelector('tbody').innerHTML=order.map(function(g){var c=rcol(g.grade);return '<tr><td>'+g.name+'</td><td class="mono">'+(g.gt||g.type||'—')+'</td><td><span class="rl" style="color:'+c+'">'+(g.grade||'—')+'</span></td><td class="r mono">'+(g.lvl||'—')+'</td><td class="r">'+(g.ench||'—')+'</td></tr>';}).join('');
+  if(d.lastSaved) $('lastSaved').textContent=' · save updated '+d.lastSaved.toLocaleString();
+}
+async function onBytes(buf){
+  try{ var d=analyze(loadInner(await decryptSave(buf))); processLoot(d.owned); render(d); $('dot').className='dot live'; $('statusText').textContent='reading your save'; }
+  catch(e){ $('dot').className='dot err'; $('statusText').textContent='decrypt failed: '+(e.message||e); console.error(e); }
+}
+var handle=null,lastMod=0,timer=null;
+async function connectFS(){
+  var picked=await window.showOpenFilePicker({types:[{description:'TBH save',accept:{'application/octet-stream':['.es3']}}]});
+  handle=picked[0];
+  async function poll(){ try{ var f=await handle.getFile(); if(f.lastModified!==lastMod){ lastMod=f.lastModified; onBytes(await f.arrayBuffer()); } }catch(e){} }
+  await poll(); if(timer)clearInterval(timer); timer=setInterval(poll,4000);
+}
+$('connectBtn').addEventListener('click',async function(){
+  if(window.showOpenFilePicker){ try{ await connectFS(); }catch(e){ if(e.name!=='AbortError') console.error(e); } }
+  else $('fileInput').click();
+});
+$('fileInput').addEventListener('change',function(e){ if(e.target.files[0]){ var r=new FileReader(); r.onload=function(){onBytes(r.result);}; r.readAsArrayBuffer(e.target.files[0]); } });
+if(window.tbhNative&&window.tbhNative.onSave){ $('connectBtn').classList.add('hidden'); window.tbhNative.onSave(function(buf){onBytes(buf);}); if(window.tbhNative.requestSave) window.tbhNative.requestSave(); }
+var DEMO={version:'1.00.11 (sample)',stage:1208,wave:2,maxStage:1210,playHours:32.8,lastSaved:new Date(),gold:56649,heroes:[{key:401,cls:'Priest',level:20,pts:20,unspent:0,gear:6,deployed:true},{key:501,cls:'Hunter',level:20,pts:20,unspent:0,gear:7,deployed:true},{key:301,cls:'Sorcerer',level:19,pts:19,unspent:0,gear:6,deployed:true},{key:601,cls:'Slayer',level:15,pts:15,unspent:0,gear:1,deployed:false},{key:201,cls:'Ranger',level:12,pts:12,unspent:0,gear:1,deployed:false},{key:101,cls:'Knight',level:1,pts:0,unspent:1,gear:0,deployed:false}],inv:{owned:48,stash:26,trade:0},owned:[{name:'Immortal Material',grade:'IMMORTAL',gt:null,type:'MATERIAL',lvl:null,ench:0},{name:'Iron Plate',grade:'LEGENDARY',gt:'ARMOR',type:'GEAR',lvl:10,ench:1},{name:'Knight Helmet',grade:'LEGENDARY',gt:'HELMET',type:'GEAR',lvl:15,ench:1},{name:'Frozen Orb',grade:'LEGENDARY',gt:'ORB',type:'GEAR',lvl:15,ench:0},{name:'Complete Crossbow',grade:'RARE',gt:'CROSSBOW',type:'GEAR',lvl:15,ench:0},{name:'Iron Boots',grade:'RARE',gt:'BOOTS',type:'GEAR',lvl:10,ench:0},{name:'Long Crossbow',grade:'COMMON',gt:'CROSSBOW',type:'GEAR',lvl:10,ench:0}],byRarity:{COMMON:13,UNCOMMON:8,RARE:20,LEGENDARY:3,IMMORTAL:4},trophies:[{name:'Immortal Material',grade:'IMMORTAL',lvl:null},{name:'Iron Plate',grade:'LEGENDARY',lvl:10},{name:'Knight Helmet',grade:'LEGENDARY',lvl:15},{name:'Frozen Orb',grade:'LEGENDARY',lvl:15}],runes:{total:197,leveled:56},kills:69608,lifeGold:1457209,perDiff:[192,122,69,1]};
+function loadDemo(){ session=null; lootLog=[{t:Date.now()-60000,name:'Knights Armor',grade:'UNCOMMON',gt:'ARMOR'},{t:Date.now()-300000,name:'Frozen Orb',grade:'LEGENDARY',gt:'ORB'}]; render(DEMO); $('statusText').textContent='sample data'; }
+$('demoBtn').addEventListener('click',loadDemo);
+if(location.search.indexOf('demo')>=0){ loadDemo(); }
+</script>
+</body>
+</html>
