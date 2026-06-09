@@ -270,6 +270,9 @@ var SPRITE='src/assets/sprites/Item_', HERO='src/assets/heroes/Hero_';
 
 function $(id){return document.getElementById(id);}
 function el(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
+// frag(): returns the WHOLE parsed fragment (all siblings), not just firstChild. Use when an HTML
+// string contains multiple top-level elements (el() would silently drop all but the first).
+function frag(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content;}
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
 function rrank(g){return RARITY.indexOf(g);}
 function rvar(g){return g?('var(--r-'+g+')'):'var(--line)';}
@@ -403,7 +406,7 @@ function heroCard(h){
   gif.addEventListener('error',function(){port.textContent='🛡️';});
   port.appendChild(gif); n.appendChild(port);
   var lvlPct=Math.min(100,Math.round(h.level/20*100));
-  n.appendChild(el(
+  n.appendChild(frag(
     '<div class="cls">'+h.cls+' <span class="badge '+(h.deployed?'dep':'bench')+'">'+(h.deployed?'DEPLOYED':'BENCH')+'</span></div>'+
     '<div class="lvl">Level '+h.level+(h.mw?' · '+h.mw.toLowerCase():'')+'</div>'+
     '<div class="xpbar"><i style="width:'+lvlPct+'%"></i></div>'+
