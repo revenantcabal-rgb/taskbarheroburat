@@ -1,25 +1,25 @@
 #!/usr/bin/env python
 """
-Build the authoritative TBH HUD game DB from the game's OWN data tables.
+Build the authoritative TBH HUD game DB from the game's OWN data tables (all read-only).
 
-Sources (all extracted READ-ONLY from the game install):
-  scripts/_gamedata_raw/ItemInfoData.txt   - per-itemKey: grade, type, geartype, NameKey, IconPath, level, flags
-  scripts/_gamedata_raw/StatModInfoData.txt - StatModKey -> STATTYPE/MODTYPE (enchant stat names)
-  scripts/_gamedata_raw/RuneInfoData.txt    - RuneKey -> NameKey, IconPath, MaxLevel
-  scripts/_gamedata_raw/GearTypeInfoData.txt
-  scripts/_gamedata_raw/localization_en.json - en-US text for every NameKey / StatName_ / RuneName_
+Sources in scripts/_gamedata_raw/ (extracted by dump_textassets.py / extract_localization.py):
+  ItemInfoData          - per-itemKey: grade, type, geartype, NameKey, DescriptionKey, IconPath, level, flags
+  StatModInfoData       - StatModKey -> STATTYPE/MODTYPE (enchant + material stat names)
+  MaterialInfoData      - material ItemKey -> MATERIALTYPE + StatModGroupKey
+  StatModGroupInfoData  - StatModGroupKey -> per gear-group (WEAPON/ARMOR/ACCESSORY) StatModKey + tier
+  RuneInfoData          - RuneKey -> NameKey, IconPath, MaxLevel, NextRuneKey, PrevNodeRequiredLevel, LevelDataKey
+  RuneLevelInfoData     - LevelKey,Level -> CostItemKey, CostValue, STATTYPE, Value
+  localization_en.json  - en-US text for every NameKey / DescriptionKey / StatName_
 
-NO GUESSING: every name comes from the game's NameKey -> localization. Items whose NameKey is
-absent from the game's localization (10 unused type-15 placeholders, owned by nobody) get an honest
-'<Grade> Material' fallback. Materials keep g=null (the tier lives in the name, per project rule).
-Output: src/engine/gamedata.min.json  +  src/engine/gamedata.min.js (window.TBH_DB=...)
+NO GUESSING: every label comes from the game's keys -> localization. Items whose NameKey is absent from the
+game's localization (10 unused/unowned type-15 placeholders) get an honest '<Grade> Material' fallback.
+Output: src/engine/gamedata.min.json + src/engine/gamedata.min.js (window.TBH_DB=...)
 """
 import csv, json, os, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(HERE, "_gamedata_raw")
 ENG = os.path.join(os.path.dirname(HERE), "src", "engine")
-
 GAME_VERSION = "1.00.11"
 
 
@@ -33,21 +33,54 @@ def icon_id(path):
     return m.group(1) if m else (path or "")
 
 
-def prettify(stattype):
-    # FireDamagePercent -> "Fire Damage Percent"
-    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", stattype)
+def prettify(s):
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", s or "")
 
 
 def main():
     loc = json.load(open(os.path.join(RAW, "localization_en.json"), encoding="utf-8"))
     old = json.load(open(os.path.join(ENG, "gamedata.min.json"), encoding="utf-8"))
 
+    def L(key):  # resolve a localization key (with or without prefix)
+        if not key:
+            return None
+        return loc.get(key) or loc.get(re.sub(r"^[A-Za-z]+_", "", key))
+
+    # ---- enchant/material stat mods: StatModKey -> {stat, display name, mod} ----
+    stats = {}
+    for r in rows("StatModInfoData.txt"):
+        k = r["StatModKey"]
+        if k in stats:
+            continue
+        st = r["STATTYPE"]
+        stats[k] = {"s": st, "sn": loc.get("StatName_" + st) or prettify(st), "m": r["MODTYPE"]}
+
+    # ---- StatModGroupKey -> [{gearGroup, statName, tier}] (resolves a material's contextual effect) ----
+    groups = {}
+    for r in rows("StatModGroupInfoData.txt"):
+        gk = r["StatModGroupKey"]
+        smk = r["StatModKey"]
+        sn = stats[smk]["sn"] if smk in stats else smk
+        groups.setdefault(gk, []).append({"g": r["GearGroup"], "sn": sn, "t": int(r["MinTier"]) if r.get("MinTier") else None})
+
+    # ---- material ItemKey -> {type, effect group} ----
+    materials = {}
+    for r in rows("MaterialInfoData.txt"):
+        materials[r["ItemKey"]] = {"mt": r["MATERIALTYPE"], "grp": r.get("StatModGroupKey") or None}
+
+    # ---- rune per-level effects: LevelKey -> [{level, cost, value, stat}] ----
+    rune_levels = {}
+    for r in rows("RuneLevelInfoData.txt"):
+        rune_levels.setdefault(r["LevelKey"], []).append(
+            {"l": int(r["Level"]), "cost": int(r["CostValue"]) if r.get("CostValue") else None,
+             "val": r["Value"], "st": r["STATTYPE"]})
+
     # ---- items ----
     items = {}
-    name_resolved = name_literal = name_fallback = 0
+    name_resolved = name_literal = name_fallback = desc_count = mat_fx = 0
     for r in rows("ItemInfoData.txt"):
         key = r["ItemKey"]
-        itype = r["ITEMTYPE"]            # GEAR / MATERIAL / STAGEBOX
+        itype = r["ITEMTYPE"]
         grade = r["GRADE"] or None
         gtype = r["GEARTYPE"] or None
         parts = r["PARTS"] or None
@@ -56,34 +89,32 @@ def main():
         is_mat = (itype == "MATERIAL")
 
         if nk.startswith("ItemName_"):
-            base = nk[len("ItemName_"):]
-            nm = loc.get(nk)            # localization keys are stored WITHOUT prefix? -> try both
-            if nm is None:
-                nm = loc.get(base)
+            nm = L(nk)
             if nm is not None:
                 name_resolved += 1
             else:
-                # honest fallback for the unused/unnamed placeholders
-                g = (grade or "").capitalize()
-                nm = (g + " " + (gtype or ("Material" if is_mat else "Item"))).strip()
+                nm = ((grade or "").capitalize() + " " + (gtype or ("Material" if is_mat else "Item"))).strip()
                 name_fallback += 1
         elif nk:
-            nm = nk                      # literal in-data name (STAGEBOX etc.)
+            nm = nk
             name_literal += 1
         else:
-            nm = "#" + key
+            nm, _ = "#" + key, None
             name_fallback += 1
 
-        e = {
-            "n": nm,
-            "g": None if is_mat else grade,   # materials carry tier in the name; no gear-rarity colour
-            "t": itype,
-            "gt": gtype,
-            "lvl": lvl,
-            "ic": icon_id(r["IconPath"]),
-        }
+        e = {"n": nm, "g": None if is_mat else grade, "t": itype, "gt": gtype, "lvl": lvl, "ic": icon_id(r["IconPath"])}
+        desc = L(r.get("DescriptionKey"))
+        if desc:
+            e["desc"] = desc
+            desc_count += 1
         if is_mat:
             e["mat"] = True
+            m = materials.get(key)
+            if m:
+                e["mt"] = m["mt"]
+                if m["grp"] and m["grp"] in groups:
+                    e["fx"] = groups[m["grp"]]
+                    mat_fx += 1
         if parts:
             e["pt"] = parts
         if r.get("GearKey"):
@@ -96,23 +127,21 @@ def main():
             e["mkt"] = 1
         items[key] = e
 
-    # ---- enchant stat mods: StatModKey -> {stat type, display name, mod type} ----
-    stats = {}
-    for r in rows("StatModInfoData.txt"):
-        k = r["StatModKey"]
-        if k in stats:
-            continue
-        st = r["STATTYPE"]
-        disp = loc.get("StatName_" + st) or prettify(st)
-        stats[k] = {"s": st, "sn": disp, "m": r["MODTYPE"]}
-
-    # ---- runes: RuneKey -> name + icon + maxlevel (197-node tree) ----
+    # ---- runes: full tree (name, icon, max, per-level effect+cost, links) ----
     runes = {}
     for r in rows("RuneInfoData.txt"):
         k = r["RuneKey"]
-        nk = r["NameKey"]
-        nm = loc.get(nk) or prettify(nk.replace("RuneName_", ""))
-        runes[k] = {"n": nm, "ic": r.get("IconPath") or "", "max": int(r["MaxLevel"]) if r.get("MaxLevel") else None}
+        lvls = rune_levels.get(r.get("LevelDataKey"), [])
+        eff = prettify(lvls[0]["st"]) if lvls else prettify(r["NameKey"].replace("RuneName_", ""))
+        runes[k] = {
+            "n": L(r["NameKey"]) or prettify(r["NameKey"].replace("RuneName_", "")),
+            "ic": r.get("IconPath") or "",
+            "max": int(r["MaxLevel"]) if r.get("MaxLevel") else None,
+            "eff": eff,
+            "lv": [{"l": x["l"], "cost": x["cost"], "val": x["val"]} for x in sorted(lvls, key=lambda y: y["l"])],
+            "next": [n for n in (r.get("NextRuneKey") or "").split() if n],
+            "req": int(r["PrevNodeRequiredLevel"]) if r.get("PrevNodeRequiredLevel") else None,
+        }
 
     out = {
         "version": {"game": GAME_VERSION, "save": old.get("version", {}).get("save")},
@@ -122,25 +151,26 @@ def main():
         "stats": stats,
         "runes": runes,
         "_calibrated": {
-            "source": "game ItemInfoData/StatModInfoData/RuneInfoData + en-US Localization (read-only)",
+            "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
             "rarityFrom": "itemKey 3rd digit == GRADE column, validated 5760/5760 gear rows",
             "namesAuthoritative": name_resolved + name_literal,
             "namesFallback": name_fallback,
+            "descriptions": desc_count,
+            "materialEffects": mat_fx,
             "gameVersion": GAME_VERSION,
         },
     }
 
-    js_path = os.path.join(ENG, "gamedata.min.json")
-    with open(js_path, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    path = os.path.join(ENG, "gamedata.min.json")
+    json.dump(out, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     with open(os.path.join(ENG, "gamedata.min.js"), "w", encoding="utf-8") as f:
         f.write("window.TBH_DB=")
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         f.write(";")
 
-    print(f"items {len(items)} | names: authoritative {name_resolved+name_literal}, fallback {name_fallback}")
-    print(f"stats {len(stats)} | runes {len(runes)}")
-    print(f"wrote {js_path} ({os.path.getsize(js_path)//1024} KB)")
+    print(f"items {len(items)} | names auth {name_resolved+name_literal}, fallback {name_fallback} | desc {desc_count} | mat-effects {mat_fx}")
+    print(f"stats {len(stats)} | runes {len(runes)} (with per-level effects)")
+    print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 
 if __name__ == "__main__":

@@ -148,6 +148,21 @@
   @keyframes shine{0%{background-position:130% 0}100%{background-position:-130% 0}}
   .item .miss{position:absolute;inset:0;display:grid;place-items:center;font-size:9px;color:var(--dim);font-weight:700;letter-spacing:.05em}
 
+  /* ---------- rune tree ---------- */
+  .runegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:11px}
+  .rune{display:flex;gap:12px;align-items:center;background:linear-gradient(160deg,var(--surface),var(--bg2));
+    border:1px solid var(--line);border-radius:13px;padding:11px 13px;opacity:.6;transition:.16s}
+  .rune.on{opacity:1;border-color:rgba(176,114,255,.45);box-shadow:inset 0 0 0 1px rgba(176,114,255,.14)}
+  .rune:hover{transform:translateY(-2px);border-color:var(--line2)}
+  .rico{width:40px;height:40px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center;overflow:hidden;
+    background:radial-gradient(circle at 50% 32%,var(--surface3),var(--bg2));border:1px solid var(--line)}
+  .rico img{width:80%;height:80%;image-rendering:pixelated;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5))}
+  .rmeta{min-width:0;flex:1}
+  .rmeta .rn{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rmeta .re{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .rmeta .rl{font-size:11px;color:var(--dim);margin-top:3px;font-variant-numeric:tabular-nums}
+  .rune.on .rmeta .rl{color:var(--purple)}
+
   /* tooltip */
   #tip{position:fixed;z-index:100;pointer-events:none;max-width:260px;opacity:0;transform:translateY(4px);
     transition:opacity .12s;background:linear-gradient(160deg,var(--surface2),var(--bg2));
@@ -156,6 +171,7 @@
   #tip .tn{font-weight:700;font-size:13.5px}
   #tip .tr{font-weight:700;font-size:11px;letter-spacing:.05em;margin-top:2px}
   #tip .tmeta{color:var(--dim);font-size:11.5px;margin-top:3px}
+  #tip .tdesc{color:var(--muted);font-size:11.5px;margin-top:7px;line-height:1.45;border-top:1px solid var(--line);padding-top:7px}
   #tip .tmods{margin-top:8px;border-top:1px solid var(--line);padding-top:7px;display:flex;flex-direction:column;gap:3px}
   #tip .tmod{display:flex;justify-content:space-between;gap:14px;color:var(--muted)}
   #tip .tmod b{color:var(--amber);font-weight:600}
@@ -210,6 +226,7 @@
   <button data-tab="party">Party</button>
   <button data-tab="inventory">Inventory <span class="count" id="tabInvCount"></span></button>
   <button data-tab="loot">Loot <span class="count" id="tabLootCount"></span></button>
+  <button data-tab="runes">Runes <span class="count" id="tabRuneCount"></span></button>
   <button data-tab="lifetime">Lifetime</button>
 </nav>
 
@@ -228,6 +245,7 @@
   <div id="tab-party" class="tab-page hidden"></div>
   <div id="tab-inventory" class="tab-page hidden"></div>
   <div id="tab-loot" class="tab-page hidden"></div>
+  <div id="tab-runes" class="tab-page hidden"></div>
   <div id="tab-lifetime" class="tab-page hidden"></div>
 </main>
 
@@ -257,8 +275,19 @@ function rrank(g){return RARITY.indexOf(g);}
 function rvar(g){return g?('var(--r-'+g+')'):'var(--line)';}
 function nz(v){return v&&v!==0&&v!=='0';}
 function ticksToDate(t){var n=typeof t==='string'?Number(t):t;return n?new Date(n/10000-NET):null;}
-function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:i.mat}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false};}
+function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:i.mat,desc:i.desc,fx:i.fx,mt:i.mt}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false,desc:null,fx:null,mt:null};}
 function statMod(modKey){return DB.stats&&DB.stats[String(modKey)];}
+function runeDetail(save){
+  var lvlOf={};save.forEach(function(r){lvlOf[String(r.RuneKey)]=r.Level||0;});
+  var list=[];var leveled=0;
+  Object.keys(DB.runes||{}).forEach(function(k){
+    var d=DB.runes[k];var lv=lvlOf[k]||0;if(lv>0)leveled++;
+    // cost of the next level (if not maxed)
+    var nextCost=null;if(d.max&&lv<d.max&&d.lv){var nl=d.lv.find(function(x){return x.l===lv+1;});nextCost=nl?nl.cost:null;}
+    list.push({key:k,name:d.n,ic:d.ic,eff:d.eff,level:lv,max:d.max,nextCost:nextCost,lv:d.lv});
+  });
+  return {total:list.length,leveled:leveled,list:list};
+}
 function heroInfo(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h||{cls:'#'+k,mw:null};}
 /* structural icon resolver — see saveEngine.iconId */
 function iconId(key){var s=String(key);if(s.length!==6)return s;var t=s.slice(0,2),r=s[2],suf=s.slice(3);if(r==='0')return s;return t+'00'+suf.slice(0,2);}
@@ -285,7 +314,8 @@ function analyze(psd){
       return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null};});
     return {uid:String(it.UniqueId),key:String(it.ItemKey),icon:info.ic||iconId(it.ItemKey),
       ench:(it.EnchantCount||[]).reduce(function(x,y){return x+y;},0),mods:mods,
-      name:info.name,grade:info.grade,type:info.type,gt:info.gt,lvl:info.lvl,mat:info.mat};
+      name:info.name,grade:info.grade,type:info.type,gt:info.gt,lvl:info.lvl,mat:info.mat,
+      desc:info.desc,fx:info.fx,mt:info.mt};
   });
   var byUid={}; owned.forEach(function(o){byUid[o.uid]=o;});
   var byR={}; owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
@@ -305,7 +335,7 @@ function analyze(psd){
       trade:occ('tradingStashSaveDatas')},
     owned:owned, byRarity:byR,
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
-    runes:{total:(psd.RuneSaveData||[]).length,leveled:(psd.RuneSaveData||[]).filter(function(r){return (r.Level||0)>0;}).length},
+    runes:runeDetail(psd.RuneSaveData||[]),
     kills:pick(0,0), lifeGold:pick(2,0), perDiff:[0,1,2,3].map(function(d){return pick(16,d);})
   };
 }
@@ -332,15 +362,20 @@ function iconImg(icon,cls){
 
 /* ---------- tooltip ---------- */
 var tip=$('tip');
+function cap(s){return s?(s.charAt(0)+s.slice(1).toLowerCase()):s;}
 function showTip(e,it){
   // mods are pre-resolved {name,value,tier,mod} from the game's StatModInfoData (authoritative).
   var mods=(it.mods||[]).map(function(m){var pct=(m.mod==='PERCENT'||/Percent$/.test(m.name))?'%':'';
     return '<div class="tmod"><span>'+m.name+'</span><b>+'+fmt(m.value)+pct+(m.tier?(' · T'+m.tier):'')+'</b></div>';}).join('');
-  var meta=[it.gt||it.type, it.lvl?('Lvl '+it.lvl):null].filter(Boolean).join(' · ');
+  // material contextual effects (per socket type) from StatModGroupInfoData
+  var fx=(it.fx||[]).map(function(f){return '<div class="tmod"><span>'+cap(f.g)+'</span><b>'+f.sn+(f.t?(' · T'+f.t):'')+'</b></div>';}).join('');
+  var meta=[it.mat?(it.mt?(cap(it.mt)+' material'):'Material'):(it.gt||it.type), it.lvl?('Lvl '+it.lvl):null].filter(Boolean).join(' · ');
   tip.innerHTML='<div class="tn">'+it.name+'</div>'+
     (it.grade?'<div class="tr" style="color:'+rvar(it.grade)+'">'+it.grade+'</div>':'')+
     (meta?'<div class="tmeta">'+meta+'</div>':'')+
-    (mods?('<div class="tmods">'+mods+'</div>'):'');
+    (it.desc?'<div class="tdesc">'+it.desc+'</div>':'')+
+    (mods?('<div class="tmods">'+mods+'</div>'):'')+
+    (fx?('<div class="tmods">'+(it.mods&&it.mods.length?'':'')+fx+'</div>'):'');
   tip.classList.add('show');moveTip(e);
 }
 function moveTip(e){
@@ -498,6 +533,35 @@ function renderLoot(d){
   p.appendChild(el('<div class="panel"><table><thead><tr><th>Time</th><th>Item</th><th>Rarity</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
 }
 
+function runeIconImg(ic){var img=el('<img src="src/assets/runes/Rune_'+ic+'.png" alt="">');
+  img.addEventListener('error',function(){img.style.visibility='hidden';});return img;}
+function runeCard(rn){
+  var on=rn.level>0;
+  var card=el('<div class="rune '+(on?'on':'')+'"></div>');
+  var ico=el('<div class="rico"></div>');ico.appendChild(runeIconImg(rn.ic));card.appendChild(ico);
+  var status=on?('Lv '+rn.level+' / '+rn.max):('Lv 0 / '+rn.max);
+  var nextc=(rn.max&&rn.level<rn.max&&rn.nextCost!=null)?(' · next '+fmt(rn.nextCost)+'g'):(rn.level>=rn.max?' · MAX':'');
+  card.appendChild(el('<div class="rmeta"><div class="rn">'+rn.name+'</div><div class="re">'+rn.eff+'</div>'+
+    '<div class="rl">'+status+nextc+'</div></div>'));
+  return card;
+}
+function renderRunes(d){
+  var p=$('tab-runes');p.innerHTML='';
+  var r=d.runes||{list:[],leveled:0,total:0};
+  p.appendChild(el('<h3 class="sec">Rune tree <span class="tag">'+r.leveled+' / '+r.total+' nodes leveled · authoritative names & effects</span></h3>'));
+  // cheapest next upgrades (not maxed, has a known next cost)
+  var rec=r.list.filter(function(x){return x.max&&x.level<x.max&&x.nextCost!=null;})
+    .sort(function(a,b){return a.nextCost-b.nextCost;}).slice(0,6);
+  if(rec.length){
+    p.appendChild(el('<h3 class="sec">Cheapest next upgrades <span class="tag">lowest gold cost first</span></h3>'));
+    var rg=el('<div class="runegrid"></div>');rec.forEach(function(rn){rg.appendChild(runeCard(rn));});p.appendChild(rg);
+  }
+  p.appendChild(el('<h3 class="sec">All runes</h3>'));
+  var grid=el('<div class="runegrid"></div>');
+  var list=r.list.slice().sort(function(a,b){return ((b.level>0)-(a.level>0))||(Number(a.key)-Number(b.key));});
+  list.forEach(function(rn){grid.appendChild(runeCard(rn));});
+  p.appendChild(grid);
+}
 function renderLifetime(d){
   var p=$('tab-lifetime');p.innerHTML='';
   p.appendChild(el('<h3 class="sec">Lifetime stats</h3>'));
@@ -539,7 +603,7 @@ function setTab(name){
   activeTab=name;
   Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
     b.classList.toggle('active',b.dataset.tab===name);});
-  ['overview','party','inventory','loot','lifetime'].forEach(function(t){
+  ['overview','party','inventory','loot','runes','lifetime'].forEach(function(t){
     $('tab-'+t).classList.toggle('hidden',t!==name);});
   if(current)renderTab(name,current);
 }
@@ -548,6 +612,7 @@ function renderTab(name,d){
   else if(name==='party')renderParty(d);
   else if(name==='inventory')renderInventory(d);
   else if(name==='loot')renderLoot(d);
+  else if(name==='runes')renderRunes(d);
   else if(name==='lifetime')renderLifetime(d);
 }
 
@@ -558,6 +623,7 @@ function render(d){
   $('ver').textContent='v'+(d.version||'?')+(d.playHours?(' · '+d.playHours+'h played'):'');
   $('tabInvCount').textContent=d.owned.length;
   $('tabLootCount').textContent=lootLog.length||'';
+  $('tabRuneCount').textContent=(d.runes&&d.runes.leveled)?(d.runes.leveled+'/'+d.runes.total):'';
   $('lastSaved').textContent=d.lastSaved?(' · save updated '+d.lastSaved.toLocaleString()):'';
   renderTab(activeTab,d);
 }
@@ -626,7 +692,8 @@ function loadDemo(){
     pet:6003,gold:77298,heroes:heroes,inv:{owned:owned.length,stash:20,stashSlots:343,trade:0},
     owned:owned,byRarity:byR,
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
-    runes:{total:197,leveled:56},kills:72091,lifeGold:1574858,perDiff:[200,127,72,1]});
+    runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
+    kills:72091,lifeGold:1574858,perDiff:[200,127,72,1]});
   $('dot').className='dot live';$('statusText').textContent='sample data';
 }
 $('demoBtn').addEventListener('click',loadDemo);
