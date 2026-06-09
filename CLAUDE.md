@@ -107,24 +107,40 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 
 ## Current state (built + tested)
 - `src/engine/saveEngine.js` — decrypt+parse+analytics (gold, heroes w/ class, corrected inventory counts,
-  byRarity, trophies, lootDiff, runes, aggregates, rates/gold-hr). Tested on the real save.
+  byRarity, trophies, lootDiff, runes, aggregates, rates/gold-hr). Tested on the real save. **Adds
+  `iconId(key)`** — pure structural icon resolver: gear variants map to their base rarity-0 icon
+  (`type+'00'+baseIndex`); `ownedItems` now also returns `icon` + raw `enchants`.
 - `src/engine/gamedata.min.json` / `.js` — calibrated item DB (authoritative names + rarity-from-digit + materials fixed).
 - `src/engine/item_names_en.json` — 511 authoritative item names from the game.
-- `dashboard.html` — working browser/renderer dashboard (jsdom-verified). NEEDS premium restyle + icons + hero GIFs.
+- `scripts/extract_icons.py` — read-only UnityPy extractor (Phase 2). Re-run to refresh icons after a game patch.
+- `dashboard.html` — **DONE (Phase 3): premium multi-tab UI** (Overview / Party / Inventory / Loot / Lifetime),
+  animated hero GIFs, rarity-framed icon grid + enchant pips + hover tooltips, per-hero equipped gear, session
+  gold/hr & kills/hr, lifetime + difficulty + rarity charts. Inline engine mirrors saveEngine (works standalone
+  in browser via Web Crypto AND as the Electron renderer). Verified in a headless browser vs the live save.
 - `src/main.js`, `src/preload.js`, `package.json` — Electron app: auto-finds the save, watches it, feeds the renderer.
-- `src/assets/heroes/*.gif` (6 animated hero portraits). `src/assets/sprites/` (3 sprites so far).
+- `src/assets/heroes/*.gif` (6 animated hero portraits). **`src/assets/sprites/` — full 535-icon set extracted**
+  (139 `Item_<id>` materials/currency + 396 gear `<TYPE>_<id>` -> keyed by numeric id) + `_manifest.json`.
+- `.claude/launch.json` — static-server preview config (`python -m http.server`).
+
+## DONE
+- **Phase 2 (full game art):** 535 item icons extracted; every owned save item resolves to a real icon (100%).
+- **Phase 3 (premium UI):** multi-tab dashboard that beats tbh-meter/tbh-copilot, verified vs the live save.
 
 ## Next (priority order) — full acceptance criteria in docs/PRD.md
-1. Extract the FULL item icon set (UnityPy from sharedassets0) -> `src/assets/sprites/Item_<id>.png`.
-2. Finish authoritative item-name decode (itemKey -> base name) + extract rune/skill/monster names.
-3. Premium UI redesign that beats tbh-meter (hero GIFs, rarity-framed icons + enchants, polished navy theme, full feature set).
-4. Live telemetry: own read-only reader -> per-run DPS, clear time, gold/s, xp/s, gold/hr & xp/hr PER ACT, per-hero DPS share + source breakdown.
-5. Loot timeline (save-diff + Player.log tail) with timestamps + rare-drop alerts + Steam Market value.
-6. History/trends over time (use save backups as diff points).
-7. Blue-chest / cooldown tracker.
-8. Installer + GitHub auto-update + GitHub Pages browser build. NOTE: electron-builder hits a winCodeSign
-   symlink error on Windows — extract only `windows\*` from the winCodeSign cache, or build with Developer Mode / elevated.
-9. Optional: private friends leaderboard.
+1. **Authoritative item-name decode** (itemKey variant -> base name) — UNSOLVED; needs a calibration source
+   (do NOT assume the `baseIndex` digits are the base item; CLAUDE warns 342041 != Complete Crossbow).
+   Then extract the other localization tables (UnityPy, same pipeline): `StatName_`/`Stat` (for real enchant/mod
+   names — the dashboard tooltip currently shows `Stat #id +val · Tier`), `RuneName_` (197-node tree),
+   `SkillName_`/`SkillDescription_`, `MonsterName_`, `Passive_`. The `RuneIcon` SpriteAtlas (129) has rune icons.
+2. **Phase 4 — Live telemetry:** own read-only memory reader -> per-run DPS, clear time, gold/s, xp/s,
+   gold/hr & xp/hr PER ACT, per-hero DPS share + source breakdown. (owner wants tbh-meter gone.)
+3. **Phase 5 — Loot timeline** (save-diff + Player.log tail) with timestamps + rare-drop alerts + Steam Market
+   value; **blue-chest 12-min cooldown tracker**.
+4. **Phase 6 — History/trends** over time (use the rolling save backups as diff points).
+5. **Phase 7 — Packaging:** NSIS installer + GitHub auto-update + GitHub Pages browser build. NOTE: electron-builder
+   hits a winCodeSign symlink error on Windows — extract only `windows\*` from the winCodeSign cache, or build with
+   Developer Mode / elevated.
+6. **Phase 8 (optional)** — private friends leaderboard.
 
 ## Build / run
 - Browser: open `dashboard.html` in Chrome/Edge -> Connect save.
