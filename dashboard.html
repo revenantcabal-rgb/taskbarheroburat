@@ -6,119 +6,270 @@
 <title>TBH HUD — Task Bar Hero companion</title>
 <script src="src/engine/gamedata.min.js"></script>
 <style>
-  :root{--bg:#0b0e18;--surface:#141a2b;--surface2:#1b2236;--line:#26304b;--text:#e7ecf7;--muted:#9aa6c4;--dim:#6b76a0;--gold:#f2b441;--teal:#3ed0a3;--blue:#5aa0f0;}
+  :root{
+    --bg:#080a13; --bg2:#0b0e1a; --surface:#121728; --surface2:#171d33; --surface3:#1f2742;
+    --line:#262f4d; --line2:#36426b; --text:#eef2fc; --muted:#9aa7c8; --dim:#6b769c;
+    --blue:#4b7dff; --blue2:#6a93ff; --green:#19c98b; --amber:#f9a826; --red:#ff3e6b; --purple:#b072ff;
+    --gold:#f2b441;
+    --r-COMMON:#aab3c5; --r-UNCOMMON:#5fd35f; --r-RARE:#4aa3f0; --r-LEGENDARY:#f2b441;
+    --r-IMMORTAL:#f0568a; --r-ARCANA:#c07bf0; --r-BEYOND:#3ed8c8; --r-CELESTIAL:#9aa6ff;
+    --r-DIVINE:#ffd76e; --r-COSMIC:#ff7ad9;
+    --shadow:0 10px 30px -12px rgba(0,0,0,.6);
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial}
-  header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:5;flex-wrap:wrap}
-  .logo{width:34px;height:34px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:19px}
-  .title{font-weight:600;font-size:16px}
-  .sub{font-size:12px;color:var(--muted)}
+  html,body{height:100%}
+  body{
+    margin:0;color:var(--text);
+    font:14.5px/1.55 ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(75,125,255,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(176,114,255,.08), transparent 55%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(75,125,255,.35)}
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--line2);background-clip:content-box}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:center;gap:16px;padding:13px 24px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(18,23,40,.92), rgba(11,14,26,.86));
+    backdrop-filter:blur(10px);position:sticky;top:0;z-index:30;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:21px;
+    background:linear-gradient(145deg,var(--blue),var(--purple));
+    box-shadow:0 6px 18px -6px rgba(75,125,255,.7), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .brand .title{font-weight:700;font-size:16px;letter-spacing:.2px}
+  .brand .title small{font-weight:500;color:var(--muted);font-size:11.5px;margin-left:7px}
+  .brand .sub{font-size:11.5px;color:var(--dim);margin-top:1px}
   .spacer{flex:1}
-  button{font:inherit;font-size:14px;color:var(--text);background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:8px 15px;cursor:pointer}
-  button.primary{background:var(--gold);color:#1a1406;border-color:transparent;font-weight:600}
-  button:hover{filter:brightness(1.08)}
-  .status{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
-  .dot{width:9px;height:9px;border-radius:50%;background:var(--dim)}
-  .dot.live{background:var(--teal);box-shadow:0 0 0 3px rgba(62,208,163,.18)}
-  .dot.err{background:#f0568a}
-  main{max-width:1100px;margin:0 auto;padding:22px}
-  .gate{text-align:center;padding:60px 22px;color:var(--muted)}
-  .gate h2{color:var(--text);font-size:20px;margin:0 0 10px}
-  .gate code{background:var(--surface2);padding:2px 7px;border-radius:5px;font-size:13px}
-  .hidden{display:none}
-  h3.sec{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:26px 0 12px;font-weight:600}
-  .grid{display:grid;gap:12px}
-  .cards{grid-template-columns:repeat(auto-fit,minmax(146px,1fr))}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 16px}
-  .card .lab{font-size:12.5px;color:var(--muted)}
-  .card .val{font-size:25px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
-  .card .val.gold{color:var(--gold)} .card .val.teal{color:var(--teal)}
-  .card .s2{font-size:12px;color:var(--dim);margin-top:2px}
-  .heroes{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
-  .hero{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 15px;position:relative}
-  .hero.deployed{border-color:var(--teal)}
-  .hero .cls{font-size:16px;font-weight:600}
-  .hero .lvl{font-size:13px;color:var(--muted);margin-top:1px}
-  .hero .meta{font-size:12px;color:var(--dim);margin-top:8px}
-  .badge{position:absolute;top:11px;right:12px;font-size:10px;letter-spacing:.04em;background:rgba(62,208,163,.16);color:var(--teal);padding:3px 7px;border-radius:6px}
-  .troph{display:flex;flex-wrap:wrap;gap:8px}
-  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:13px}
-  .rdot{width:9px;height:9px;border-radius:50%}
+  .status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);
+    background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:6px 13px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--dim);position:relative}
+  .dot.live{background:var(--green)}
+  .dot.live::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--green);opacity:.6;animation:pulse 1.8s ease-out infinite}
+  .dot.err{background:var(--red)}
+  @keyframes pulse{0%{transform:scale(.7);opacity:.7}100%{transform:scale(1.9);opacity:0}}
+  button{font:inherit;font-size:13.5px;color:var(--text);background:var(--surface2);
+    border:1px solid var(--line);border-radius:10px;padding:9px 16px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--line2);transform:translateY(-1px)}
+  button.primary{background:linear-gradient(145deg,var(--blue),#3a63e6);border-color:transparent;font-weight:600;
+    box-shadow:0 6px 16px -8px rgba(75,125,255,.9)}
+  button.ghost{background:transparent}
+  .hidden{display:none!important}
+
+  /* ---------- tabs ---------- */
+  nav.tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--line);
+    background:rgba(11,14,26,.6);position:sticky;top:67px;z-index:20;backdrop-filter:blur(8px);overflow-x:auto}
+  nav.tabs button{background:none;border:none;border-radius:0;color:var(--muted);font-weight:600;font-size:13.5px;
+    padding:13px 14px;position:relative;transform:none;white-space:nowrap}
+  nav.tabs button:hover{color:var(--text)}
+  nav.tabs button.active{color:var(--text)}
+  nav.tabs button.active::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2.5px;
+    background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:3px}
+  nav.tabs .count{font-size:10.5px;color:var(--dim);margin-left:6px;font-weight:600}
+
+  main{max-width:1180px;margin:0 auto;padding:24px}
+  .tab-page{animation:rise .35s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .gate{text-align:center;padding:80px 22px;max-width:560px;margin:0 auto}
+  .gate .logo{width:64px;height:64px;font-size:32px;margin:0 auto 22px;border-radius:18px}
+  .gate h2{font-size:23px;margin:0 0 12px}
+  .gate p{color:var(--muted);margin:0 0 14px}
+  .gate code{background:var(--surface2);padding:2px 8px;border-radius:6px;font-size:12.5px;color:var(--blue2)}
+  .gate .fine{font-size:12.5px;color:var(--dim)}
+
+  h3.sec{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);
+    margin:30px 0 14px;font-weight:700;display:flex;align-items:center;gap:10px}
+  h3.sec:first-child{margin-top:6px}
+  h3.sec .tag{font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500}
+  h3.sec::before{content:"";width:3px;height:13px;border-radius:3px;background:linear-gradient(var(--blue),var(--purple))}
+
+  .grid{display:grid;gap:14px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+  .card{position:relative;background:linear-gradient(160deg,var(--surface),var(--bg2));
+    border:1px solid var(--line);border-radius:15px;padding:16px 18px;overflow:hidden;transition:.18s}
+  .card:hover{border-color:var(--line2);transform:translateY(-2px);box-shadow:var(--shadow)}
+  .card .ico{position:absolute;right:14px;top:13px;font-size:17px;opacity:.5}
+  .card .lab{font-size:12px;color:var(--muted);font-weight:500}
+  .card .val{font-size:27px;font-weight:700;margin-top:5px;font-variant-numeric:tabular-nums;letter-spacing:.3px}
+  .card .val.gold{color:var(--gold)} .card .val.green{color:var(--green)} .card .val.blue{color:var(--blue2)}
+  .card .s2{font-size:11.5px;color:var(--dim);margin-top:4px}
+  .card .s2 b{color:var(--green);font-weight:600}
+
+  /* ---------- party / heroes ---------- */
+  .party{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+  .hero{position:relative;background:linear-gradient(170deg,var(--surface),var(--bg2));
+    border:1px solid var(--line);border-radius:16px;padding:16px;overflow:hidden;transition:.18s}
+  .hero:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+  .hero.deployed{border-color:rgba(25,201,139,.5);box-shadow:inset 0 0 0 1px rgba(25,201,139,.18)}
+  .hero .portrait{width:100%;aspect-ratio:1;border-radius:12px;background:
+      radial-gradient(circle at 50% 35%, var(--surface3), var(--bg2));
+    display:grid;place-items:center;overflow:hidden;border:1px solid var(--line)}
+  .hero .portrait img{width:84%;height:84%;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
+  .hero .cls{font-size:16.5px;font-weight:700;margin-top:12px;display:flex;align-items:center;gap:8px}
+  .hero .lvl{font-size:12.5px;color:var(--muted);margin-top:1px}
+  .hero .xpbar{height:6px;border-radius:4px;background:var(--surface3);margin-top:10px;overflow:hidden}
+  .hero .xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:4px}
+  .hero .meta{font-size:11.5px;color:var(--dim);margin-top:9px;display:flex;justify-content:space-between}
+  .badge{font-size:9.5px;letter-spacing:.05em;font-weight:700;padding:3px 8px;border-radius:7px}
+  .badge.dep{background:rgba(25,201,139,.16);color:var(--green)}
+  .badge.bench{background:var(--surface3);color:var(--dim)}
+  .hero .gearrow{display:flex;gap:5px;margin-top:12px;flex-wrap:wrap}
+  .mini{width:30px;height:30px;border-radius:7px;border:1.5px solid var(--line);background:var(--bg2);
+    display:grid;place-items:center;overflow:hidden}
+  .mini img{width:88%;height:88%;image-rendering:pixelated}
+
+  /* ---------- inventory grid ---------- */
+  .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px}
+  .filters button{padding:6px 12px;font-size:12.5px;border-radius:20px}
+  .filters button.on{background:var(--surface3);border-color:var(--line2);color:var(--text)}
+  .invgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:12px}
+  .item{position:relative;aspect-ratio:1;border-radius:13px;cursor:default;
+    border:1.5px solid var(--rc,var(--line));overflow:hidden;transition:.16s;
+    background:radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--rc) 22%, var(--bg2)), var(--bg2) 72%)}
+  .item:hover{transform:translateY(-4px) scale(1.04);box-shadow:0 12px 24px -10px var(--rc);z-index:2}
+  .item img{position:absolute;inset:0;margin:auto;width:62%;height:62%;image-rendering:pixelated;
+    filter:drop-shadow(0 3px 5px rgba(0,0,0,.55))}
+  .item .lv{position:absolute;left:5px;bottom:4px;font-size:10px;font-weight:700;color:var(--text);
+    background:rgba(8,10,19,.78);padding:1px 5px;border-radius:6px;font-variant-numeric:tabular-nums}
+  .item .ench{position:absolute;right:5px;top:5px;display:flex;gap:2px}
+  .item .ench i{width:5px;height:5px;border-radius:50%;background:var(--amber);box-shadow:0 0 4px var(--amber)}
+  .item.hi::before{content:"";position:absolute;inset:0;border-radius:12px;
+    background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.16) 50%,transparent 70%);
+    background-size:220% 100%;animation:shine 3.2s linear infinite;pointer-events:none}
+  @keyframes shine{0%{background-position:130% 0}100%{background-position:-130% 0}}
+  .item .miss{position:absolute;inset:0;display:grid;place-items:center;font-size:9px;color:var(--dim);font-weight:700;letter-spacing:.05em}
+
+  /* tooltip */
+  #tip{position:fixed;z-index:100;pointer-events:none;max-width:260px;opacity:0;transform:translateY(4px);
+    transition:opacity .12s;background:linear-gradient(160deg,var(--surface2),var(--bg2));
+    border:1px solid var(--line2);border-radius:12px;padding:11px 13px;box-shadow:var(--shadow);font-size:12.5px}
+  #tip.show{opacity:1;transform:none}
+  #tip .tn{font-weight:700;font-size:13.5px}
+  #tip .tr{font-weight:700;font-size:11px;letter-spacing:.05em;margin-top:2px}
+  #tip .tmeta{color:var(--dim);font-size:11.5px;margin-top:3px}
+  #tip .tmods{margin-top:8px;border-top:1px solid var(--line);padding-top:7px;display:flex;flex-direction:column;gap:3px}
+  #tip .tmod{display:flex;justify-content:space-between;gap:14px;color:var(--muted)}
+  #tip .tmod b{color:var(--amber);font-weight:600}
+
+  /* ---------- bars / tables ---------- */
+  .panel{background:linear-gradient(160deg,var(--surface),var(--bg2));border:1px solid var(--line);
+    border-radius:16px;padding:18px 20px}
+  .bars{display:flex;flex-direction:column;gap:13px}
+  .bar .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+  .bar .top .nm{color:var(--muted)} .bar .top .nv{font-variant-numeric:tabular-nums;font-weight:600}
+  .bar .track{height:10px;background:var(--surface3);border-radius:6px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--blue),var(--purple));
+    transition:width .7s cubic-bezier(.2,.8,.2,1)}
+  .raritybar{display:flex;height:13px;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+  .raritybar span{transition:flex .6s}
+  .rlegend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12px;color:var(--muted)}
+  .rlegend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:middle}
   table{width:100%;border-collapse:collapse;font-size:13.5px}
-  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
-  th{color:var(--muted);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+  tr:last-child td{border-bottom:none}
   td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
-  .rl{font-weight:600}
-  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--dim)}
-  .bars{display:flex;flex-direction:column;gap:9px}
-  .bar{display:flex;align-items:center;gap:10px;font-size:13px}
-  .bar .name{width:104px;color:var(--muted)}
-  .bar .track{flex:1;height:9px;background:var(--surface2);border-radius:5px;overflow:hidden}
-  .bar .fill{height:100%;border-radius:5px;background:var(--blue)}
-  .bar .num{width:96px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
-  .empty{color:var(--dim);font-size:13px;padding:10px 0}
-  footer{max-width:1100px;margin:0 auto;padding:18px 22px 40px;color:var(--dim);font-size:12px;border-top:1px solid var(--line)}
+  tbody tr{transition:.12s} tbody tr:hover{background:rgba(75,125,255,.05)}
+  .pill{font-weight:700;font-size:11px}
+  .loot-time{color:var(--dim);font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .empty{color:var(--dim);font-size:13px;padding:22px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  footer{max-width:1180px;margin:0 auto;padding:22px 24px 50px;color:var(--dim);font-size:11.5px;
+    border-top:1px solid var(--line);margin-top:30px}
+  footer b{color:var(--muted)}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">🎮</div>
-  <div>
-    <div class="title">TBH HUD <span class="sub">· read-only companion</span></div>
-    <div class="sub" id="ver">not connected</div>
+  <div class="brand">
+    <div class="logo">⚔️</div>
+    <div>
+      <div class="title">TBH HUD <small>read-only companion</small></div>
+      <div class="sub" id="ver">not connected</div>
+    </div>
   </div>
   <div class="spacer"></div>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">no save</span></div>
-  <button id="demoBtn">Preview sample</button>
+  <button class="ghost" id="demoBtn">Preview sample</button>
   <button class="primary" id="connectBtn">Connect save</button>
   <input type="file" id="fileInput" accept=".es3" class="hidden">
 </header>
+
+<nav class="tabs hidden" id="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="party">Party</button>
+  <button data-tab="inventory">Inventory <span class="count" id="tabInvCount"></span></button>
+  <button data-tab="loot">Loot <span class="count" id="tabLootCount"></span></button>
+  <button data-tab="lifetime">Lifetime</button>
+</nav>
+
 <main>
   <div class="gate" id="gate">
+    <div class="logo">⚔️</div>
     <h2>Connect your Task Bar Hero save</h2>
     <p>Click <b>Connect save</b> and pick <code>SaveFile_Live.es3</code> from<br>
-    <code>%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\</code></p>
-    <p class="sub">Decrypted and read locally in your browser — nothing is uploaded, the game is never modified.<br>Chrome / Edge keep it live; other browsers load once (re-pick to refresh).</p>
+      <code>%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\</code></p>
+    <p class="fine">Decrypted and read entirely on your machine — nothing is uploaded, and the game is
+      never modified. Chrome / Edge keep it live as you play; other browsers load once (re-pick to refresh).</p>
+    <p class="fine">No save handy? <a href="#" id="demoLink" style="color:var(--blue2)">Preview with sample data →</a></p>
   </div>
-  <div id="dash" class="hidden">
-    <h3 class="sec">Overview</h3>
-    <div class="grid cards" id="cards"></div>
-    <h3 class="sec">This session</h3>
-    <div class="grid cards" id="rates"></div>
-    <h3 class="sec">Party</h3>
-    <div class="grid heroes" id="heroes"></div>
-    <h3 class="sec">Trophies <span class="sub" id="trophCount"></span></h3>
-    <div class="troph" id="trophies"></div>
-    <h3 class="sec">Loot log <span class="sub">· new drops while this is open</span></h3>
-    <div id="loot"></div>
-    <h3 class="sec">Lifetime</h3>
-    <div class="bars" id="lifetime"></div>
-    <h3 class="sec">Gear <span class="sub" id="gearCount"></span></h3>
-    <table id="gearTbl"><thead><tr><th>Item</th><th>Type</th><th>Rarity</th><th class="r">Lvl</th><th class="r">Ench</th></tr></thead><tbody></tbody></table>
-  </div>
+
+  <div id="tab-overview" class="tab-page hidden"></div>
+  <div id="tab-party" class="tab-page hidden"></div>
+  <div id="tab-inventory" class="tab-page hidden"></div>
+  <div id="tab-loot" class="tab-page hidden"></div>
+  <div id="tab-lifetime" class="tab-page hidden"></div>
 </main>
-<footer>TBH HUD · unofficial fan tool, not affiliated with Tesseract Studio / Nugem Studio · read-only, never writes to the game. <span id="lastSaved"></span></footer>
+
+<div id="tip"></div>
+
+<footer>
+  <b>TBH HUD</b> · unofficial fan tool, not affiliated with Tesseract Studio / Nugem Studio · read-only,
+  never writes to the game. <span id="lastSaved"></span>
+</footer>
+
 <script>
+/* ============================================================================
+   Inline engine — mirrors src/engine/saveEngine.js but uses Web Crypto so the
+   page works standalone in a browser (GitHub Pages) AND as the Electron
+   renderer. Keep decrypt/analyze/iconId in sync with saveEngine.js.
+   ========================================================================== */
 var PASSWORD='emuMqG3bLYJ938ZDCfieWJ', GOLD_KEY=100001, NET=62135596800000;
 var RARITY=['COMMON','UNCOMMON','RARE','LEGENDARY','IMMORTAL','ARCANA','BEYOND','CELESTIAL','DIVINE','COSMIC'];
-var RCOLOR={COMMON:'#aab3c5',UNCOMMON:'#5fd35f',RARE:'#4aa3f0',LEGENDARY:'#f2b441',IMMORTAL:'#f0568a',ARCANA:'#c07bf0',BEYOND:'#3ed8c8',CELESTIAL:'#9aa6ff',DIVINE:'#ffd76e',COSMIC:'#ff7ad9'};
+var DIFF=['Normal','Nightmare','Hell','Torment'];
 var DB=window.TBH_DB||{items:{},heroes:{}};
+var SPRITE='src/assets/sprites/Item_', HERO='src/assets/heroes/Hero_';
+
 function $(id){return document.getElementById(id);}
+function el(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
 function rrank(g){return RARITY.indexOf(g);}
-function rcol(g){return RCOLOR[g]||'#aab3c5';}
-function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null};}
-function heroClass(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h?h.cls:('#'+k);}
+function rvar(g){return g?('var(--r-'+g+')'):'var(--line)';}
 function nz(v){return v&&v!==0&&v!=='0';}
 function ticksToDate(t){var n=typeof t==='string'?Number(t):t;return n?new Date(n/10000-NET):null;}
+function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,mat:i.mat}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null,mat:false};}
+function heroInfo(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h||{cls:'#'+k,mw:null};}
+/* structural icon resolver — see saveEngine.iconId */
+function iconId(key){var s=String(key);if(s.length!==6)return s;var t=s.slice(0,2),r=s[2],suf=s.slice(3);if(r==='0')return s;return t+'00'+suf.slice(0,2);}
+
 async function decryptSave(buf){
   var b=new Uint8Array(buf), iv=b.slice(0,16), ct=b.slice(16);
   var base=await crypto.subtle.importKey('raw',new TextEncoder().encode(PASSWORD),{name:'PBKDF2'},false,['deriveKey']);
   var key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:iv,iterations:100,hash:'SHA-1'},base,{name:'AES-CBC',length:128},false,['decrypt']);
   return new TextDecoder().decode(new Uint8Array(await crypto.subtle.decrypt({name:'AES-CBC',iv},key,ct)));
 }
-function loadInner(outerText){
-  var outer=JSON.parse(outerText); var inner=outer.PlayerSaveData?outer.PlayerSaveData.value:outer;
+function loadInner(txt){
+  var outer=JSON.parse(txt); var inner=outer.PlayerSaveData?outer.PlayerSaveData.value:outer;
   if(typeof inner==='string') inner=JSON.parse(inner.replace(/([:\[,])(\s*)(\d{16,})(?=\s*[,\]}])/g,'$1$2"$3"'));
   return inner;
 }
@@ -126,79 +277,360 @@ function analyze(psd){
   var c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[], party=(c.arrangedHeroKey||[]).map(String);
   function pick(t,s){var r=a.find(function(x){return x.Type===t&&x.SubKey===s;});return r?r.Value:null;}
   function occ(k){return (psd[k]||[]).filter(function(s){return nz(s.ItemUniqueId);}).length;}
-  var owned=(psd.itemSaveDatas||[]).map(function(it){var info=itemInfo(it.ItemKey);return {uid:String(it.UniqueId),key:it.ItemKey,ench:(it.EnchantCount||[]).reduce(function(x,y){return x+y;},0),name:info.name,grade:info.grade,type:info.type,gt:info.gt,lvl:info.lvl};});
+  var owned=(psd.itemSaveDatas||[]).map(function(it){
+    var info=itemInfo(it.ItemKey);
+    var mods=(it.EnchantData||[]).filter(function(e){return e&&e.StatModKey;});
+    return {uid:String(it.UniqueId),key:String(it.ItemKey),icon:iconId(it.ItemKey),
+      ench:(it.EnchantCount||[]).reduce(function(x,y){return x+y;},0),mods:mods,
+      name:info.name,grade:info.grade,type:info.type,gt:info.gt,lvl:info.lvl,mat:info.mat};
+  });
+  var byUid={}; owned.forEach(function(o){byUid[o.uid]=o;});
   var byR={}; owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
   var goldRow=(psd.currenySaveDatas||[]).find(function(x){return x.Key===GOLD_KEY;});
+  var heroes=(psd.heroSaveDatas||[]).map(function(h){
+    var hi=heroInfo(h.heroKey);
+    var equipped=(h.equippedItemIds||[]).filter(nz).map(function(u){return byUid[String(u)];}).filter(Boolean);
+    return {key:String(h.heroKey),cls:hi.cls,mw:hi.mw,level:h.HeroLevel,exp:Math.round(h.HeroExp||0),
+      pts:h.AllocatedHeroAbilityPoint,unspent:h.AbilityPoint,gear:(h.equippedItemIds||[]).filter(nz).length,
+      equipped:equipped,deployed:party.indexOf(String(h.heroKey))>=0};
+  }).sort(function(x,y){return (y.deployed-x.deployed)||(y.level-x.level);});
   return {
     version:c.version, stage:c.currentStageKey, wave:c.currentStageWave, maxStage:c.maxCompletedStage,
     playHours:c.playTime?+(c.playTime/3600).toFixed(1):null, lastSaved:ticksToDate(c.lastSavedTime),
-    gold:goldRow?goldRow.Quantity:0,
-    heroes:(psd.heroSaveDatas||[]).map(function(h){return {key:h.heroKey,cls:heroClass(h.heroKey),level:h.HeroLevel,pts:h.AllocatedHeroAbilityPoint,unspent:h.AbilityPoint,gear:(h.equippedItemIds||[]).filter(nz).length,deployed:party.indexOf(String(h.heroKey))>=0};}).sort(function(x,y){return y.level-x.level;}),
-    inv:{owned:owned.length,stash:occ('stashSaveDatas'),trade:occ('tradingStashSaveDatas')},
+    pet:c.ArrangedPetKey, gold:goldRow?goldRow.Quantity:0, heroes:heroes,
+    inv:{owned:owned.length,stash:occ('stashSaveDatas'),stashSlots:(psd.stashSaveDatas||[]).length,
+      trade:occ('tradingStashSaveDatas')},
     owned:owned, byRarity:byR,
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:{total:(psd.RuneSaveData||[]).length,leveled:(psd.RuneSaveData||[]).filter(function(r){return (r.Level||0)>0;}).length},
     kills:pick(0,0), lifeGold:pick(2,0), perDiff:[0,1,2,3].map(function(d){return pick(16,d);})
   };
 }
+
+/* ---------- loot tracking (persisted) ---------- */
 var lastUids=null, lootLog=[];
-try{ var ls=localStorage.getItem('tbh_loot'); if(ls){var o=JSON.parse(ls); lootLog=o.log||[]; lastUids=o.uids?new Set(o.uids):null;} }catch(e){}
+try{var ls=localStorage.getItem('tbh_loot');if(ls){var o=JSON.parse(ls);lootLog=o.log||[];lastUids=o.uids?new Set(o.uids):null;}}catch(e){}
 function processLoot(owned){
   var uids=new Set(owned.map(function(o){return o.uid;}));
-  if(lastUids===null){ lastUids=uids; persistLoot(); return; }
+  if(lastUids===null){lastUids=uids;persistLoot();return;}
   var fresh=owned.filter(function(o){return !lastUids.has(o.uid);});
-  if(fresh.length){ fresh.forEach(function(f){lootLog.unshift({t:Date.now(),name:f.name,grade:f.grade,gt:f.gt});}); lootLog=lootLog.slice(0,80); }
-  lastUids=uids; persistLoot();
+  if(fresh.length){fresh.forEach(function(f){lootLog.unshift({t:Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl});});lootLog=lootLog.slice(0,120);}
+  lastUids=uids;persistLoot();
 }
-function persistLoot(){ try{ localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uids:Array.from(lastUids)})); }catch(e){} }
-function card(lab,val,cls,s2){ return '<div class="card"><div class="lab">'+lab+'</div><div class="val '+(cls||'')+'">'+val+'</div>'+(s2?('<div class="s2">'+s2+'</div>'):'')+'</div>'; }
-function rChip(grade,name,lvl){ var c=rcol(grade); var l=lvl?(' <span class="mono">lvl'+lvl+'</span>'):''; return '<span class="chip"><span class="rdot" style="background:'+c+'"></span><span class="rl" style="color:'+c+'">'+grade+'</span> '+name+l+'</span>'; }
-function bar(name,pct,num,col){ return '<div class="bar"><div class="name">'+name+'</div><div class="track"><div class="fill" style="width:'+pct+'%;background:'+(col||'var(--blue)')+'"></div></div><div class="num">'+num+'</div></div>'; }
-var session=null;
-function render(d){
-  $('gate').classList.add('hidden'); $('dash').classList.remove('hidden');
-  $('ver').textContent='v'+d.version+' · '+d.playHours+' h played';
-  $('cards').innerHTML=[card('Gold',fmt(d.gold),'gold'),card('Stage',d.stage+' · w'+d.wave,'','max '+d.maxStage),card('Owned items',fmt(d.inv.owned),'',d.inv.stash+' in stash · '+d.inv.trade+' trading'),card('Runes',d.runes.leveled+'/'+d.runes.total,'','leveled')].join('');
-  var now=Date.now(); if(!session) session={t0:now,gold0:d.gold,kills0:d.kills};
+function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uids:Array.from(lastUids)}));}catch(e){}}
+
+/* ---------- icon element with graceful fallback ---------- */
+function iconImg(icon,cls){
+  var img=el('<img class="'+(cls||'')+'" src="'+SPRITE+icon+'.png" alt="">');
+  img.addEventListener('error',function(){img.style.visibility='hidden';
+    if(img.parentNode&&!img.parentNode.querySelector('.miss'))img.parentNode.appendChild(el('<span class="miss">?</span>'));});
+  return img;
+}
+
+/* ---------- tooltip ---------- */
+var tip=$('tip');
+function modText(m){
+  // honest: stat names need the StatName localization table (follow-up); show stat id + value + tier.
+  return {k:'Stat #'+m.StatType, v:'+'+fmt(m.Value)+(m.Tier?(' · T'+m.Tier):'')};
+}
+function showTip(e,it){
+  var mods=(it.mods||[]).map(function(m){var x=modText(m);return '<div class="tmod"><span>'+x.k+'</span><b>'+x.v+'</b></div>';}).join('');
+  var meta=[it.gt||it.type, it.lvl?('Lvl '+it.lvl):null].filter(Boolean).join(' · ');
+  tip.innerHTML='<div class="tn">'+it.name+'</div>'+
+    (it.grade?'<div class="tr" style="color:'+rvar(it.grade)+'">'+it.grade+'</div>':'')+
+    (meta?'<div class="tmeta">'+meta+'</div>':'')+
+    (mods?('<div class="tmods">'+mods+'</div>'):'');
+  tip.classList.add('show');moveTip(e);
+}
+function moveTip(e){
+  var pad=14,w=tip.offsetWidth,h=tip.offsetHeight;
+  var x=e.clientX+16,y=e.clientY+16;
+  if(x+w+pad>innerWidth)x=e.clientX-w-16; if(y+h+pad>innerHeight)y=e.clientY-h-16;
+  tip.style.left=Math.max(pad,x)+'px';tip.style.top=Math.max(pad,y)+'px';
+}
+function hideTip(){tip.classList.remove('show');}
+
+/* ============================================================================
+   Rendering
+   ========================================================================== */
+var session=null, current=null, activeTab='overview';
+
+function card(lab,val,cls,s2,ico){
+  return '<div class="card">'+(ico?'<div class="ico">'+ico+'</div>':'')+
+    '<div class="lab">'+lab+'</div><div class="val '+(cls||'')+'">'+val+'</div>'+
+    (s2?('<div class="s2">'+s2+'</div>'):'')+'</div>';
+}
+function heroCard(h){
+  var n=el('<div class="hero '+(h.deployed?'deployed':'')+'"></div>');
+  var port=el('<div class="portrait"></div>');
+  var gif=el('<img src="'+HERO+h.key+'.gif" alt="'+h.cls+'">');
+  gif.addEventListener('error',function(){port.textContent='🛡️';});
+  port.appendChild(gif); n.appendChild(port);
+  var lvlPct=Math.min(100,Math.round(h.level/20*100));
+  n.appendChild(el(
+    '<div class="cls">'+h.cls+' <span class="badge '+(h.deployed?'dep':'bench')+'">'+(h.deployed?'DEPLOYED':'BENCH')+'</span></div>'+
+    '<div class="lvl">Level '+h.level+(h.mw?' · '+h.mw.toLowerCase():'')+'</div>'+
+    '<div class="xpbar"><i style="width:'+lvlPct+'%"></i></div>'+
+    '<div class="meta"><span>'+h.gear+'/10 gear</span><span>'+h.pts+' pts'+(h.unspent?(' · +'+h.unspent):'')+'</span></div>'
+  ));
+  if(h.equipped&&h.equipped.length){
+    var row=el('<div class="gearrow"></div>');
+    h.equipped.slice(0,10).forEach(function(g){
+      var m=el('<div class="mini" style="border-color:'+rvar(g.grade)+'"></div>');
+      m.appendChild(iconImg(g.icon));
+      m.addEventListener('mouseenter',function(e){showTip(e,g);});
+      m.addEventListener('mousemove',moveTip);m.addEventListener('mouseleave',hideTip);
+      row.appendChild(m);
+    });
+    n.appendChild(row);
+  }
+  return n;
+}
+
+function renderOverview(d){
+  var p=$('tab-overview');p.innerHTML='';
+  // session rates
+  var now=Date.now();
+  if(!session) session={t0:now,gold0:d.gold,kills0:d.kills};
   var hrs=(now-session.t0)/3600000;
-  var gph=hrs>0.0003?Math.round((d.gold-session.gold0)/hrs):null;
-  var kph=(hrs>0.0003&&d.kills!=null)?Math.round((d.kills-session.kills0)/hrs):null;
-  $('rates').innerHTML=[card('Gold / hr', gph==null?'measuring…':fmt(gph),'teal', hrs>0.0003?('+'+fmt(d.gold-session.gold0)+' this session'):'watching…'),card('Kills / hr', kph==null?'measuring…':fmt(kph),'teal'),card('Session', hrs<0.02?'just started':(hrs.toFixed(2)+' h'),'')].join('');
-  $('heroes').innerHTML=d.heroes.map(function(h){var badge=h.deployed?'<span class="badge">DEPLOYED</span>':'';var unspent=h.unspent?(' · +'+h.unspent+' unspent'):'';return '<div class="hero '+(h.deployed?'deployed':'')+'">'+badge+'<div class="cls">'+h.cls+'</div><div class="lvl">Level '+h.level+'</div><div class="meta">'+h.gear+' gear · '+h.pts+' pts'+unspent+'</div></div>';}).join('');
-  $('trophCount').textContent=d.trophies.length?('('+d.trophies.length+')'):'';
-  $('trophies').innerHTML=d.trophies.length?d.trophies.map(function(t){return rChip(t.grade,t.name,t.lvl);}).join(''):'<div class="empty">No Legendary+ items yet.</div>';
-  var lootRows=lootLog.slice(0,15).map(function(l){var c=rcol(l.grade);var gt=l.gt?(' <span class="mono">'+l.gt+'</span>'):'';return '<tr><td class="mono">'+new Date(l.t).toLocaleTimeString()+'</td><td>'+l.name+gt+'</td><td><span class="rl" style="color:'+c+'">'+(l.grade||'—')+'</span></td></tr>';}).join('');
-  $('loot').innerHTML=lootLog.length?('<table><thead><tr><th>Time</th><th>Item</th><th>Rarity</th></tr></thead><tbody>'+lootRows+'</tbody></table>'):'<div class="empty">Watching for drops… new items appear here with a timestamp as you play.</div>';
-  var maxD=Math.max(1,d.perDiff[0]||0,d.perDiff[1]||0,d.perDiff[2]||0,d.perDiff[3]||0);
-  var dn=['Normal','Nightmare','Hell','Torment'];
-  $('lifetime').innerHTML=[bar('Total kills',100,fmt(d.kills),'var(--gold)'),bar('Gold earned',100,fmt(d.lifeGold),'var(--gold)'),bar(dn[0],Math.round((d.perDiff[0]||0)/maxD*100),fmt(d.perDiff[0])),bar(dn[1],Math.round((d.perDiff[1]||0)/maxD*100),fmt(d.perDiff[1])),bar(dn[2],Math.round((d.perDiff[2]||0)/maxD*100),fmt(d.perDiff[2])),bar(dn[3],Math.round((d.perDiff[3]||0)/maxD*100),fmt(d.perDiff[3]))].join('');
-  var order=d.owned.slice().sort(function(a,b){return rrank(b.grade)-rrank(a.grade);});
-  var rsum=Object.keys(d.byRarity).map(function(k){return d.byRarity[k]+' '+k.toLowerCase();}).join(', ');
-  $('gearCount').textContent='('+d.owned.length+(rsum?(' · '+rsum):'')+')';
-  $('gearTbl').querySelector('tbody').innerHTML=order.map(function(g){var c=rcol(g.grade);return '<tr><td>'+g.name+'</td><td class="mono">'+(g.gt||g.type||'—')+'</td><td><span class="rl" style="color:'+c+'">'+(g.grade||'—')+'</span></td><td class="r mono">'+(g.lvl||'—')+'</td><td class="r">'+(g.ench||'—')+'</td></tr>';}).join('');
-  if(d.lastSaved) $('lastSaved').textContent=' · save updated '+d.lastSaved.toLocaleString();
+  var measuring=hrs<0.0167; // hold rates for the first ~minute to avoid wild extrapolation
+  var gph=measuring?null:Math.round((d.gold-session.gold0)/hrs);
+  var kph=(measuring||d.kills==null)?null:Math.round((d.kills-session.kills0)/hrs);
+
+  p.appendChild(el('<h3 class="sec">Overview <span class="tag">'+(d.version?('v'+d.version):'')+
+    (d.playHours?(' · '+d.playHours+'h played'):'')+'</span></h3>'));
+  p.appendChild(el('<div class="grid cards">'+[
+    card('Gold',fmt(d.gold),'gold',(d.lifeGold!=null?('lifetime '+fmt(d.lifeGold)):''),'🪙'),
+    card('Stage',(d.stage!=null?d.stage:'—')+(d.wave?(' · w'+d.wave):''),'','max cleared '+fmt(d.maxStage),'🗺️'),
+    card('Total kills',fmt(d.kills),'blue','','💀'),
+    card('Runes',d.runes.leveled+'<span style="font-size:16px;color:var(--dim)"> / '+d.runes.total+'</span>','','leveled nodes','🔮')
+  ].join('')+'</div>'));
+
+  p.appendChild(el('<h3 class="sec">This session</h3>'));
+  p.appendChild(el('<div class="grid cards">'+[
+    card('Gold / hr',gph==null?'measuring…':fmt(gph),'green',measuring?'watching…':('<b>+'+fmt(d.gold-session.gold0)+'</b> so far'),'📈'),
+    card('Kills / hr',kph==null?'measuring…':fmt(kph),'green',measuring?'watching…':('<b>+'+fmt(d.kills-session.kills0)+'</b> kills'),'⚔️'),
+    card('Session length',hrs<0.017?'just started':(hrs.toFixed(2)+' h'),'','since you connected','⏱️'),
+    card('Inventory',fmt(d.inv.owned),'',d.inv.stash+' in stash'+(d.inv.trade?(' · '+d.inv.trade+' trading'):''),'🎒')
+  ].join('')+'</div>'));
+
+  p.appendChild(el('<h3 class="sec">Active party <span class="tag">deployed heroes</span></h3>'));
+  var party=el('<div class="grid party"></div>');
+  var dep=d.heroes.filter(function(h){return h.deployed;});
+  (dep.length?dep:d.heroes.slice(0,3)).forEach(function(h){party.appendChild(heroCard(h));});
+  p.appendChild(party);
+
+  // trophies strip
+  if(d.trophies.length){
+    p.appendChild(el('<h3 class="sec">Trophies <span class="tag">Legendary and above · '+d.trophies.length+'</span></h3>'));
+    var grid=el('<div class="invgrid"></div>');
+    d.trophies.slice(0,18).forEach(function(t){grid.appendChild(itemTile(t));});
+    p.appendChild(grid);
+  }
 }
+
+function itemTile(it){
+  var hi=rrank(it.grade)>=3;
+  var n=el('<div class="item '+(hi?'hi':'')+'" style="--rc:'+rvar(it.grade)+'"></div>');
+  n.appendChild(iconImg(it.icon));
+  if(it.lvl) n.appendChild(el('<span class="lv">'+it.lvl+'</span>'));
+  if(it.ench){var e=el('<span class="ench"></span>');for(var i=0;i<Math.min(it.ench,3);i++)e.appendChild(el('<i></i>'));n.appendChild(e);}
+  n.addEventListener('mouseenter',function(ev){showTip(ev,it);});
+  n.addEventListener('mousemove',moveTip);
+  n.addEventListener('mouseleave',hideTip);
+  return n;
+}
+
+function renderParty(d){
+  var p=$('tab-party');p.innerHTML='';
+  p.appendChild(el('<h3 class="sec">Heroes <span class="tag">'+d.heroes.length+' unlocked · '+
+    d.heroes.filter(function(h){return h.deployed;}).length+' deployed</span></h3>'));
+  var g=el('<div class="grid party"></div>');
+  d.heroes.forEach(function(h){g.appendChild(heroCard(h));});
+  p.appendChild(g);
+  p.appendChild(el('<h3 class="sec">Roster detail</h3>'));
+  var rows=d.heroes.map(function(h){
+    return '<tr><td><b>'+h.cls+'</b></td><td>'+(h.deployed?'<span class="pill" style="color:var(--green)">DEPLOYED</span>':'<span class="pill" style="color:var(--dim)">bench</span>')+
+      '</td><td class="r">'+h.level+'</td><td class="r">'+fmt(h.exp)+'</td><td class="r">'+h.gear+'/10</td><td class="r">'+h.pts+(h.unspent?(' (+'+h.unspent+')'):'')+'</td></tr>';
+  }).join('');
+  p.appendChild(el('<div class="panel"><table><thead><tr><th>Hero</th><th>Status</th><th class="r">Lvl</th><th class="r">Exp</th><th class="r">Gear</th><th class="r">Ability pts</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+}
+
+var invFilter='ALL';
+function renderInventory(d){
+  var p=$('tab-inventory');p.innerHTML='';
+  var rs=Object.keys(d.byRarity).sort(function(a,b){return rrank(a)-rrank(b);});
+  var head=el('<h3 class="sec">Inventory <span class="tag">'+d.owned.length+' items · '+d.inv.stash+'/'+d.inv.stashSlots+' stash slots used</span></h3>');
+  p.appendChild(head);
+  var f=el('<div class="filters"></div>');
+  var mk=function(key,label){var b=el('<button class="'+(invFilter===key?'on':'')+'">'+label+'</button>');
+    b.addEventListener('click',function(){invFilter=key;renderInventory(d);});return b;};
+  f.appendChild(mk('ALL','All ('+d.owned.length+')'));
+  rs.forEach(function(r){var b=mk(r,r.charAt(0)+r.slice(1).toLowerCase()+' ('+d.byRarity[r]+')');
+    b.style.color=rvar(r);f.appendChild(b);});
+  var mats=d.owned.filter(function(o){return o.mat;}).length;
+  if(mats)f.appendChild(mk('MAT','Materials ('+mats+')'));
+  p.appendChild(f);
+
+  var list=d.owned.slice().sort(function(a,b){return (rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));});
+  if(invFilter==='MAT')list=list.filter(function(o){return o.mat;});
+  else if(invFilter!=='ALL')list=list.filter(function(o){return o.grade===invFilter;});
+
+  if(!list.length){p.appendChild(el('<div class="empty">No items match this filter.</div>'));return;}
+  var grid=el('<div class="invgrid"></div>');
+  list.forEach(function(it){grid.appendChild(itemTile(it));});
+  p.appendChild(grid);
+}
+
+function renderLoot(d){
+  var p=$('tab-loot');p.innerHTML='';
+  p.appendChild(el('<h3 class="sec">Loot timeline <span class="tag">new drops captured while HUD is open</span></h3>'));
+  if(!lootLog.length){p.appendChild(el('<div class="empty">Watching for drops… new items appear here with a timestamp and rarity as you play.</div>'));return;}
+  var rows=lootLog.slice(0,80).map(function(l){
+    var t=new Date(l.t);
+    return '<tr><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
+      '<td><div style="display:flex;align-items:center;gap:10px">'+
+        '<div class="mini" style="border-color:'+rvar(l.grade)+'"><img src="'+SPRITE+(l.icon||'')+'.png" onerror="this.style.visibility=\'hidden\'"></div>'+
+        '<span>'+l.name+(l.lvl?(' <span style="color:var(--dim)">lvl'+l.lvl+'</span>'):'')+'</span></div></td>'+
+      '<td><span class="pill" style="color:'+rvar(l.grade)+'">'+(l.grade||'—')+'</span></td></tr>';
+  }).join('');
+  p.appendChild(el('<div class="panel"><table><thead><tr><th>Time</th><th>Item</th><th>Rarity</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+}
+
+function renderLifetime(d){
+  var p=$('tab-lifetime');p.innerHTML='';
+  p.appendChild(el('<h3 class="sec">Lifetime stats</h3>'));
+  p.appendChild(el('<div class="grid cards">'+[
+    card('Total kills',fmt(d.kills),'blue','','💀'),
+    card('Gold earned',fmt(d.lifeGold),'gold','all time','🪙'),
+    card('Max stage',fmt(d.maxStage),'','cleared','🏁'),
+    card('Play time',d.playHours!=null?(d.playHours+' h'):'—','','','⏱️')
+  ].join('')+'</div>'));
+
+  var maxD=Math.max(1,d.perDiff[0]||0,d.perDiff[1]||0,d.perDiff[2]||0,d.perDiff[3]||0);
+  var diffBars=d.perDiff.map(function(v,i){
+    var pct=Math.round((v||0)/maxD*100);
+    return '<div class="bar"><div class="top"><span class="nm">'+DIFF[i]+'</span><span class="nv">'+fmt(v)+'</span></div>'+
+      '<div class="track"><div class="fill" style="width:'+pct+'%"></div></div></div>';
+  }).join('');
+
+  // rarity distribution
+  var total=d.owned.length||1;
+  var rs=RARITY.filter(function(r){return d.byRarity[r];});
+  var rbar=rs.map(function(r){return '<span style="flex:'+d.byRarity[r]+';background:'+rvar(r)+'"></span>';}).join('');
+  var rleg=rs.map(function(r){return '<span><i style="background:'+rvar(r)+'"></i>'+r.charAt(0)+r.slice(1).toLowerCase()+' '+d.byRarity[r]+'</span>';}).join('');
+
+  p.appendChild(el('<div class="two">'+
+    '<div><h3 class="sec">Difficulty completions</h3><div class="panel"><div class="bars">'+diffBars+'</div></div></div>'+
+    '<div><h3 class="sec">Owned by rarity <span class="tag">'+total+' items</span></h3>'+
+      '<div class="panel"><div class="raritybar">'+(rbar||'<span style="flex:1;background:var(--surface3)"></span>')+'</div>'+
+      '<div class="rlegend">'+(rleg||'<span style="color:var(--dim)">no graded items</span>')+'</div></div></div>'+
+  '</div>'));
+
+  p.appendChild(el('<h3 class="sec">Notes</h3>'));
+  p.appendChild(el('<div class="panel" style="color:var(--muted);font-size:13px">'+
+    'Live combat DPS, clear-time and gold/hr <i>per act</i> come from the live-telemetry reader (Phase 4). '+
+    'Per-difficulty completions and lifetime gold/kills above are read straight from the save\'s aggregate counters.</div>'));
+}
+
+/* ---------- tab switching ---------- */
+function setTab(name){
+  activeTab=name;
+  Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
+    b.classList.toggle('active',b.dataset.tab===name);});
+  ['overview','party','inventory','loot','lifetime'].forEach(function(t){
+    $('tab-'+t).classList.toggle('hidden',t!==name);});
+  if(current)renderTab(name,current);
+}
+function renderTab(name,d){
+  if(name==='overview')renderOverview(d);
+  else if(name==='party')renderParty(d);
+  else if(name==='inventory')renderInventory(d);
+  else if(name==='loot')renderLoot(d);
+  else if(name==='lifetime')renderLifetime(d);
+}
+
+function render(d){
+  current=d;
+  $('gate').classList.add('hidden');
+  $('tabs').classList.remove('hidden');
+  $('ver').textContent='v'+(d.version||'?')+(d.playHours?(' · '+d.playHours+'h played'):'');
+  $('tabInvCount').textContent=d.owned.length;
+  $('tabLootCount').textContent=lootLog.length||'';
+  $('lastSaved').textContent=d.lastSaved?(' · save updated '+d.lastSaved.toLocaleString()):'';
+  renderTab(activeTab,d);
+}
+
+/* ---------- input paths ---------- */
 async function onBytes(buf){
-  try{ var d=analyze(loadInner(await decryptSave(buf))); processLoot(d.owned); render(d); $('dot').className='dot live'; $('statusText').textContent='reading your save'; }
-  catch(e){ $('dot').className='dot err'; $('statusText').textContent='decrypt failed: '+(e.message||e); console.error(e); }
+  try{
+    var d=analyze(loadInner(await decryptSave(buf)));
+    processLoot(d.owned);
+    render(d);
+    $('dot').className='dot live';$('statusText').textContent='reading your save';
+  }catch(e){
+    $('dot').className='dot err';$('statusText').textContent='decrypt failed: '+(e.message||e);console.error(e);
+  }
 }
 var handle=null,lastMod=0,timer=null;
 async function connectFS(){
   var picked=await window.showOpenFilePicker({types:[{description:'TBH save',accept:{'application/octet-stream':['.es3']}}]});
   handle=picked[0];
-  async function poll(){ try{ var f=await handle.getFile(); if(f.lastModified!==lastMod){ lastMod=f.lastModified; onBytes(await f.arrayBuffer()); } }catch(e){} }
-  await poll(); if(timer)clearInterval(timer); timer=setInterval(poll,4000);
+  async function poll(){try{var f=await handle.getFile();if(f.lastModified!==lastMod){lastMod=f.lastModified;onBytes(await f.arrayBuffer());}}catch(e){}}
+  await poll();if(timer)clearInterval(timer);timer=setInterval(poll,4000);
 }
 $('connectBtn').addEventListener('click',async function(){
-  if(window.showOpenFilePicker){ try{ await connectFS(); }catch(e){ if(e.name!=='AbortError') console.error(e); } }
+  if(window.showOpenFilePicker){try{await connectFS();}catch(e){if(e.name!=='AbortError')console.error(e);}}
   else $('fileInput').click();
 });
-$('fileInput').addEventListener('change',function(e){ if(e.target.files[0]){ var r=new FileReader(); r.onload=function(){onBytes(r.result);}; r.readAsArrayBuffer(e.target.files[0]); } });
-if(window.tbhNative&&window.tbhNative.onSave){ $('connectBtn').classList.add('hidden'); window.tbhNative.onSave(function(buf){onBytes(buf);}); if(window.tbhNative.requestSave) window.tbhNative.requestSave(); }
-var DEMO={version:'1.00.11 (sample)',stage:1208,wave:2,maxStage:1210,playHours:32.8,lastSaved:new Date(),gold:56649,heroes:[{key:401,cls:'Priest',level:20,pts:20,unspent:0,gear:6,deployed:true},{key:501,cls:'Hunter',level:20,pts:20,unspent:0,gear:7,deployed:true},{key:301,cls:'Sorcerer',level:19,pts:19,unspent:0,gear:6,deployed:true},{key:601,cls:'Slayer',level:15,pts:15,unspent:0,gear:1,deployed:false},{key:201,cls:'Ranger',level:12,pts:12,unspent:0,gear:1,deployed:false},{key:101,cls:'Knight',level:1,pts:0,unspent:1,gear:0,deployed:false}],inv:{owned:48,stash:26,trade:0},owned:[{name:'Immortal Material',grade:'IMMORTAL',gt:null,type:'MATERIAL',lvl:null,ench:0},{name:'Iron Plate',grade:'LEGENDARY',gt:'ARMOR',type:'GEAR',lvl:10,ench:1},{name:'Knight Helmet',grade:'LEGENDARY',gt:'HELMET',type:'GEAR',lvl:15,ench:1},{name:'Frozen Orb',grade:'LEGENDARY',gt:'ORB',type:'GEAR',lvl:15,ench:0},{name:'Complete Crossbow',grade:'RARE',gt:'CROSSBOW',type:'GEAR',lvl:15,ench:0},{name:'Iron Boots',grade:'RARE',gt:'BOOTS',type:'GEAR',lvl:10,ench:0},{name:'Long Crossbow',grade:'COMMON',gt:'CROSSBOW',type:'GEAR',lvl:10,ench:0}],byRarity:{COMMON:13,UNCOMMON:8,RARE:20,LEGENDARY:3,IMMORTAL:4},trophies:[{name:'Immortal Material',grade:'IMMORTAL',lvl:null},{name:'Iron Plate',grade:'LEGENDARY',lvl:10},{name:'Knight Helmet',grade:'LEGENDARY',lvl:15},{name:'Frozen Orb',grade:'LEGENDARY',lvl:15}],runes:{total:197,leveled:56},kills:69608,lifeGold:1457209,perDiff:[192,122,69,1]};
-function loadDemo(){ session=null; lootLog=[{t:Date.now()-60000,name:'Knights Armor',grade:'UNCOMMON',gt:'ARMOR'},{t:Date.now()-300000,name:'Frozen Orb',grade:'LEGENDARY',gt:'ORB'}]; render(DEMO); $('statusText').textContent='sample data'; }
+$('fileInput').addEventListener('change',function(e){if(e.target.files[0]){var r=new FileReader();r.onload=function(){onBytes(r.result);};r.readAsArrayBuffer(e.target.files[0]);}});
+
+/* Electron native bridge */
+if(window.tbhNative&&window.tbhNative.onSave){
+  $('connectBtn').classList.add('hidden');
+  window.tbhNative.onSave(function(buf){onBytes(buf);});
+  if(window.tbhNative.requestSave)window.tbhNative.requestSave();
+}
+Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
+  b.addEventListener('click',function(){setTab(b.dataset.tab);});
+});
+
+/* ---------- demo / sample ---------- */
+function demoItem(key,grade,gt,lvl,ench){var k=String(key);return {uid:'d'+k,key:k,icon:iconId(k),grade:grade,gt:gt,type:'GEAR',lvl:lvl,ench:ench||0,
+  mods:ench?[{StatType:25,Value:220,Tier:2,StatModKey:1}]:[],name:(grade?grade.charAt(0)+grade.slice(1).toLowerCase()+' ':'')+(gt?gt.charAt(0)+gt.slice(1).toLowerCase():'Item'),mat:false};}
+function demoMat(key,name){var k=String(key);return {uid:'d'+k,key:k,icon:iconId(k),grade:null,gt:null,type:'MATERIAL',lvl:null,ench:0,mods:[],name:name,mat:true};}
+function loadDemo(){
+  session=null;
+  var owned=[
+    demoItem(423041,'LEGENDARY','ORB',15,1),demoItem(513031,'LEGENDARY','ARMOR',15,0),
+    demoItem(503041,'LEGENDARY','HELMET',15,1),demoItem(532051,'LEGENDARY','BOOTS',10,0),
+    demoItem(342041,'RARE','CROSSBOW',15,0),demoItem(322041,'RARE','STAFF',15,1),
+    demoItem(312031,'RARE','BOW',10,0),demoItem(622031,'RARE','RING',10,0),
+    demoItem(331041,'UNCOMMON','SCEPTER',10,0),demoItem(511051,'UNCOMMON','ARMOR',10,0),
+    demoItem(310003,'COMMON','BOW',10,0),demoItem(520003,'COMMON','GLOVES',10,0),
+    demoMat(190001,'Soulstone - Normal'),demoMat(140002,'Stone'),demoMat(110001,'Minor Ruby')
+  ];
+  var byR={};owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
+  var heroes=[
+    {key:'401',cls:'Priest',mw:'SCEPTER',level:20,exp:1981148,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(8,12)},
+    {key:'301',cls:'Sorcerer',mw:'STAFF',level:20,exp:1445520,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(4,8)},
+    {key:'501',cls:'Hunter',mw:'CROSSBOW',level:20,exp:2895057,pts:20,unspent:0,gear:7,deployed:true,equipped:owned.slice(0,5)},
+    {key:'601',cls:'Slayer',mw:'AXE',level:15,exp:534655,pts:15,unspent:0,gear:1,deployed:false,equipped:[]},
+    {key:'201',cls:'Ranger',mw:'BOW',level:12,exp:133555,pts:12,unspent:0,gear:1,deployed:false,equipped:[]},
+    {key:'101',cls:'Knight',mw:'SWORD',level:1,exp:0,pts:0,unspent:1,gear:0,deployed:false,equipped:[]}
+  ];
+  lootLog=[{t:Date.now()-45000,name:'Legendary Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15},
+    {t:Date.now()-220000,name:'Rare Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15}];
+  render({version:'1.00.11 (sample)',stage:1208,wave:2,maxStage:1210,playHours:34.4,lastSaved:new Date(),
+    pet:6003,gold:77298,heroes:heroes,inv:{owned:owned.length,stash:20,stashSlots:343,trade:0},
+    owned:owned,byRarity:byR,
+    trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
+    runes:{total:197,leveled:56},kills:72091,lifeGold:1574858,perDiff:[200,127,72,1]});
+  $('dot').className='dot live';$('statusText').textContent='sample data';
+}
 $('demoBtn').addEventListener('click',loadDemo);
-if(location.search.indexOf('demo')>=0){ loadDemo(); }
+$('demoLink').addEventListener('click',function(e){e.preventDefault();loadDemo();});
+if(location.search.indexOf('demo')>=0)loadDemo();
 </script>
 </body>
 </html>
