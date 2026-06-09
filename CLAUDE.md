@@ -56,28 +56,41 @@ or have him supply a token for that account.
 - Type 16 / SubKey 0-3 = **per-difficulty completions** (Normal/Nightmare/Hell/Torment). Type 4/5/7 also have Sub 0-4
   (per-difficulty-ish). Type 10/15 = single counters. Decode the rest for richer lifetime stats.
 
-### Items (CALIBRATED — never guess)
-- "500+ unique items" (official). Game ships **511** `ItemName_<id>` strings in its Unity Localization
-  (authoritative). Extracted to `src/engine/item_names_en.json`. The ~6000 ids in community data are those
-  500+ base items x rarity/level variants.
-- RARITY = the itemKey's **3rd digit**: 0 Common,1 Uncommon,2 Rare,3 Legendary,4 Immortal,5 Arcana,6 Beyond,
-  7 Celestial,8 Divine,9 Cosmic. VALIDATED **7/7** against tbh-meter run-log gradeIds (gradeId == 3rd digit).
-- itemKey structure: **[type:2][rarity:1][item index + level]**. Base item names are localized at the COMMON
-  tier (e.g. crossbows `340001-340020` = Short/Leather/Long/Complete/Exceptional/Reinforced/Iron/... Crossbow;
-  orbs `420001-420006` = Magic/Elder/Brilliant/Frozen/Prophecy/Dark Orb). A variant key (e.g. `342041` = Rare,
-  lvl15) shares its base item's name. **TODO: finish the variant->base-id mapping so every itemKey resolves to its
-  real name.** Until then: authoritative name from `item_names_en.json` if present, else honest `<Rarity> <Type>`
-  (e.g. "Rare Staff") — NEVER community-fabricated names (community mislabeled e.g. 342041 as "Complete Crossbow";
-  Complete Crossbow is actually 340004).
-- MATERIALS: named with their tier (190001-190004 = Soulstone - Normal/Nightmare/Hell/Torment; 110001 = Minor Ruby).
-  They do NOT use the gear rarity ladder — the tier is in the name. Don't show a gear grade for materials
-  (`gamedata.min.json` already sets `g:null, mat:true` for them).
-- Localization also contains (extract the same way — UnityPy: en-US StringTable joined to SharedTableData by m_Id):
-  `ItemDescription_`(115), `MonsterName_`(52), `RuneName_`(40), `SkillName_`(36)+`SkillDescription_`(36),
-  `StatName_`(40)/`Stat`(184), `Passive_`(56). Use for rune-tree names, skill display, monster names, stat tooltips.
-- ICONS: NOT extracted yet. Full icon set is in the game's `sharedassets0.assets` (+ `.resS`, ~284MB) as
-  Sprite/Texture2D — extract with **UnityPy** -> `src/assets/sprites/Item_<id>.png`. Community tool had 78 icons;
-  tbh-meter only 3. This is the visual differentiator.
+### THE CALIBRATION GOLDMINE — the game's own data tables (sharedassets0 TextAssets)
+The game ships its entire balance/data model as **CSV TextAssets inside `sharedassets0.assets`** — this is the
+authoritative source for everything; NEVER guess when you can read these. Extract with `scripts/dump_textassets.py`
+(read-only). Key tables (header row = schema):
+- **`ItemInfoData`** (5944 rows) — the item master: `ItemKey,ITEMTYPE,GRADE,PARTS,GEARTYPE,...,NameKey,
+  DescriptionKey,GearKey,DropKey,Level,IsSteamItem,IconPath,IsCanExchangeMarketable`. NameKey -> localization;
+  IconPath -> sprite; everything calibrated.
+- **`GearInfoData`** — per-GearKey base/inherent stats + UniqueModKey (for item power / "who's carrying" math).
+- **`StatModInfoData`** — StatModKey -> Tier -> STATTYPE/MODTYPE/Min/Max (enchant & mod stat names + roll ranges).
+- `DropInfoData` (drop sources -> loot timeline "where it drops"), `RuneInfoData`/`RuneLevelInfoData` (197 runes
+  -> NameKey + IconPath + costs), `SkillInfoData`/`SkillLevelInfoData`, `MonsterInfoData` (rewards/HP),
+  `MaterialInfoData`, `UniqueModInfoData`, `AttributeInfoData`/`PassiveSkillInfoData` (hero trees, source breakdown),
+  `GradeInfoData`, `GearTypeInfoData`, `SynthesisRecipeInfoData`/`CraftingRecipeInfoData`/`Cube*`, `OfflineRewardInfoData`.
+  (45 tables total — see `scripts/find_item_table.py` output.)
+- Localization: full **en-US (1824 keys)** is in the Addressable bundles under
+  `StreamingAssets/aa/StandaloneWindows64/localization-*` (StringTable joined to its Shared Data by m_Id).
+  Extracted by `scripts/extract_localization.py` -> committed at `src/engine/localization.min.json`
+  (`ItemName_`511, `Stat`184, `ItemDescription_`115, `Passive_`56, `MonsterName_`52, `StatName_`40, `RuneName_`40,
+  `SkillName_`/`SkillDescription_`36 each, `GearType_`20, `Grade_`11, `UniqueMod_`22, `StageName_`30, UI/Toast/...).
+
+### Items (CALIBRATED from the tables above — DONE)
+- RARITY = itemKey's **3rd digit** (0 Common…9 Cosmic). VALIDATED **5760/5760** gear rows: 3rd digit == `GRADE`
+  column in ItemInfoData (was 7/7 vs run logs; now whole-dataset).
+- itemKey structure: `[type:2][rarity:1][baseIndex:2][sub:1]`. A variant resolves to its base item via ItemInfoData's
+  **NameKey** (= `ItemName_<baseId>`) and **IconPath**. **CORRECTION to a prior note in this file:** `342041` IS
+  "Complete Crossbow" (Rare, Lvl15) — ItemInfoData gives NameKey `ItemName_340004` + IconPath `CROSSBOW_340004`.
+  The earlier "342041 != Complete Crossbow" claim was wrong; the structural baseIndex decode matched the game 100%.
+- `gamedata.min.json` is now **regenerated by `scripts/build_gamedata.py`** from ItemInfoData + StatModInfoData +
+  RuneInfoData + localization: every item has authoritative `n,g,t,gt,lvl,ic` (+`steam,mkt,gk,dk,pt`); plus
+  `stats` (StatModKey->stat name) and `runes` (RuneKey->name/icon/maxlevel). To refresh after a game patch:
+  re-run dump_textassets.py + extract_localization.py + build_gamedata.py (+ extract_icons.py for art).
+- 10 items (`150001-150010`, unused/unnamed/unowned type-15 placeholders) have no localized name -> honest
+  `<Grade> Material` fallback. NEVER fabricate.
+- MATERIALS: keep `g:null, mat:true` (tier is in the name, e.g. Soulstone - Normal; Minor Ruby).
+- ICONS: **DONE** — 535 in `src/assets/sprites/Item_<id>.png` + 39 rune icons in `src/assets/runes/Rune_<path>.png`.
 - Hero animations: 6 GIFs already in `src/assets/heroes/` (Hero_101..601). Classes: 101 Knight, 201 Ranger,
   301 Sorcerer, 401 Priest, 501 Hunter, 601 Slayer. (classId in run logs: Sorcerer=3, etc.)
 
@@ -123,17 +136,20 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
-- **Phase 2 (full game art):** 535 item icons extracted; every owned save item resolves to a real icon (100%).
+- **Phase 2 (full game art):** 535 item icons + 39 rune icons extracted; every owned save item resolves to a real icon (100%).
 - **Phase 3 (premium UI):** multi-tab dashboard that beats tbh-meter/tbh-copilot, verified vs the live save.
+- **Authoritative names + localization:** found the game's own data tables (sharedassets0 TextAssets); item names,
+  enchant stat names, and rune names are now 100% calibrated from the game (no guessing). gamedata.min.json
+  regenerated; localization.min.json committed. Verified vs the live save.
 
 ## Next (priority order) — full acceptance criteria in docs/PRD.md
-1. **Authoritative item-name decode** (itemKey variant -> base name) — UNSOLVED; needs a calibration source
-   (do NOT assume the `baseIndex` digits are the base item; CLAUDE warns 342041 != Complete Crossbow).
-   Then extract the other localization tables (UnityPy, same pipeline): `StatName_`/`Stat` (for real enchant/mod
-   names — the dashboard tooltip currently shows `Stat #id +val · Tier`), `RuneName_` (197-node tree),
-   `SkillName_`/`SkillDescription_`, `MonsterName_`, `Passive_`. The `RuneIcon` SpriteAtlas (129) has rune icons.
+1. **Use the newly-available data in the UI:** rune-tree panel (RuneSaveData join DB.runes + rune icons,
+   cheapest-next rec), item descriptions in tooltips, item base-stats from GearInfoData (power/score). "Who's
+   carrying" source breakdown can use AttributeInfoData/PassiveSkillInfoData + GearInfoData (computed, save-only)
+   even before live telemetry. Skill/monster names available in localization.min.json.
 2. **Phase 4 — Live telemetry:** own read-only memory reader -> per-run DPS, clear time, gold/s, xp/s,
-   gold/hr & xp/hr PER ACT, per-hero DPS share + source breakdown. (owner wants tbh-meter gone.)
+   gold/hr & xp/hr PER ACT, per-hero DPS share + source breakdown. (owner wants tbh-meter gone.) READ-ONLY only —
+   no writing/injecting into the game process (CodeStage anti-cheat). Must not be bannable.
 3. **Phase 5 — Loot timeline** (save-diff + Player.log tail) with timestamps + rare-drop alerts + Steam Market
    value; **blue-chest 12-min cooldown tracker**.
 4. **Phase 6 — History/trends** over time (use the rolling save backups as diff points).
