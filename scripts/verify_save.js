@@ -204,6 +204,34 @@ const es = eng.enchantStatus(psd);
 es.forEach(e => { if (!(e.used < 3) || e.open !== 3 - e.used) problems.push('enchantStatus: bad slot math on ' + e.name); });
 console.log('enchantStatus ', es.length + ' equipped item(s) with open enchant slots on the deployed party');
 
+// statListFull (v1.0.11): the grouped Stat List must be internally consistent with the rune aggregate —
+// every line's raw == the independent runeStatList total for that effect; %-lines display raw/10, flats raw;
+// only the calibrated map's keys may appear; groups appear in map order; zero/absent lines are omitted.
+const slGroups = eng.statListFull(psd);
+{
+  const rsBy = {}; eng.runeStatList(psd).forEach(s => { rsBy[s.eff] = s.total; });
+  const mapByK = {}; eng.STAT_LIST.forEach(m => { mapByK[m.k] = m; });
+  const seenKeys = [];
+  slGroups.forEach(g => {
+    if (g.group !== 'Exploration' && g.group !== 'Combat') problems.push('statListFull: uncalibrated group "' + g.group + '"');
+    g.lines.forEach(l => {
+      seenKeys.push(l.k);
+      const m = mapByK[l.k];
+      if (!m) { problems.push('statListFull: line key ' + l.k + ' not in the calibrated map'); return; }
+      if (m.g !== g.group) problems.push('statListFull: ' + l.k + ' in wrong group ' + g.group);
+      if (l.raw !== rsBy[m.eff]) problems.push('statListFull: ' + l.k + ' raw ' + l.raw + ' != rune total ' + rsBy[m.eff]);
+      if (!(l.raw > 0)) problems.push('statListFull: ' + l.k + ' has a zero/absent line (must be omitted)');
+      const wantDisp = m.pct ? l.raw / 10 : l.raw;
+      if (l.disp !== wantDisp) problems.push('statListFull: ' + l.k + ' disp ' + l.disp + ' != ' + wantDisp);
+      if (l.text !== m.t.replace('{0}', String(wantDisp))) problems.push('statListFull: ' + l.k + ' text not built from the game template');
+    });
+  });
+  if (new Set(seenKeys).size !== seenKeys.length) problems.push('statListFull: duplicate line keys');
+  const nLines = slGroups.reduce((s, g) => s + g.lines.length, 0);
+  console.log('statListFull  ', slGroups.length + ' group(s), ' + nLines + ' calibrated line(s):');
+  slGroups.forEach(g => g.lines.forEach(l => console.log('   ', g.group.padEnd(12), l.text, '(raw +' + l.raw + ')')));
+}
+
 // statTotals: must equal base+gear+tree re-summed per stat (no fabricated composite).
 const dep = (psd.heroSaveDatas || []).find(h => ((psd.commonSaveData || {}).arrangedHeroKey || []).map(String).indexOf(String(h.heroKey)) >= 0);
 if (dep) {

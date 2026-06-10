@@ -1,15 +1,41 @@
 # TBH HUD — improvement.log
-Updated 2026-06-11 (cowork, session 13 · app v1.0.4). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-11 (cowork, session 18 · app v1.0.11). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.4**
+Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.11**
 released (installer + latest.yml + blockmap → existing installs auto-update). **11 tabs** (Overview / Party / Inventory /
-Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render vs the test live save with 0 console errors.
-**Crew API live** (Vercel serverless + Neon Postgres, opt-in only).
+Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render vs the test live save with 0 console errors,
+in **light (default) and dark themes**. **Crew API live** (Vercel serverless + Neon Postgres, opt-in only). Public patch
+notes: CHANGELOG.md + in-app "What's new".
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S18 (v1.0.11) — visual revamp (light/dark themes) + the game's grouped Stat List + patch notes.**
+  **Design system:** one SEMANTIC token contract (`--surface/--border/--text-*/--accent*/--good/--warn/--bad` + spacing
+  `--s1..7`, radii, grid-track tokens) under `:root[data-theme=light|dark]`; **light is the default** (set pre-paint in
+  <head>; persisted as `tbh_theme`; 🌙/☀️ toggle in header .actions); dark is a re-mapped counterpart of the old navy
+  palette (dim text lightened for AA). No raw hex left in component CSS (tints via color-mix on tokens; legacy var names
+  aliased); **WCAG AA verified programmatically** for every text/surface pair in BOTH themes (test/_contrast.js — all
+  pass), rarity hues canonical in both (lightness-tuned on light). **Uneven-boxes fix:** every card grid now uses
+  auto-FILL on shared track tokens (a short last row keeps card width), one gap/radius/padding scale, and flex-column
+  cards so row siblings align; audited 11 tabs × 375/768/1280 × both themes = **0 horizontal overflow** (66/66 clean).
+  **Stat List (calibrated):** the in-game grouped Stat List is the RUNE aggregate — proven by calibration: live save
+  matches the owner's in-game screenshot **8/9 lines exactly** (70% Exp Gain=700/10, +1/+80/+300/+1 exp lines, Hero
+  Slot+2=Unlock Arrange Slot Count, 21% Move Speed=210/10, Attack Damage+10); the 9th (Attack Speed 11%) was bracketed
+  10%→16% through the screenshot value by the game's own rolling backups as runes were leveled overnight. Per-hero tree
+  passives and pets are ruled OUT of this panel (move-speed passives unleveled yet the panel shows the exact rune total).
+  Wording comes from the game's own `AccountStat_<STATTYPE>` localization templates verbatim; %-templates display
+  value/10 (3 independent confirmations), +{0} templates display raw (6 confirmations). `statListFull` in BOTH engines
+  (verify_save asserts internal consistency vs the independent rune aggregate + template fidelity); grouped panel on
+  Runes ("Stat List" exactly as in-game; raw totals kept below); **Crew** now shares the grouped list ({k,v} pairs,
+  server-whitelisted to the 9 calibrated keys) and the board renders every member's grouped Stat List + can RANK by any
+  calibrated stat; old clients fall back to the v1.0.10 rune snippet. Effects whose in-game group/format is unverified
+  (gold/chest/cube/offline/slot lines — the game ships NO category table; checked all 45 TextAssets) are OMITTED from
+  the grouped view per calibrate-or-omit. **Patch notes:** CHANGELOG.md at repo root (public on GitHub/Pages) + in-app
+  ✨ "What's new" modal (embedded entries, works file:// in Electron) with a first-run dot (`tbh_lastSeenVersion`).
+  Test fixture refreshed to the calibration-day save; engines verified in PARITY in-browser (identical 9 lines + all
+  key numbers on the same save). Electron smoke clean; installer rebuilt; crew API redeployed (whitelist).
 - **S17 (v1.0.10) — rune Stat List + crew clarity + microscopic sweep.** **Rune Stat List** (mirrors the game's
   Runes → Stat List): per effect, sum the per-level table values of every leveled rune to its current level —
   reading justified structurally (ALL 135 multi-level runes have CONSTANT per-level values with RISING costs, so

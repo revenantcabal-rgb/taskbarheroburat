@@ -248,6 +248,45 @@ function runeStatList(psd){
   return Object.keys(by).map(k=>by[k]).sort((a,b)=>b.total-a.total);
 }
 
+// statListFull: the game's GROUPED Stat List (v1.0.11) — the account-wide panel the game shows, grouped
+// Exploration/Combat with the game's own wording. CALIBRATED line by line against an in-game Stat List
+// screenshot + the live save (8/9 lines exact on the capture day; the 9th — All Hero Attack Speed — was
+// bracketed rising 10%→16% through the screenshot's 11% by the game's own rolling backups as runes were
+// leveled, same additive counter + same /10 display family as the two verified percent lines).
+// Sources, all verified:
+//   • values  = runeStatList totals (the rune aggregate IS this panel: per-hero tree passives and pets were
+//     ruled out — move-speed passives are unleveled in the calibration save yet the panel shows 21%, exactly
+//     the rune total 210/10; every other transcribed line equals its rune total with no other contribution)
+//   • wording = the game's own AccountStat_<STATTYPE> localization templates, verbatim
+//   • display = {0}%-style templates render value/10 (verified 700→70, 210→21, 110→11); +{0} templates
+//     render the raw value (verified +1/+80/+300/+2/+10)
+// CALIBRATE-OR-OMIT: effects NOT in this map (gold/chest/cube/offline/slot lines) are real raw totals but
+// their group + display in the game's panel are unverified (no category table ships in the game files), so
+// the grouped view omits them. The complete raw totals stay available via runeStatList.
+const STAT_LIST = [
+  { k: 'IncreaseExpAmount',          eff: 'Increase Exp Amount',           g: 'Exploration', pct: true,  t: '{0}% Increased Exp Gain' },
+  { k: 'AdditionalExp',              eff: 'Additional Exp',                g: 'Exploration', pct: false, t: 'Additional Exp +{0}' },
+  { k: 'AdditionalExpStageBoss',     eff: 'Additional Exp Stage Boss',     g: 'Exploration', pct: false, t: 'Exp From Stage Boss Kill +{0}' },
+  { k: 'AdditionalExpActBoss',       eff: 'Additional Exp Act Boss',       g: 'Exploration', pct: false, t: 'Exp From Act Boss Kill +{0}' },
+  { k: 'AdditionalExpNormalMonster', eff: 'Additional Exp Normal Monster', g: 'Exploration', pct: false, t: 'Exp From Normal Monster Kill +{0}' },
+  { k: 'UnlockArrangeSlotCount',     eff: 'Unlock Arrange Slot Count',     g: 'Exploration', pct: false, t: 'Hero Slot +{0}' },
+  { k: 'AllHeroMoveSpeed',           eff: 'All Hero Move Speed',           g: 'Combat',      pct: true,  t: '{0}% Increased All Hero Movement Speed' },
+  { k: 'AllHeroAttackSpeed',         eff: 'All Hero Attack Speed',         g: 'Combat',      pct: true,  t: '{0}% Increased All Hero Attack Speed' },
+  { k: 'AllHeroAttackDamage',        eff: 'All Hero Attack Damage',        g: 'Combat',      pct: false, t: 'All Hero Attack Damage +{0}' },
+];
+function statListFull(psd) {
+  const totals = {}; runeStatList(psd).forEach(s => { totals[s.eff] = s; });
+  const groups = [], byG = {};
+  STAT_LIST.forEach(m => {
+    const s = totals[m.eff]; if (!s || !(s.total > 0)) return;   // zero/absent lines omitted (only acquired stats shown)
+    const disp = m.pct ? s.total / 10 : s.total;
+    const line = { k: m.k, eff: m.eff, raw: s.total, disp, pct: m.pct, text: m.t.replace('{0}', String(disp)), runes: s.runes, levels: s.levels };
+    if (!byG[m.g]) { byG[m.g] = { group: m.g, lines: [] }; groups.push(byG[m.g]); }
+    byG[m.g].lines.push(line);
+  });
+  return groups;
+}
+
 // onlineOffline: ONLINE vs OFFLINE progress measured across the snapshot history (v1.0.9).
 // Per consecutive pair: played time comes from the save's own playTime; closed-game ("away") time =
 // wall-clock minus played where that exceeds the jitter threshold. Gold splits by the calibrated partition:
@@ -332,4 +371,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

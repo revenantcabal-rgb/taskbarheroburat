@@ -24,8 +24,9 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   New gear is shown whether it dropped or was crafted/synthesized in the Cube — the game records no origin, so the
   tool honestly doesn't guess which.
 - **Runes** — the 197-node rune tree with real names/effects, leveled status, cheapest-next-upgrade
-  recommendations, and the account-wide **Stat List** (your leveled runes' effects summed per stat, mirroring the
-  in-game Runes → Stat List, with the derivation shown).
+  recommendations, and the game's grouped **Stat List** (Exploration / Combat) rendered **exactly as the game shows
+  it** — same grouping, the game's own wording, same numbers (calibrated line-by-line against the in-game panel;
+  anything not yet verified is omitted, never guessed) — plus every raw rune total below it.
 - **Advisor** — provable, save-derived build advice. **Gear upgrades you can equip right now:** for every equipped
   item it finds an *unequipped* item of the *same gear type* that is strictly better (higher rarity, or same rarity at
   a higher level) **and that the hero's level allows** — sidegrades and judgement calls are never suggested, and
@@ -55,7 +56,8 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   table, **what a stage box can contain**, **where an item drops from**, and marketable/Steam flags.
 - **Crew** — an **optional, opt-in private leaderboard** for you and your friends. Agree on any shared **crew code**
   (like a private room name), pick a display name, and everyone who opts in sees one live board: rank by max stage /
-  lifetime gold / kills / top hero / runes, each member's latest brag-stats, their **latest achievement** (derived from
+  lifetime gold / kills / top hero / runes — **or by any calibrated Stat List line** — each member's latest brag-stats
+  **including their full grouped Stat List**, their **latest achievement** (derived from
   their own snapshots — new max stage, new Legendary+, a hero level-up, a rune milestone), and your gap to them.
   **Off by default; nothing is uploaded unless you flip "Share my progress" ON — and even then only the small
   brag-stats payload shown on the tab, never your save file.** See the FAQ below.
@@ -67,7 +69,10 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 Every label (item names, rarity, stats, skills, runes, monsters, drop sources, level curve) is **calibrated from the
 game's own data tables** — nothing is guessed; if something can't be resolved authoritatively it shows an honest fallback.
 
-The UI is **fully responsive** — it works on phone, tablet, and desktop (no horizontal scrolling; wide tables scroll in place).
+The UI ships **light and dark themes** (light is the default — toggle with the 🌙/☀️ button in the header; your choice
+is remembered) and is **fully responsive** — phone, tablet, and desktop (no horizontal scrolling; wide tables scroll in
+place). All text meets WCAG AA contrast in both themes. What changed in each version is in
+[CHANGELOG.md](CHANGELOG.md) and in-app under ✨ **What's new**.
 
 ## Two ways to use it
 
@@ -86,7 +91,7 @@ No save handy? Click **Preview sample** for a demo, or **Browse the full item ca
 it at vercel.com for a one-click second deployment.
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.10.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.10/TBH-HUD-Setup-1.0.10.exe)** (direct, ~79 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.11.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.11/TBH-HUD-Setup-1.0.11.exe)** (direct, ~79 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and

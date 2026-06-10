@@ -65,6 +65,9 @@ const str = (v, max) => { if (typeof v !== 'string') return null; let out = ''; 
 
 // whitelist + clamp the brag-stats payload — anything not listed here is dropped, never stored
 const TIER_KEYS = ['LEGENDARY', 'IMMORTAL', 'ARCANA', 'BEYOND', 'CELESTIAL', 'DIVINE', 'COSMIC'];
+// the calibrated Stat List line keys (v1.0.11) — mirrors STAT_LIST in the dashboard/saveEngine
+const STATLIST_KEYS = ['IncreaseExpAmount', 'AdditionalExp', 'AdditionalExpStageBoss', 'AdditionalExpActBoss',
+  'AdditionalExpNormalMonster', 'UnlockArrangeSlotCount', 'AllHeroMoveSpeed', 'AllHeroAttackSpeed', 'AllHeroAttackDamage'];
 function cleanStats(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const heroes = Array.isArray(raw.topHeroes) ? raw.topHeroes.slice(0, 3).map((h) => ({
@@ -79,6 +82,10 @@ function cleanStats(raw) {
   const runeStats = Array.isArray(raw.runeStats) ? raw.runeStats.slice(0, 6).map((s) => ({
     e: str(s && s.e, 32) || '?', v: num(s && s.v) || 0,
   })).filter((s) => s.e !== '?' && s.v > 0) : [];
+  // grouped Stat List (v1.0.11): only the calibrated line keys, raw positive values — anything else is dropped
+  const statList = Array.isArray(raw.statList) ? raw.statList.slice(0, 12).map((s) => ({
+    k: str(s && s.k, 32) || '', v: num(s && s.v) || 0,
+  })).filter((s) => STATLIST_KEYS.indexOf(s.k) >= 0 && s.v > 0) : [];
   return {
     maxStage: num(raw.maxStage) || 0,
     maxStageLabel: str(raw.maxStageLabel, 40) || '',
@@ -91,6 +98,7 @@ function cleanStats(raw) {
     trophies: num(raw.trophies),
     tiers,
     runeStats,
+    statList,
     playHours: num(raw.playHours),
     ver: str(raw.ver, 12),
   };

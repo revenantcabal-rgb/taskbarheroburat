@@ -144,6 +144,25 @@ authoritative source for everything; NEVER guess when you can read these. Extrac
 - Hero animations: 6 GIFs already in `src/assets/heroes/` (Hero_101..601). Classes: 101 Knight, 201 Ranger,
   301 Sorcerer, 401 Priest, 501 Hunter, 601 Slayer. (classId in run logs: Sorcerer=3, etc.)
 
+### The game's grouped Stat List (v1.0.11, CALIBRATED — calibrate-or-omit applied)
+- The in-game "Stat List" panel (grouped Exploration / Combat / …) **is the RUNE aggregate** — nothing else feeds it.
+  Proven by calibration against the owner's in-game screenshot + the live save: **8/9 transcribed lines matched the
+  live save EXACTLY** (Increase Exp Amount 700→"70% Increased Exp Gain"; Additional Exp +1; Exp From Stage Boss Kill
+  +80; Exp From Act Boss Kill +300; Exp From Normal Monster +1; Unlock Arrange Slot Count 2→"Hero Slot +2"; All Hero
+  Move Speed 210→"21%"; All Hero Attack Damage +10), and the 9th (Attack Speed, screenshot 11%) was bracketed by the
+  game's own rolling backups rising 10%→16% through 11% as runes were leveled overnight. **Passives and pets are NOT
+  in this panel** (move-speed passives were unleveled in the calibration save yet the panel showed exactly the rune
+  total; PetStatInfoData exists but contributes nothing here).
+- **Display rules (calibrated):** wording = the game's own `AccountStat_<STATTYPE>` localization templates VERBATIM
+  (localization.min.json has all ~37); templates containing `{0}%` display the raw rune total **÷10** (3 independent
+  confirmations); `+{0}` templates display the raw total (6 confirmations). STATTYPE comes from RuneLevelInfoData
+  (DB.runes[].eff = prettify(STATTYPE)).
+- **Grouping:** the game ships NO category table (all 45 sharedassets0 TextAssets enumerated) — grouping is hardcoded
+  in game code. Only screenshot-verified memberships ship: Exploration = the 5 exp lines + Hero Slot; Combat = Move
+  Speed, Attack Speed, Attack Damage. Everything else (gold/chest/cube/offline/inventory lines) is **omitted from the
+  grouped view** (raw totals still shown / runeStatList). The map lives in `STAT_LIST` in BOTH engines; the crew
+  payload sends `statList:[{k,v}]` (raw values; server whitelist = the same 9 keys in api/_lib.js).
+
 ### Three data lanes
 1. Save file — persistent state (inventory, gold, heroes, runes, lifetime aggregates). Robust. Have it.
 2. `Player.log` (same folder) — plaintext events: `OfflineReward` gold, `StageBox`/`Drop` loot, `ItemCache`
@@ -179,6 +198,9 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `src/engine/item_names_en.json` — 511 authoritative item names from the game.
 - `scripts/extract_icons.py` — read-only UnityPy extractor (Phase 2). Re-run to refresh icons after a game patch.
 - `dashboard.html` — premium multi-tab UI (11): **Overview / Party / Inventory / Loot / Runes / Advisor / Lifetime / Trends / Crew / Codex / Tips**.
+  **v1.0.11:** semantic-token design system with **light (default) + dark themes** (toggle in header; `tbh_theme`),
+  uniform card grids on shared track tokens, the game's grouped **Stat List** on Runes + Crew, and an in-app
+  ✨ **What's new** changelog modal (+ CHANGELOG.md, public).
   Animated hero GIFs, rarity-framed icon grid + enchant pips + tooltips (now incl. inherent stats + unique mods),
   per-hero equipped gear + skill chips, session gold/hr & kills/hr, rune tree (cheapest-next), lifetime stats +
   owned-by-rarity + kills-by-monster, History/Trends charts (SVG, from backups), Loot tab (boxes + offline rewards + save-diff drops).
@@ -190,6 +212,20 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S18 (v1.0.11)** — **visual revamp + the game's grouped Stat List + patch notes.** (1) **Design system:** semantic
+  tokens under `:root[data-theme="light"|"dark"]` — **light is the DEFAULT** (applied pre-paint in <head>; persisted
+  `tbh_theme`; 🌙/☀️ toggle in header .actions before #disconnectBtn); dark = the old navy palette re-mapped (dim text
+  lightened to #8491b6 for AA). NO raw hex in component CSS (tints = color-mix on tokens; legacy var names aliased in
+  :root); **WCAG AA verified programmatically in both themes** (test/_contrast.js); rarity hues canonical (lightness-
+  tuned on light). Uneven boxes fixed: shared `--track-*` grid tokens + auto-FILL + one `--s1..7`/radius scale +
+  flex-column cards; 11 tabs × {375,768,1280} × both themes = 0 overflow. (2) **Stat List (CALIBRATED — see VERIFIED
+  facts):** the in-game grouped Stat List IS the rune aggregate; `statListFull` in BOTH engines renders the 9
+  calibrated lines (Exploration 6 + Combat 3) with the game's own `AccountStat_*` template wording; grouped panel on
+  Runes (raw totals kept below); crew payload gained `statList` `{k,v}` (server-whitelisted to the 9 keys) → board
+  shows every member's grouped list + rank-by-stat; uncalibrated effects OMITTED from the grouped view. (3) **Patch
+  notes:** CHANGELOG.md at repo root + in-app ✨ "What's new" modal (embedded CHANGELOG const — works on file:// in
+  Electron) with a first-run dot via `tbh_lastSeenVersion`. KEEP IN SYNC at release: the CHANGELOG const in
+  dashboard.html, CHANGELOG.md, and the Release body.
 - **S17 (v1.0.10)** — rune **Stat List** (additive reading structurally proven: all 135 multi-level runes have
   constant per-level vals + rising costs; derivation shown in-UI; in-game-screen confirmation requested) on the
   Runes tab + top-6 as a crew flex line (server-whitelisted `runeStats`); crew members on older app versions get
@@ -249,12 +285,14 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.10 is SHIPPED everywhere** — desktop release (installer + latest.yml + blockmap; auto-update WORKS from
+1. **v1.0.11 is SHIPPED everywhere** — desktop release (installer + latest.yml + blockmap; auto-update WORKS from
    v1.0.6 on — older installs need one manual reinstall, see S13c),
    GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from
    the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project `tbh-crew-api`
-   under the fusiondatacompany team; Neon Postgres; DATABASE_URL in Vercel env only). To ship the NEXT version:
-   bump `package.json` + the `?v=` cache-bust, `npm run dist`, then `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml dist/*.blockmap --latest`.
+   under the fusiondatacompany team; Neon Postgres; DATABASE_URL in Vercel env only; redeployed for the v1.0.11
+   `statList` whitelist). To ship the NEXT version: bump `package.json` + `APP_VERSION` + the `?v=` cache-bust +
+   add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`, then
+   `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml dist/*.blockmap --latest`.
 2. **Optional:** move the crew API under the owner's `taskbarheroburat` Vercel project (attach Neon storage there →
    auto-injects DATABASE_URL → change the `CREW_API` constant in dashboard.html; ONE canonical API at a time or crews
    split); sign the installer (cert); deepen the Codex (recipes, set bonuses, drop rates); Clerk auth on the crew API.
@@ -264,7 +302,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.5 · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.11 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (team fusiondatacompany-projects, CLI `vercel --scope fusiondatacompany-projects`); env var
