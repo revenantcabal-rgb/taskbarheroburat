@@ -156,6 +156,14 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Session 11 — styling + solidifying UX (v1.0.2):**
+  • **Fixed a significant first-impression bug:** on first connect/demo the active tab-page stayed `.hidden` (gate was
+    showing), so the first paint was BLANK until a tab click. `render()` now toggles tab visibility (un-hides the active
+    tab). Affects browser AND Electron. The "empty tab" screenshots earlier were this + the rise-animation fade timing.
+  • **Accessibility:** global `:focus-visible` outline (var(--blue2)) on links/buttons/tabs/summary/inputs for keyboard nav.
+  • **Styling:** Overview suggestion strip fixed (`.ss-t`/`.ss-b` were inline → block + 2-line clamp); tab fade snappier
+    (`.tab-page` rise .35s→.26s). Full visual audit (all 9 tabs + connect screen, desktop + mobile) — cohesive premium look.
+  • **Responsive** re-verified @375: 0 horizontal overflow; flex card 2-up; connect steps/trouble-note wrap.
 - **Session 10 — connection blockers + flex + honest "no DPS" (v1.0.2):**
   • **Refresh no longer boots you out:** the picked folder/file handle is persisted in **IndexedDB** (`idbSet/idbGet`,
     store `handles`) and re-attached on reload by `restoreHandle()` — auto-resumes if `queryPermission`==='granted',

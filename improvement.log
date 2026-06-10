@@ -1,9 +1,19 @@
 # TBH HUD — improvement.log
-Updated 2026-06-11 (cowork, session 10). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
+Updated 2026-06-11 (cowork, session 11). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~43 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 9 tabs render vs the live save with 0 console errors.
+~45 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 9 tabs render vs the live save with 0 console errors.
+- Session 11 — styling + solidifying UX (visual audit across all 9 tabs + connect screen):
+  • FIX (significant first-impression bug): on first connect/demo the active tab-page stayed `.hidden` (the gate had
+    been showing), so the FIRST paint was a BLANK page until the user clicked a tab. render() now makes the active tab
+    visible — affects browser AND Electron. Verified a fresh ?demo load shows the Overview immediately.
+  • ACCESSIBILITY: added a clear `:focus-visible` outline on every interactive element (links/buttons/tabs/summary/
+    inputs) so keyboard users can see focus on the dark theme (mouse clicks stay ring-free). prefers-reduced-motion already honored.
+  • STYLING: fixed the Overview suggestion strip (title+body were inline spans mashed together → now block-level with
+    spacing + 2-line clamp); snappier tab transition (rise .35s→.26s). Visual audit confirmed a cohesive premium look
+    across Overview/Party/Inventory/Loot/Runes/Lifetime/Trends/Codex/Tips + the connect screen, desktop + mobile.
+  • RESPONSIVE re-verified at 375: 0 horizontal overflow; flex card 2-up; suggestion strip clamps; connect steps + trouble note wrap.
 - Session 10 — connection blockers + flex + honest "no DPS" (owner's friend was blocked from using it at all):
   • REFRESH NO LONGER BOOTS YOU OUT: the picked folder/file handle is persisted in IndexedDB and re-attached on reload
     — auto-resumes if permission is still granted, else a one-click "Reconnect" box on the connect screen. Disconnect
