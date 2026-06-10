@@ -8,3 +8,4 @@ dist/
 *.bak
 test/
 scripts/_gamedata_raw/
+!improvement.log

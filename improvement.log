@@ -1,0 +1,51 @@
+# TBH HUD — improvement.log
+Updated 2026-06-10 (cowork). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
+
+## WHERE WE ARE (verified vs repo + live save — not claimed)
+17 commits. Read-only, calibrated, shippable. All 7 tabs render vs the live save with 0 console errors.
+- Phase 2 — full game art: 535 item icons (src/assets/sprites) + 39 rune icons; 100% of owned items resolve a real icon.
+- Phase 3 — premium dashboard: Overview / Party / Inventory / Loot / Runes / Lifetime / Trends. Animated hero GIFs,
+  rarity-framed icon grid + enchant pips + tooltips (inherent gear stats + unique mods), per-hero gear + skill chips,
+  session gold/hr & kills/hr, rune tree (cheapest-next), lifetime/difficulty/rarity charts.
+- Authoritative data (NO guessing): found the game's own CSV TextAssets in sharedassets0 (ItemInfoData 5944 rows,
+  GearInfoData, StatModInfoData, RuneInfoData, SkillInfoData, +). Names/rarity/enchant/rune/skill names all calibrated.
+  RARITY = itemKey 3rd digit, validated 5760/5760 vs ItemInfoData GRADE. 342041 confirmed "Complete Crossbow".
+  Built by scripts/build_gamedata.py -> src/engine/gamedata.min.json (5944 items, 5440 gear, 62 stats, 36 skills, 197 runes);
+  en-US localization committed at src/engine/localization.min.json.
+- Phase 5 — Player.log loot: Steam boxes held (real DB names), offline-reward gold (real timestamps), save-diff drop
+  timeline (timestamped). No fabricated 12-min blue-chest timer (no 720s in DropCooldown).
+- Phase 6 — History/Trends: charts lifetime gold/kills/max-stage + gold/hr-by-interval from the game's own save backups.
+- "Who's carrying" v1: honest gear-strength ranking on Overview (save-only, labeled a proxy — NOT live DPS).
+- Read-only re-audited: zero writes/injection to game/save/memory. verify_save.js passes (40 items, 0 unresolved names, 100% icons).
+
+## ADJUSTED NEXT GOAL (this is what the next autonomous run does — missions #2 + #3, alternate so app stays shippable)
+### #2 FULL "who's carrying" source breakdown (save-only, no ban risk) — extends the shipped gear-ranking
+Per deployed hero, split build power by source and show each contribution:
+- Base: HeroInfoData (per HeroKey: AttackDamage/AttackSpeed/CastSpeed/Crit/CritDmg/MaxHp/Armor/CDR/MoveSpeed + HeroName_/main weapon).
+- Tree: AttributeInfoData joined to the save's attributeSaveDatas (per-hero levels) + unlockedAttributeGroupKeys; + PassiveSkillInfoData.
+- Gear: DB.gear inherent stats + item enchants (already built).
+- Runes (DB.runes) + Pet: PetInfoData (PetKey -> name/effect) via save ArrangedPetKey.
+Add hero/attribute/passive/pet maps to build_gamedata.py; rebuild; mirror in saveEngine.js + the inline engine. Render a
+per-hero breakdown on the Party tab (e.g. "Priest: base / gear / tree / runes / pet"). LABEL it gear/build-based power,
+NOT live DPS. Tables have NO hero XP/level curve -> do NOT promise XP-to-next/ETA; the hero-card xp bar is a level/20 proxy
+-> relabel honestly or drop it.
+### #3 Loot & lifetime depth (save+log only, safe)
+- Rare-drop alerts: highlight Legendary+ in the loot timeline + optional opt-in desktop Notification (no sound by default).
+- Active pet card: resolve save ArrangedPetKey -> PetInfoData name+effect.
+- Decode more aggregateSaveDatas: Type 0 subkeys (10011/10021-10023/10031/10041-10053/20011-20091), Type 4/5/7 sub 0-4,
+  Type 10/15. CALIBRATE each against a known delta before labeling; if unconfirmed show honest "counter #N", never a guess.
+  Surface confirmed ones on Lifetime.
+
+## DEFERRED — golden rule, leave a note not a guess
+Live DPS / combat memory reading; per-act gold/hr (needs memory); Steam Market value (Inventory Service throttled/empty this
+build); 12-min blue-chest timer (no 720s in DropCooldown); stage-box drop contents (ItemGroup GroupNames are Korean).
+
+## GOLDEN RULE
+An additional helper, never game-breaking. Read-only always (CodeStage [ACTk] anti-cheat). No fabricated data — every label
+calibrated from the game's own tables/localization; honest fallback or omit. Verify EVERY change vs the LIVE save (Node +
+headless browser, all 7 tabs, 0 console errors). QoL only.
+
+## CONFIDENCE 9/10
+Next exact step: add hero/attribute/passive/pet maps to scripts/build_gamedata.py, rebuild gamedata.min.json, surface the
+per-hero source breakdown on the Party tab, verify vs the live save, commit + push.
