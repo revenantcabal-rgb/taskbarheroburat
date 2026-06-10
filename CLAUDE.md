@@ -174,20 +174,26 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Bug fixed:** hero cards silently dropped level/XP/gear-meta — `el(html)` returned only `t.content.firstChild`,
   so the 4-sibling heroCard block lost `.lvl/.xpbar/.meta` on every hero (demo + live). Added `frag()`; fixed.
 - **scripts/verify_save.js:** read-only Node harness (decrypt+parse a real .es3, print snapshot + fabrication/icon
-  coverage audit). Live save: 40 items, 0 unresolved names, 100% icons.
+  coverage audit). Live save: 0 unresolved names, 100% icons.
+- **Full "who's carrying" source breakdown (#2):** per deployed hero on Party, factual stat contributions by source —
+  Base (HeroInfoData innate) / Gear (inherent+enchants) / Tree (leveled passives + active skills) + an account-wide
+  panel (runes + active pet). New DB maps: heroes(+base), attributes(132), passives(108), pets(8). Labeled gear/build
+  power, NOT live DPS; no fabricated composite %. Mirrored in saveEngine. (XP-to-next NOT shown — no level curve in tables.)
+- **Loot & lifetime depth (#3):** active-pet card (PetInfoData → Dragon etc.); rare-drop alerts (Legendary+ ★ + opt-in
+  silent Notification, OFF by default); **calibrated kills-by-monster** on Lifetime — aggregate Type-0 sub-counters are
+  per-MonsterKey kills, VALIDATED to sum exactly to total kills (26 types, 0 unnamed). New DB.monsters (61). Other
+  undecoded aggregate Types are omitted, not guessed.
 
 ## Next (priority order) — full acceptance criteria in docs/PRD.md
-1. **"Who's carrying" source breakdown (save-only, SAFE):** per-hero contribution by source (base / gear / runes /
-   enchants / pet). We now have inherent gear stats + enchants + equipped skills per hero; AttributeInfoData/
-   PassiveSkillInfoData (hero trees) are extracted but not yet surfaced. An HONEST gear-power proxy (sum of equipped
-   item levels/rarity/inherent stats) is computable without combat data — label it a proxy, not DPS.
-2. **Phase 7 — Packaging:** NSIS installer + GitHub auto-update + GitHub Pages browser build. NOTE: electron-builder
-   hits a winCodeSign symlink error on Windows — extract only `windows\*` from the winCodeSign cache, or build with
-   Developer Mode / elevated. (Pages: serve the repo root; `Connect folder` needs HTTPS or localhost.)
-3. **Phase 4 — Live telemetry (CAUTION):** own read-only memory reader -> per-run DPS, clear time, gold/s, xp/s,
+1. **Real-run verification + Phase 7 packaging:** the Electron app + browser `Connect folder` flow are verified only by
+   code + a mock dir handle so far — launch them for real (`npm start`; real folder pick), fix anything live. Then NSIS
+   installer + GitHub auto-update + GitHub Pages. NOTE: electron-builder hits a winCodeSign symlink error on Windows —
+   extract only `windows\*` from the winCodeSign cache, or build with Developer Mode / elevated. (Pages: serve repo root;
+   `Connect folder` needs HTTPS or localhost.) **This is the blocker to friends actually using it.**
+2. **Phase 4 — Live telemetry (CAUTION):** own read-only memory reader -> per-run DPS, clear time, gold/s, xp/s,
    gold/hr & xp/hr PER ACT, per-hero DPS share. READ-ONLY only — no writing/injecting (CodeStage `[ACTk]` anti-cheat
    confirmed in Player.log). If ANY ban-safety doubt, DO NOT build it — the save+log lanes already cover most metrics.
-4. **Phase 8 (optional)** — private friends leaderboard.
+3. **Phase 8 (optional)** — private friends leaderboard.
 
 ### Deferred / deliberately NOT built (golden rule)
 - **Stage-box drop contents (task #9-1):** DropKey -> DropInfoData -> ItemGroupInfoData resolves, but ItemGroup

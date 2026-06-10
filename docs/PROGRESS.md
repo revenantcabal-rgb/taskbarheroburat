@@ -6,7 +6,7 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · 🔵 next (planned in SESSION-GOAL) · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-10, after session 2 (commit `11a1ec7`)._
+_Last updated: 2026-06-10, after session 3 — shipped #2 (full who's-carrying breakdown) + #3 (loot/lifetime depth)._
 
 ## Goal list (PRD §3) — where each goal stands
 | # | Goal | Status | Notes / where it landed |
@@ -16,10 +16,10 @@ _Last updated: 2026-06-10, after session 2 (commit `11a1ec7`)._
 | 3 | XP: xp/hr (live+per act); per-hero XP **+ ETA to next level** | ⛔ | No xp/hr (memory). ETA not feasible — **no hero level/XP curve in the game tables**. |
 | 4 | Clear time (per run, per stage/act) | ⛔ | Needs live combat (memory lane). Deferred for ban-safety. |
 | 5 | Live combat: DPS, dmg, mobs, gold/s, xp/s, overlay | ⛔ | Memory lane → ban risk. **Deliberately not built.** |
-| 6 | Per-hero perf + "who's carrying" + **WHY (source breakdown)** | 🟡 | Gear-strength ranking ✅ this session. **Full source breakdown 🔵 = SESSION-GOAL #2.** DPS share ⛔ (memory). |
-| 7 | Loot timeline: timestamped, rarity+source, **rare alerts** | 🟡 | Save-diff + offline-reward timeline w/ real timestamps ✅. **Rare alerts 🔵 = SESSION-GOAL #3.** Per-source ⛔. |
+| 6 | Per-hero perf + "who's carrying" + **WHY (source breakdown)** | ✅ | Full source breakdown shipped: per deployed hero, factual stats by Base/Gear/Tree + account-wide runes/pet. Live DPS share ⛔ (memory). |
+| 7 | Loot timeline: timestamped, rarity+source, **rare alerts** | 🟡 | Timeline + offline rewards + **rare-drop alerts** (Legendary+ ★ + opt-in notify) ✅. Per-source attribution ⛔ (live drops not logged by the game). |
 | 8 | Steam Market value for tradeables | ⛔ | Steam Inventory Service throttled/empty in this build (`CreateSteamItem … items is empty`). |
-| 9 | Lifetime stats: kills, gold, per-difficulty **+ other aggregates** | 🟡 | Kills/gold/per-difficulty ✅. **Remaining aggregate counters 🔵 = SESSION-GOAL #3.** |
+| 9 | Lifetime stats: kills, gold, per-difficulty **+ other aggregates** | ✅ | Kills/gold/per-difficulty ✅ + **calibrated kills-by-monster** (Type-0 subs sum == total kills). A few other aggregate Types remain unconfirmed → omitted, not guessed. |
 | 10 | History / trends over time | ✅ | Trends tab from rolling save backups (session 2). |
 | 11 | Runes: 197-node tree, names, leveled, cheapest-next | ✅ | Rune tab. |
 | 12 | Blue-chest / cooldown tracker | ⛔ | 12-min cadence uncalibrated (no 720s in DropCooldown). Box **counts** surfaced instead. |
@@ -40,7 +40,7 @@ _Last updated: 2026-06-10, after session 2 (commit `11a1ec7`)._
 | 2 — Full game art | ✅ | 535 item + 39 rune icons. |
 | 3 — Premium UI | ✅ | multi-tab dashboard. |
 | 4 — Live telemetry | ⛔ | Memory lane → ban risk. Deferred indefinitely unless a provably-safe read exists. |
-| 5 — Loot timeline + alerts + market + blue-chest | 🟡 | Timeline + boxes + offline rewards ✅; rare alerts 🔵; market ⛔; blue-chest ⛔. |
+| 5 — Loot timeline + alerts + market + blue-chest | 🟡 | Timeline + boxes + offline rewards + rare-drop alerts ✅; market ⛔; blue-chest ⛔. |
 | 6 — History / trends | ✅ | Trends tab (session 2). |
 | 7 — Packaging + distribution | ⛔ | **Not started.** NSIS installer (winCodeSign fix) + Pages + auto-update. |
 | 8 — Friends leaderboard | ⛔ | Optional. Not started. |
@@ -53,10 +53,11 @@ _Last updated: 2026-06-10, after session 2 (commit `11a1ec7`)._
 - **Hero XP-to-next-level / ETA** — no level/XP curve exists in the extracted game tables.
 
 ## Current health
-- **No console errors** vs live save AND demo across all 7 tabs (re-verified vs the freshest save).
-- Read-only confirmed; data calibrated; local = remote.
-- **Confidence: 8.5/10.** Deductions: the Electron app and the browser `Connect folder` native dialog were verified by code-reading + a mock handle, not a real end-to-end run; screenshot tool times out on the animated UI (tooling, not app).
+- **No console errors** vs live save AND demo across all 7 tabs (re-verified vs the freshest save + full folder path).
+- Read-only confirmed; all new data calibrated (kills-by-monster sum == total kills; source breakdown matches per hero; Node+browser parity); local = remote.
+- **Confidence: 9/10.** Deduction: the Electron app and the browser `Connect folder` *native dialog* were verified by code-reading + a mock directory handle, not a real end-to-end run; no installer/Pages yet; screenshot tool times out on the animated UI (tooling, not app).
 
 ## Next step
-Per [SESSION-GOAL.md](SESSION-GOAL.md): ship **#2 full who's-carrying source breakdown** + **#3 loot & lifetime depth**.
-After that, the highest-leverage move is **Phase 7 (real-run verification + packaging)** so friends can actually use it.
+**#2 + #3 are shipped.** Highest-leverage next move: **real-run verification + Phase 7 packaging** — launch the Electron app
+(`npm start`) and the browser `Connect folder` flow for real, fix anything live, then build the NSIS installer
+(winCodeSign fix) + deploy GitHub Pages so friends can use it. See [SESSION-GOAL.md](SESSION-GOAL.md) / [improvement.log](../improvement.log).
