@@ -15,9 +15,16 @@ items 5944: name 100%, icon 100%, grade 100% of gear. materials 125 (115 with de
 => EVERY unseen endgame item is ALREADY in the DB. The low-level live save only verifies the ~50 OWNED.
 The game ships only 115 ItemDescription strings (gear has NO flavor text — it's defined by STATS we already have): show desc
 where it exists, stats/effects otherwise, honest "no description" — never a guess.
-NOT yet: full-catalog Codex + audit; offline-cap timer + OfflineRewardInfoData dump; real end-to-end run; installer/Pages.
+NOT yet: offline-cap timer + OfflineRewardInfoData dump; real end-to-end run; installer/Pages.
 
-## PHASE A — FULL-CATALOG CODEX + AUDIT  (owner's #1 ask — START HERE)
+## PHASE A — FULL-CATALOG CODEX + AUDIT  ✅ DONE (session 4)
+Shipped: virtualized Codex tab (6177 entries: 5944 items + 197 runes + 36 skills), filters (category/rarity/gearType/
+search/sort) + owned-only toggle, owned markers, per-entry detail (desc/inherent stats/unique mod/material fx/rune
+per-level/marketable). Drop chain calibrated into DB.drops (DropInfoData->ItemGroupInfoData): box contents + reverse
+"drops from"; Korean ItemGroup names omitted. scripts/audit_catalog.js asserts 100% name+icon over 6177. Works with no
+save (?codex). Verified vs the live save (Node audit + headless browser, all 8 tabs, 0 console errors).
+
+### Original Phase A spec (for reference)
 1. New "Codex" tab: browsable grid of the ENTIRE catalog (all 5944 items + 197 runes + 36 skills + 125 materials), each with
    real icon + name + rarity + level + type, INDEPENDENT of ownership. Mark owned vs not-owned.
 2. Filters + search: type / gearType / rarity (Common..Cosmic) + name search; sort by rarity/level. Virtualize or paginate the

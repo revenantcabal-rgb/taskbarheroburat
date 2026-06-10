@@ -1,9 +1,18 @@
 # TBH HUD — improvement.log
-Updated 2026-06-10 (cowork). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-10 (cowork, session 4). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~23 commits. Read-only, calibrated, shippable. All 7 tabs render vs the live save with 0 console errors.
+~24 commits. Read-only, calibrated, shippable. All 8 tabs render vs the live save with 0 console errors.
+- Phase A DONE — full-catalog CODEX (owner's #1 ask): new virtualized "Codex" tab browsing the game's ENTIRE
+  catalog (5944 items + 197 runes + 36 skills = 6177 entries), independent of ownership; owned marked ✓.
+  Filters (category/rarity/gearType/search/sort) + owned-only toggle; windowed grid (renders only visible rows).
+  Per-entry detail modal: desc (or honest "defined by stats" for gear), inherent stats + unique mod, material
+  socket effects, rune per-level value/cost table, marketable/Steam flags, DROP SOURCES + BOX CONTENTS. The drop
+  chain is calibrated from the game's DropInfoData -> ItemGroupInfoData (DB.drops, 41 box DropKeys, 5554 member
+  refs, all resolve); Korean ItemGroup names omitted. Works with NO save loaded (?codex / gate link). New audit
+  scripts/audit_catalog.js asserts 100% name + 100% icon across all 6177 (name 99.83% from the game + 10 honest
+  fallbacks). Verified vs the live save: owned markers reconcile exactly (37 items + 56 runes + 9 named skills).
 - Phase 2 — full game art: 535 item icons + 39 rune icons; 100% of owned items resolve a real icon.
 - Phase 3 — premium dashboard: Overview / Party / Inventory / Loot / Runes / Lifetime / Trends. Animated hero GIFs,
   rarity-framed icon grid + enchant pips + tooltips (inherent gear stats + unique mods), per-hero gear + skill chips.
@@ -23,15 +32,12 @@ Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md,
 - Read-only re-audited: zero writes/injection to game/save/memory. verify_save.js passes (0 unresolved names, 100% icons).
 
 ## NEXT GOAL (owner's full per-phase roadmap is docs/GOAL.md)
-1. Phase A — full-catalog CODEX (owner's stated #1 ask): browsable grid of the ENTIRE catalog (all 5944 items + runes +
-   skills + materials) with real name/icon/rarity/effects, independent of ownership; mark owned vs not; + a full-catalog
-   render audit (extend scripts/verify_save.js to assert 100% name+icon across all 5944, not just owned).
-2. Phase B — offline-cap timer: dump OfflineRewardInfoData; show time-until-cap from save lastSavedTime, calibrated vs the
-   Player.log [OfflineReward] deltas (do NOT assume 8h).
-3. Real-run verification + Phase 7 packaging: launch the Electron app (npm start) + the real browser Connect-folder flow
+1. Phase B — offline-cap timer: dump OfflineRewardInfoData (extend dump_textassets.py); show time-until-cap from save
+   lastSavedTime, calibrated vs the Player.log [OfflineReward] deltas (do NOT assume 8h). Mirror in both engines.
+2. Real-run verification + Phase 7 packaging: launch the Electron app (npm start) + the real browser Connect-folder flow
    (both verified so far only by code + a mock dir handle); fix anything live; then NSIS installer (winCodeSign fix) +
    GitHub Pages. Blocker to real-world use.
-4. (deferred/caution) per-act gold/hr + live DPS need the memory lane — don't build unless provably ban-safe.
+3. (deferred/caution) per-act gold/hr + live DPS need the memory lane — don't build unless provably ban-safe.
 
 ## DEFERRED — golden rule, leave a note not a guess
 Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & clear-time (need memory); Steam Market
@@ -45,7 +51,8 @@ label calibrated from the game's own tables/localization; honest fallback or omi
 (Node + headless browser, all 7 tabs, 0 console errors). QoL only.
 
 ## CONFIDENCE 9/10
-All new data calibrated against the live save (kills-by-monster sum == total kills; source breakdown matches per hero;
-Node + browser parity). Deduction: the Electron app + the browser Connect-folder NATIVE dialog were exercised by code +
-a mock directory handle, not a real end-to-end run; no installer/Pages yet.
-Next exact step: run Electron (npm start) + the real Connect-folder flow, fix anything live, then start Phase 7 packaging.
+All new data calibrated against the live save (Codex owned-markers reconcile exactly; drop chain resolves 5554/5554;
+audit 100% name+icon over 6177; kills-by-monster sum == total kills; Node + browser parity). Deduction: the Electron app
++ the browser Connect-folder NATIVE dialog were exercised by code + a fetch of the live-save fixture, not a real native
+end-to-end run; offline timer (Phase B) not built yet; no installer/Pages yet.
+Next exact step: Phase B offline-cap timer (dump OfflineRewardInfoData, calibrate vs Player.log), then Phase 7 packaging.

@@ -136,7 +136,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   `runes` (197, per-level effects+costs+tree). Rebuilt by `scripts/build_gamedata.py` from the game's own tables.
 - `src/engine/item_names_en.json` — 511 authoritative item names from the game.
 - `scripts/extract_icons.py` — read-only UnityPy extractor (Phase 2). Re-run to refresh icons after a game patch.
-- `dashboard.html` — premium multi-tab UI: **Overview / Party / Inventory / Loot / Runes / Lifetime / Trends**.
+- `dashboard.html` — premium multi-tab UI: **Overview / Party / Inventory / Loot / Runes / Lifetime / Trends / Codex**.
   Animated hero GIFs, rarity-framed icon grid + enchant pips + tooltips (now incl. inherent stats + unique mods),
   per-hero equipped gear + skill chips, session gold/hr & kills/hr, rune tree (cheapest-next), lifetime/difficulty/
   rarity charts, History/Trends charts (SVG, from backups), Loot tab (boxes + offline rewards + save-diff drops).
@@ -148,6 +148,17 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Phase A — full-catalog Codex (owner's #1 ask):** new virtualized **Codex** tab browsing the game's ENTIRE catalog
+  (5944 items + 197 runes + 36 skills = 6177 entries), independent of ownership; owned items/runes/skills marked ✓.
+  Filters (category/rarity/gearType/name+ID search), sort (rarity/level/name/id), owned-only toggle; windowed grid
+  renders only visible rows (smooth at 6k). Per-entry detail modal: description (or honest "defined by stats" for gear),
+  inherent stats + unique mod, material socket effects, rune per-level value/cost table, marketable/Steam flags,
+  **drop sources** + **box contents**. Drop chain baked by `build_gamedata.py` into `DB.drops` (box `DropKey` →
+  member `ItemKeys` via DropInfoData→ItemGroupInfoData; 41 keys, 5554 refs, all resolve; Korean ItemGroup names
+  omitted). `boxContents()`/`dropSources()` mirrored in saveEngine.js; `analyze()` exposes `ownedSkills`. Works with
+  NO save (`?codex` / gate link — the DB is the game's master catalog, not the inventory). New `scripts/audit_catalog.js`
+  asserts 0 missing name + 0 missing icon over all 6177 (name 99.83% from the game + 10 honest fallbacks; icon 100%).
+  Verified vs the live save (Node + headless): owned markers reconcile exactly (37 items + 56 runes + 9 named skills), 0 console errors.
 - **Phase 2 (full game art):** 535 item icons + 39 rune icons extracted; every owned save item resolves to a real icon (100%).
 - **Phase 3 (premium UI):** multi-tab dashboard that beats tbh-meter/tbh-copilot, verified vs the live save.
 - **Authoritative names + localization:** found the game's own data tables (sharedassets0 TextAssets); item names,
@@ -196,10 +207,10 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 3. **Phase 8 (optional)** — private friends leaderboard.
 
 ### Deferred / deliberately NOT built (golden rule)
-- **Stage-box drop contents (task #9-1):** DropKey -> DropInfoData -> ItemGroupInfoData resolves, but ItemGroup
-  `GroupName`s are Korean (only the member ItemKeys resolve to EN names) and the drop tables are large
-  weighted/conditional (per-hero) sets. Showing a box's full contents would be noisy or need Korean labels; left
-  as a note rather than shipping something low-value/ambiguous. Box keys/names + counts ARE surfaced (Loot tab).
+- **Stage-box drop contents (task #9-1):** ✅ NOW SHIPPED in the Codex — DropKey -> DropInfoData -> ItemGroupInfoData ->
+  member ItemKeys -> EN names ("Box can contain […]") + the reverse "Drops from […]" per item, baked into `DB.drops`.
+  The Korean ItemGroup `GroupName` is omitted (never guessed). Per-source drop *rates* (the weighted/conditional,
+  per-hero weights) are still NOT shown — optional, would need careful interpretation; the contents list is unweighted.
 - **Per-act gold/hr (PRD #2) + live DPS (#5):** need the memory lane (which stage gold/xp is attributed to).
   Save+log give gold/hr over TIME (Trends) but can't attribute it per act. Pending Phase 4 (caution).
 - **Steam Market value (PRD #8):** the Steam Inventory Service is throttled/empty in this build (Player.log shows
