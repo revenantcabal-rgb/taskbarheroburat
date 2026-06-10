@@ -1,3 +1,7 @@
+> HISTORICAL — this #2 / #3 session brief is DONE (shipped: full who's-carrying source breakdown + loot/lifetime depth + rune panel).
+> The CURRENT goal is docs/GOAL.md (next pending: Phase A full-catalog Codex, then B offline-cap timer, then 7 packaging).
+> Kept only as a trace of a completed session.
+
 Pick up TBH HUD - READ-ONLY companion for "TBH: Task Bar Hero". Work autonomously 2-3h, no stopping; don't ask unless truly blocked. Commit + push continuously; keep local = remote.
 ORIENT: Repo root D:\Task Bar Hero - Github MOD\Task Bar Hero Github (TBH-Github). READ CLAUDE.md + docs/PRD.md + improvement.log in full; skim git log + docs/PROGRESS.md. GitHub revenantcabal-rgb/taskbarheroburat (authed). Live save %USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\SaveFile_Live.es3. Game tables scripts/_gamedata_raw/*.txt; en-US src/engine/localization.min.json; DB src/engine/gamedata.min.json (rebuild via scripts/build_gamedata.py). Preview: server root = repo, http://127.0.0.1:8778/dashboard.html (?demo). Engine check: node scripts/verify_save.js. Refresh test/ (gitignored) from the live folder for headless checks.
 GOLDEN RULE (non-negotiable): an additional helper, never game-breaking. Read-only always - never write/inject game/save/memory ([ACTk] CodeStage anti-cheat). NO fabricated data - every label calibrated from the game's own tables/localization; honest fallback or omit. Verify EVERY change vs the LIVE save (Node + headless browser, all 7 tabs, 0 console errors). QoL only.
