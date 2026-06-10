@@ -430,14 +430,41 @@ function miniBars(vals,opts){
 /* ---------- loot tracking (persisted) ---------- */
 var lastUids=null, lootLog=[];
 try{var ls=localStorage.getItem('tbh_loot');if(ls){var o=JSON.parse(ls);lootLog=o.log||[];lastUids=o.uids?new Set(o.uids):null;}}catch(e){}
-function processLoot(owned){
+function processLoot(owned,ts){
   var uids=new Set(owned.map(function(o){return o.uid;}));
   if(lastUids===null){lastUids=uids;persistLoot();return;}
   var fresh=owned.filter(function(o){return !lastUids.has(o.uid);});
-  if(fresh.length){fresh.forEach(function(f){lootLog.unshift({t:Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl});});lootLog=lootLog.slice(0,120);}
+  // timestamp new drops with the save's own lastSavedTime when available (more accurate than wall-clock)
+  if(fresh.length){fresh.forEach(function(f){lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl});});lootLog=lootLog.slice(0,120);}
   lastUids=uids;persistLoot();
 }
 function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uids:Array.from(lastUids)}));}catch(e){}}
+
+/* ---------- Player.log parsing (read-only; same folder as the save) ----------
+   The game logs little loot directly (live drops go straight to the save), but it DOES log
+   timestamped offline-reward gold and current Steam-box counts. We surface those honestly and
+   do NOT invent any drop/cooldown the log doesn't contain. */
+var logData={offline:[],boxes:{}};
+function parseLog(text){
+  var lines=String(text||'').split(/\r?\n/), offline=[], boxes={}, ts=null;
+  for(var i=0;i<lines.length;i++){var ln=lines[i];
+    if(ln.indexOf('[OfflineReward]')>=0){
+      var mNow=ln.match(/now=(\d{9,})/); if(mNow) ts=parseInt(mNow[1],10)*1000;
+      var mG=ln.match(/gold=(\d+)/); if(mG&&ts){offline.push({t:ts,gold:parseInt(mG[1],10)}); ts=null;}
+    } else if(ln.indexOf('GetBoxCount')>=0){
+      var mb=ln.match(/Count\s*:\s*(\d+)\s*\/\/\s*ItemKey\s*:\s*(\d+)/); if(mb) boxes[mb[2]]=parseInt(mb[1],10);
+    }
+  }
+  return {offline:offline, boxes:boxes};
+}
+function setLog(texts){
+  var off=[], boxes={};
+  (texts||[]).forEach(function(t){var r=parseLog(t); off=off.concat(r.offline); Object.keys(r.boxes).forEach(function(k){boxes[k]=r.boxes[k];});});
+  // dedup offline events by timestamp, newest first
+  var seen={}; off=off.filter(function(o){var k=o.t+'/'+o.gold; if(seen[k])return false; seen[k]=1; return true;}).sort(function(a,b){return b.t-a.t;});
+  logData={offline:off, boxes:boxes};
+  if(activeTab==='loot'&&current) renderLoot(current);
+}
 
 /* ---------- icon element with graceful fallback ---------- */
 function iconImg(icon,cls){
@@ -617,8 +644,35 @@ function renderInventory(d){
 
 function renderLoot(d){
   var p=$('tab-loot');p.innerHTML='';
-  p.appendChild(el('<h3 class="sec">Loot timeline <span class="tag">new drops captured while HUD is open</span></h3>'));
-  if(!lootLog.length){p.appendChild(el('<div class="empty">Watching for drops… new items appear here with a timestamp and rarity as you play.</div>'));return;}
+
+  // Steam boxes currently held (from Player.log GetBoxCount) — names resolved authoritatively from the DB
+  var boxKeys=Object.keys(logData.boxes||{}).filter(function(k){return logData.boxes[k]>0;});
+  if(boxKeys.length){
+    p.appendChild(el('<h3 class="sec">Steam boxes held <span class="tag">from Player.log · tradeable on Steam</span></h3>'));
+    var bgrid=el('<div class="grid cards"></div>');
+    boxKeys.sort().forEach(function(k){
+      var info=itemInfo(k); var nm=(info.name&&info.name.charAt(0)!=='#')?info.name:('Box '+k);
+      bgrid.appendChild(el(card(nm,'×'+fmt(logData.boxes[k]),'',(info.grade?cap(info.grade)+' ':'')+'box','📦')));
+    });
+    p.appendChild(bgrid);
+  }
+
+  // Offline rewards (timestamped gold from Player.log) — real game timestamps
+  if(logData.offline&&logData.offline.length){
+    p.appendChild(el('<h3 class="sec">Offline rewards <span class="tag">gold granted while away · from Player.log</span></h3>'));
+    var orows=logData.offline.slice(0,20).map(function(o){
+      return '<tr><td class="loot-time">'+new Date(o.t).toLocaleString()+'</td><td class="r"><b style="color:var(--gold)">+'+fmt(o.gold)+'</b> gold</td></tr>';
+    }).join('');
+    p.appendChild(el('<div class="panel"><table><thead><tr><th>When</th><th class="r">Reward</th></tr></thead><tbody>'+orows+'</tbody></table></div>'));
+  }
+
+  // Save-diff drop timeline — real items detected between save reads (live drops aren't in the game log)
+  p.appendChild(el('<h3 class="sec">Drop timeline <span class="tag">new items detected from your save</span></h3>'));
+  if(!lootLog.length){
+    p.appendChild(el('<div class="empty">Watching for drops… new items appear here with a timestamp and rarity as you play.<br>'+
+      '<span style="font-size:11.5px">Live combat drops aren\'t written to the game\'s log, so the HUD detects them from changes to your save file.</span></div>'));
+    return;
+  }
   var rows=lootLog.slice(0,80).map(function(l){
     var t=new Date(l.t);
     return '<tr><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
@@ -779,7 +833,7 @@ function render(d){
 async function onBytes(buf){
   try{
     var d=analyze(loadInner(await decryptSave(buf)));
-    processLoot(d.owned);
+    processLoot(d.owned, d.lastSaved?+d.lastSaved:Date.now());
     render(d);
     $('dot').className='dot live';$('statusText').textContent='reading your save';
   }catch(e){
@@ -805,18 +859,24 @@ async function connectFolder(){
 async function scanFolder(full){
   if(!dirHandle)return;
   try{
-    var liveH=null,backups=[];
+    var liveH=null,backups=[],logs=[];
     for await(var entry of dirHandle.values()){
       if(entry.kind!=='file')continue;
       if(entry.name==='SaveFile_Live.es3')liveH=entry;
       if(/\.es3(\.bak)?$/i.test(entry.name))backups.push(entry);
+      if(/^Player(-prev)?\.log$/i.test(entry.name))logs.push(entry);
     }
     if(liveH){var lf=await liveH.getFile();if(lf.lastModified!==liveMod){liveMod=lf.lastModified;await onBytes(await lf.arrayBuffer());}}
-    // rebuild trends on first load, when viewing the Trends tab, or ~once a minute (new backups appear periodically)
-    if(full||activeTab==='trends'||(scanTick++%12===0)){
+    var periodic=(scanTick++%12===0);   // ~once a minute; new backups/log lines appear periodically
+    if(full||periodic||activeTab==='trends'){
       var list=[];
       for(var i=0;i<backups.length;i++){try{var bf=await backups[i].getFile();list.push({name:backups[i].name,buf:await bf.arrayBuffer()});}catch(e){}}
       await setTrendsFromBuffers(list);
+    }
+    if(full||periodic||activeTab==='loot'){
+      var texts=[];
+      for(var j=0;j<logs.length;j++){try{var gf=await logs[j].getFile();texts.push(await gf.text());}catch(e){}}
+      if(texts.length) setLog(texts);
     }
   }catch(e){console.error('scanFolder',e);}
 }
@@ -837,8 +897,10 @@ if(window.tbhNative&&window.tbhNative.onSave){
   if(window.tbhNative.onBackups)window.tbhNative.onBackups(function(list){
     setTrendsFromBuffers((list||[]).map(function(x){return {name:x.name,buf:x.buf};}));
   });
+  if(window.tbhNative.onLog)window.tbhNative.onLog(function(texts){setLog(texts);});
   if(window.tbhNative.requestSave)window.tbhNative.requestSave();
   if(window.tbhNative.requestBackups)window.tbhNative.requestBackups();
+  if(window.tbhNative.requestLog)window.tbhNative.requestLog();
 }
 Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
   b.addEventListener('click',function(){setTab(b.dataset.tab);});

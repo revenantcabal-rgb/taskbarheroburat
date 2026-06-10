@@ -4,5 +4,7 @@ contextBridge.exposeInMainWorld('tbhNative', {
   onSave: (cb) => ipcRenderer.on('save-bytes', (_e, buf) => cb(buf)),
   requestSave: () => ipcRenderer.send('request-save'),
   onBackups: (cb) => ipcRenderer.on('backup-bytes', (_e, list) => cb(list)),
-  requestBackups: () => ipcRenderer.send('request-backups')
+  requestBackups: () => ipcRenderer.send('request-backups'),
+  onLog: (cb) => ipcRenderer.on('log-text', (_e, texts) => cb(texts)),
+  requestLog: () => ipcRenderer.send('request-log')
 });

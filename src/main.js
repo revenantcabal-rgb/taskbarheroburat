@@ -41,16 +41,29 @@ function sendBackups() {
   });
 }
 
+// Read Player.log + Player-prev.log (offline-reward gold + Steam-box counts). Read-only.
+function sendLog() {
+  const texts = [];
+  for (const f of ['Player.log', 'Player-prev.log']) {
+    try { texts.push(fs.readFileSync(path.join(SAVE_DIR, f), 'utf8')); } catch (e) { /* skip */ }
+  }
+  if (texts.length && win && !win.isDestroyed()) win.webContents.send('log-text', texts);
+}
+
 app.whenReady().then(() => {
   createWindow();
   let debounce = null, bDebounce = null;
   try {
+    let lDebounce = null;
     fs.watch(SAVE_DIR, (evt, file) => {
       if (file && file.indexOf('SaveFile_Live') === 0) {
         clearTimeout(debounce);
         debounce = setTimeout(sendSave, 400);
         clearTimeout(bDebounce);             // refresh trends less often than the live render
         bDebounce = setTimeout(sendBackups, 8000);
+      } else if (file && file.indexOf('Player') === 0 && file.endsWith('.log')) {
+        clearTimeout(lDebounce);
+        lDebounce = setTimeout(sendLog, 4000);
       }
     });
   } catch (e) { /* directory may not exist until the game runs */ }
@@ -59,4 +72,5 @@ app.whenReady().then(() => {
 
 ipcMain.on('request-save', sendSave);
 ipcMain.on('request-backups', sendBackups);
+ipcMain.on('request-log', sendLog);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
