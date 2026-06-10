@@ -146,6 +146,11 @@
   .chip.sk{color:var(--blue2);border-color:rgba(75,125,255,.28);background:rgba(75,125,255,.10)}
   .chip.rune{color:var(--purple);border-color:rgba(176,114,255,.28);background:rgba(176,114,255,.08)}
   .bd-empty{color:var(--dim);font-size:11.5px;padding-top:3px}
+  .petcard{display:flex;align-items:center;gap:14px;margin-top:14px;padding:13px 16px;border-radius:14px;
+    background:linear-gradient(160deg,var(--surface),var(--bg2));border:1px solid var(--line)}
+  .petcard .peticon{font-size:26px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+  .petcard .petn{font-weight:700;font-size:14.5px}
+  .petcard .petd{color:var(--dim);font-size:12px;margin-top:1px}
 
   /* ---------- inventory grid ---------- */
   .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px}
@@ -222,6 +227,13 @@
   tbody tr{transition:.12s} tbody tr:hover{background:rgba(75,125,255,.05)}
   .pill{font-weight:700;font-size:11px}
   .loot-time{color:var(--dim);font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .lootbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .alertbtn{font-size:12.5px;padding:7px 13px;border-radius:9px}
+  .alertbtn.on{background:rgba(25,201,139,.14);border-color:rgba(25,201,139,.4);color:var(--green)}
+  .loothint{font-size:11.5px;color:var(--dim)}
+  tbody tr.rare{background:linear-gradient(90deg,rgba(242,180,65,.10),transparent 70%)}
+  tbody tr.rare:hover{background:linear-gradient(90deg,rgba(242,180,65,.16),rgba(75,125,255,.05))}
+  .rarestar{color:var(--gold);text-shadow:0 0 7px var(--gold)}
   .empty{color:var(--dim);font-size:13px;padding:22px;text-align:center;border:1px dashed var(--line);border-radius:12px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:760px){.two{grid-template-columns:1fr}}
@@ -498,12 +510,22 @@ function miniBars(vals,opts){
 /* ---------- loot tracking (persisted) ---------- */
 var lastUids=null, lootLog=[];
 try{var ls=localStorage.getItem('tbh_loot');if(ls){var o=JSON.parse(ls);lootLog=o.log||[];lastUids=o.uids?new Set(o.uids):null;}}catch(e){}
+// rare-drop alerts — OFF by default, opt-in, silent. Browser desktop Notification on a fresh Legendary+ drop.
+var rareAlerts=false; try{rareAlerts=localStorage.getItem('tbh_rare_alerts')==='1';}catch(e){}
+function notifyRare(d){ if(!rareAlerts||!('Notification'in window)||Notification.permission!=='granted')return;
+  try{new Notification('TBH HUD — '+(d.grade||'rare')+' drop!',{body:d.name+(d.lvl?(' · lvl '+d.lvl):''),silent:true});}catch(e){} }
+function toggleRareAlerts(){
+  if(rareAlerts){rareAlerts=false;try{localStorage.setItem('tbh_rare_alerts','0');}catch(e){}if(current)renderLoot(current);return;}
+  if(!('Notification'in window)){if(current)renderLoot(current);return;}
+  Notification.requestPermission().then(function(p){rareAlerts=(p==='granted');try{localStorage.setItem('tbh_rare_alerts',rareAlerts?'1':'0');}catch(e){}if(current)renderLoot(current);});
+}
 function processLoot(owned,ts){
   var uids=new Set(owned.map(function(o){return o.uid;}));
   if(lastUids===null){lastUids=uids;persistLoot();return;}
   var fresh=owned.filter(function(o){return !lastUids.has(o.uid);});
   // timestamp new drops with the save's own lastSavedTime when available (more accurate than wall-clock)
-  if(fresh.length){fresh.forEach(function(f){lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl});});lootLog=lootLog.slice(0,120);}
+  if(fresh.length){fresh.forEach(function(f){lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl});
+    if(rrank(f.grade)>=3)notifyRare(f);});lootLog=lootLog.slice(0,120);}
   lastUids=uids;persistLoot();
 }
 function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uids:Array.from(lastUids)}));}catch(e){}}
@@ -650,6 +672,14 @@ function renderOverview(d){
   var dep=d.heroes.filter(function(h){return h.deployed;});
   (dep.length?dep:d.heroes.slice(0,3)).forEach(function(h){party.appendChild(heroCard(h));});
   p.appendChild(party);
+
+  // active pet — resolved from PetInfoData (name + the game's own description text)
+  if(d.account&&d.account.pet){
+    var pet=d.account.pet;
+    p.appendChild(el('<div class="petcard"><div class="peticon">🐾</div><div class="petmeta">'+
+      '<div class="petn">Active pet · '+pet.n+'</div>'+
+      (pet.desc?('<div class="petd">'+pet.desc+'</div>'):'')+'</div></div>'));
+  }
 
   // Who's carrying — HONEST gear-strength proxy: total equipped item level + top rarity (factual sums of
   // real data). This is NOT live DPS (that needs the memory lane we deliberately don't read). Labeled as such.
@@ -798,18 +828,23 @@ function renderLoot(d){
   }
 
   // Save-diff drop timeline — real items detected between save reads (live drops aren't in the game log)
-  p.appendChild(el('<h3 class="sec">Drop timeline <span class="tag">new items detected from your save</span></h3>'));
+  p.appendChild(el('<h3 class="sec">Drop timeline <span class="tag">new items detected from your save · Legendary+ highlighted</span></h3>'));
+  var alertOn=rareAlerts&&('Notification'in window)&&Notification.permission==='granted';
+  var canNotify=('Notification'in window);
+  p.appendChild(el('<div class="lootbar"><button class="alertbtn'+(alertOn?' on':'')+'" onclick="toggleRareAlerts()">'+
+    (alertOn?'🔔 Rare-drop alerts: ON':'🔕 Rare-drop alerts: OFF')+'</button>'+
+    '<span class="loothint">'+(canNotify?'Silent desktop alert when a Legendary or better drops (opt-in).':'Desktop alerts not supported in this browser.')+'</span></div>'));
   if(!lootLog.length){
     p.appendChild(el('<div class="empty">Watching for drops… new items appear here with a timestamp and rarity as you play.<br>'+
       '<span style="font-size:11.5px">Live combat drops aren\'t written to the game\'s log, so the HUD detects them from changes to your save file.</span></div>'));
     return;
   }
   var rows=lootLog.slice(0,80).map(function(l){
-    var t=new Date(l.t);
-    return '<tr><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
+    var t=new Date(l.t), rare=rrank(l.grade)>=3;
+    return '<tr'+(rare?' class="rare"':'')+'><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
       '<td><div style="display:flex;align-items:center;gap:10px">'+
         '<div class="mini" style="border-color:'+rvar(l.grade)+'"><img src="'+SPRITE+(l.icon||'')+'.png" onerror="this.style.visibility=\'hidden\'"></div>'+
-        '<span>'+l.name+(l.lvl?(' <span style="color:var(--dim)">lvl'+l.lvl+'</span>'):'')+'</span></div></td>'+
+        '<span>'+(rare?'<span class="rarestar">★</span> ':'')+l.name+(l.lvl?(' <span style="color:var(--dim)">lvl'+l.lvl+'</span>'):'')+'</span></div></td>'+
       '<td><span class="pill" style="color:'+rvar(l.grade)+'">'+(l.grade||'—')+'</span></td></tr>';
   }).join('');
   p.appendChild(el('<div class="panel"><table><thead><tr><th>Time</th><th>Item</th><th>Rarity</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
