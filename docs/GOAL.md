@@ -15,7 +15,7 @@ items 5944: name 100%, icon 100%, grade 100% of gear. materials 125 (115 with de
 => EVERY unseen endgame item is ALREADY in the DB. The low-level live save only verifies the ~50 OWNED.
 The game ships only 115 ItemDescription strings (gear has NO flavor text — it's defined by STATS we already have): show desc
 where it exists, stats/effects otherwise, honest "no description" — never a guess.
-NOT yet: offline-cap timer + OfflineRewardInfoData dump; real end-to-end run; installer/Pages.
+NOT yet: real end-to-end run; installer/Pages (Phase 7).
 
 ## PHASE A — FULL-CATALOG CODEX + AUDIT  ✅ DONE (session 4)
 Shipped: virtualized Codex tab (6177 entries: 5944 items + 197 runes + 36 skills), filters (category/rarity/gearType/
@@ -38,7 +38,18 @@ save (?codex). Verified vs the live save (Node audit + headless browser, all 8 t
 6. (Optional) cross-check Korean stage-box names / drop rates vs https://www.tbhwiki.com — COMMUNITY data; label it; tables win on conflict.
 AC: Codex renders the FULL catalog (owned + unseen) with working filters/search; audit prints 100% name+icon across 5944; 0 console errors live + demo.
 
-## PHASE B — OFFLINE-CAP TIMER  (save-only, safe)
+## PHASE B — OFFLINE-CAP TIMER  ✅ DONE (session 4)
+Shipped: "Offline rewards" card on Overview — live-ticking idle since last save + last collection (gold + rate from
+Player.log) + cap countdown. FINDINGS: dumped OfflineRewardInfoData (per-StageLevel yield params: BaseGold/Exp/
+KillCount/ClearCount), and confirmed NONE of the game's 45 data tables holds the offline time-cap (it's a code
+constant) — so we do NOT assume 8h. Per the golden rule the cap+rate are LEARNED from the user's OWN Player.log
+[OfflineReward] events (reward==delta until the cap, then plateaus; rate=gold/reward of the latest). TZ calibration:
+the .es3 lastSavedTime is LOCAL .NET ticks (verified 8h ahead of the file's UTC mtime), so idle is anchored on the
+file's true UTC mtime (file.lastModified in-app / fs.mtime in the harness), TZ-corrected ticks as fallback. No invented
+daily reset. parseOfflineEvents+offlineStatus mirrored in saveEngine.js; verify_save.js prints offline status + tz check.
+Calibration: +739g/93s (~7.95 g/s) reproduced exactly; 0 console errors.
+
+### Original Phase B spec (for reference)
 1. Dump OfflineRewardInfoData (extend scripts/dump_textassets.py); extract the REAL cap + accrual rate. DO NOT assume 8h.
 2. Countdown card: from save lastSavedTime show time-idle, reward banked, time-until-cap ("offline rewards max in Xh Ym" /
    "capped - collect now"). Calibrate vs Player.log [OfflineReward] saved/now/delta/reward until they match exactly. Mirror in

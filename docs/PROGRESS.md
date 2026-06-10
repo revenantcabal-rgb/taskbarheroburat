@@ -6,7 +6,7 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · 🔵 next (planned in SESSION-GOAL) · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-10, after session 4 — shipped Phase A (full-catalog Codex tab + drop chain + audit)._
+_Last updated: 2026-06-10, after session 4 — shipped Phase A (full-catalog Codex) + Phase B (offline-rewards card)._
 
 ## Goal list (PRD §3) — where each goal stands
 | # | Goal | Status | Notes / where it landed |
@@ -50,14 +50,14 @@ _Last updated: 2026-06-10, after session 4 — shipped Phase A (full-catalog Cod
 - **Steam Market value** — Steam Inventory Service is throttled/empty in this build.
 - **12-min blue-chest timer** — cadence not in the tables (DropCooldown has no 720s). Box counts shown instead.
 - **Stage-box drop contents** — ✅ now SHIPPED in the Codex: DropKey→DropInfoData→ItemGroupInfoData→member EN names ("Box can contain […]") + reverse "Drops from […]". The Korean ItemGroup `GroupName` is deliberately omitted (never guessed); per-source drop *rates* still not shown (weighted/conditional, optional).
-- **Hero XP-to-next-level / ETA** — no level/XP curve exists in the extracted game tables.
+- **Hero XP-to-next-level / ETA** — *re-open candidate:* `LevelInfoData(Level, ExpForLevelUp)` WAS found in the tables (session 4). XP-to-next may now be feasible if it applies to heroes; ETA still needs xp/hr (memory lane). Verify before building.
 
 ## Phased roadmap addendum (owner's GOAL.md)
 | Phase | Status | Notes |
 |-------|--------|-------|
 | A — full-catalog Codex + audit | ✅ | New virtualized Codex tab (6177 entries), filters/search/sort, owned-marked, per-entry detail incl. drop sources/box contents; `audit_catalog.js` asserts 100% name+icon. |
-| B — offline-cap timer | 🔵 | Next. Dump `OfflineRewardInfoData`, countdown from `lastSavedTime`, calibrate vs Player.log `[OfflineReward]`. |
-| 7 — real run + packaging | 🔵 | After B. Real `npm start` + native Connect-folder; NSIS installer; GitHub Pages; electron-updater. |
+| B — offline-rewards card | ✅ | Overview card: live idle since last save + last collection (gold+rate from Player.log) + cap countdown. Cap **learned from the user's own logs** (no game table holds it → no assumed 8h). TZ bug caught: ticks are LOCAL, idle anchored on file UTC mtime. |
+| 7 — real run + packaging | 🔵 | Next. Real `npm start` + native Connect-folder; NSIS installer (winCodeSign fix); GitHub Pages; electron-updater. |
 
 ## Current health
 - **No console errors** vs the live save AND demo AND standalone (?codex) across all **8 tabs** (re-verified this session via headless browser fetching the live-save fixture through the real code path).
@@ -65,9 +65,7 @@ _Last updated: 2026-06-10, after session 4 — shipped Phase A (full-catalog Cod
 - **Confidence: 9/10.** Deduction: the Electron app and the browser `Connect folder` *native dialog* were verified by code + a fetch of the live-save fixture, not a real native end-to-end run; offline timer (B) not built; no installer/Pages yet; screenshot tool times out on the animated UI (tooling, not app).
 
 ## Next step
-**Phase A (Codex) is shipped.** Remaining on the owner's roadmap ([GOAL.md](GOAL.md)):
-- **Phase B — offline-cap timer**: dump `OfflineRewardInfoData`, show time-until-cap from save `lastSavedTime` (calibrate the
-  real cap vs the Player.log `[OfflineReward]` deltas — do NOT assume 8h). Mirror in saveEngine.js + the inline engine.
+**Phase A (Codex) + Phase B (offline card) are shipped.** Remaining on the owner's roadmap ([GOAL.md](GOAL.md)):
 - **Real-run verification + Phase 7 packaging**: launch Electron (`npm start`) + the real `Connect folder` flow, fix anything
-  live, then NSIS installer (winCodeSign fix) + GitHub Pages so friends can use it.
+  live, then NSIS installer (winCodeSign fix) + GitHub Pages + electron-updater so friends can use it. **This is the last blocker to real-world use.**
 See [SESSION-GOAL.md](SESSION-GOAL.md) · [improvement.log](../improvement.log) · [GOAL.md](GOAL.md).

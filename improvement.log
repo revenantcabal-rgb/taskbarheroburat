@@ -3,7 +3,14 @@ Updated 2026-06-10 (cowork, session 4). Read-only companion for "TBH: Task Bar H
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~24 commits. Read-only, calibrated, shippable. All 8 tabs render vs the live save with 0 console errors.
+~26 commits. Read-only, calibrated, shippable. All 8 tabs render vs the live save with 0 console errors.
+- Phase B DONE — offline-rewards card (Overview): live-ticking idle since last save + last collection (gold + rate
+  from Player.log) + cap countdown. HONEST: dumped OfflineRewardInfoData (per-StageLevel yield params, NOT a cap);
+  no game table holds the offline cap, so we DON'T assume 8h — the cap+rate are LEARNED from the user's own
+  Player.log [OfflineReward] events (reward plateaus where reward<delta). TZ calibration: the .es3 lastSavedTime is
+  LOCAL .NET ticks (verified 8h ahead of the file's UTC mtime), so idle is anchored on the file's true UTC mtime
+  (file.lastModified / fs.mtime), TZ-corrected ticks as fallback. parseOfflineEvents+offlineStatus mirrored in
+  saveEngine.js; verify_save.js prints offline status + a tz check. Calibration: +739g/93s (~7.95 g/s) reproduced exactly.
 - Phase A DONE — full-catalog CODEX (owner's #1 ask): new virtualized "Codex" tab browsing the game's ENTIRE
   catalog (5944 items + 197 runes + 36 skills = 6177 entries), independent of ownership; owned marked ✓.
   Filters (category/rarity/gearType/search/sort) + owned-only toggle; windowed grid (renders only visible rows).
@@ -32,11 +39,11 @@ Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md,
 - Read-only re-audited: zero writes/injection to game/save/memory. verify_save.js passes (0 unresolved names, 100% icons).
 
 ## NEXT GOAL (owner's full per-phase roadmap is docs/GOAL.md)
-1. Phase B — offline-cap timer: dump OfflineRewardInfoData (extend dump_textassets.py); show time-until-cap from save
-   lastSavedTime, calibrated vs the Player.log [OfflineReward] deltas (do NOT assume 8h). Mirror in both engines.
-2. Real-run verification + Phase 7 packaging: launch the Electron app (npm start) + the real browser Connect-folder flow
-   (both verified so far only by code + a mock dir handle); fix anything live; then NSIS installer (winCodeSign fix) +
-   GitHub Pages. Blocker to real-world use.
+1. Real-run verification + Phase 7 packaging: launch the Electron app (npm start) + the real browser Connect-folder flow
+   (both verified so far only by code + a fetch of the live-save fixture); fix anything live; then NSIS installer
+   (winCodeSign fix) + GitHub Pages + electron-updater. Blocker to real-world use.
+2. (possible bonus) LevelInfoData(Level,ExpForLevelUp) was found in the tables — the hero XP-to-next-level curve may now
+   be feasible (was deferred as "no curve"). Verify it applies to heroes before building; ETA still needs xp/hr (memory).
 3. (deferred/caution) per-act gold/hr + live DPS need the memory lane — don't build unless provably ban-safe.
 
 ## DEFERRED — golden rule, leave a note not a guess
@@ -51,8 +58,8 @@ label calibrated from the game's own tables/localization; honest fallback or omi
 (Node + headless browser, all 7 tabs, 0 console errors). QoL only.
 
 ## CONFIDENCE 9/10
-All new data calibrated against the live save (Codex owned-markers reconcile exactly; drop chain resolves 5554/5554;
-audit 100% name+icon over 6177; kills-by-monster sum == total kills; Node + browser parity). Deduction: the Electron app
-+ the browser Connect-folder NATIVE dialog were exercised by code + a fetch of the live-save fixture, not a real native
-end-to-end run; offline timer (Phase B) not built yet; no installer/Pages yet.
-Next exact step: Phase B offline-cap timer (dump OfflineRewardInfoData, calibrate vs Player.log), then Phase 7 packaging.
+All new data calibrated against the live save + Player.log (Codex owned-markers reconcile exactly; drop chain resolves
+5554/5554; audit 100% name+icon over 6177; offline last-reward +739g/93s reproduced exactly; TZ offset caught + fixed via
+file mtime; Node + browser parity). Deduction: the Electron app + the browser Connect-folder NATIVE dialog were exercised
+by code + a fetch of the live-save fixture, not a real native end-to-end run; no installer/Pages yet (Phase 7).
+Next exact step: Phase 7 — real npm start + native Connect-folder, then NSIS installer (winCodeSign fix) + GitHub Pages + electron-updater.

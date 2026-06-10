@@ -46,7 +46,9 @@ or have him supply a token for that account.
 - Double-encoded: `JSON.parse(decrypted).PlayerSaveData.value` is itself a STRING -> parse again.
   Quote any 16+ digit integer before the inner parse (item UniqueIds lose precision otherwise).
 - Fields: `commonSaveData` {version, playTime(sec), maxCompletedStage, currentStageKey, currentStageWave,
-  arrangedHeroKey (active party of 3), lastSavedTime (.NET ticks = n/10000 - 62135596800000 ms)};
+  arrangedHeroKey (active party of 3), lastSavedTime (.NET ticks = n/10000 - 62135596800000 ms; NOTE: these are
+  LOCAL wall-clock ticks, verified ~8h ahead of the file's UTC mtime = the user's TZ — for absolute "idle since
+  save" anchor on the file's real UTC mtime (file.lastModified / fs.mtime), not the raw ticks)};
   `currenySaveDatas`[Key==100001].Quantity = gold; `heroSaveDatas`[] {heroKey, HeroLevel, HeroExp,
   AllocatedHeroAbilityPoint, AbilityPoint(unspent), equippedItemIds[10], equippedSKillKey[3], unlockedAttributeGroupKeys};
   `itemSaveDatas`[] = owned item instances (ItemKey + UniqueId + EnchantCount[3] + EnchantData[6]{StatModKey,Tier,
@@ -148,6 +150,16 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Phase B — offline-rewards card (Overview):** live-ticking idle since last save + last offline collection
+  (gold + rate from Player.log) + cap countdown. Dumped `OfflineRewardInfoData` (per-StageLevel yield params:
+  BaseGold/Exp/KillCount/ClearCount) — but NONE of the 45 tables holds the offline **time-cap** (it's a code
+  constant), so we DO NOT assume 8h: the cap + rate are LEARNED from the user's own Player.log `[OfflineReward]`
+  events (reward==delta until the cap, then plateaus → real cap; rate = gold/reward of the latest). **TZ
+  calibration (important):** the `.es3` `lastSavedTime` is stored as LOCAL `.NET` ticks — verified 8h ahead of the
+  file's UTC mtime (the user's TZ) — so absolute "idle since save" is anchored on the file's true UTC mtime
+  (`file.lastModified` in-app / `fs.mtime` in the harness), TZ-corrected ticks as fallback. `parseOfflineEvents()`
+  + `offlineStatus()` mirrored in saveEngine.js; `verify_save.js` prints offline status + a tz check. Calibration:
+  +739 gold / 93s (~7.95 g/s) reproduced exactly. No invented daily reset.
 - **Phase A — full-catalog Codex (owner's #1 ask):** new virtualized **Codex** tab browsing the game's ENTIRE catalog
   (5944 items + 197 runes + 36 skills = 6177 entries), independent of ownership; owned items/runes/skills marked ✓.
   Filters (category/rarity/gearType/name+ID search), sort (rarity/level/name/id), owned-only toggle; windowed grid
