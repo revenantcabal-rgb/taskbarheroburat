@@ -10,7 +10,14 @@ Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
-- **S13 (v1.0.4) — 3 features + ship everywhere.**
+- **S13b (v1.0.5) — visible, on-demand updates.** The desktop updater used to check ONCE at launch, silently — an
+  always-open HUD never re-checked, and a check that raced GitHub's CDN right after a release failed invisibly
+  (observed live shipping v1.0.4). Now: a **"↻ Check for updates" header button** (desktop only) with visible states
+  (checking… / downloading % / update ready / you're on the latest vX / couldn't reach GitHub), a **4-hour periodic
+  re-check** while running, an `update-not-available`/`checking` relay over the existing IPC, and the installed **app
+  version shown in the footer** (distinct from the game-save version in the header). Background checks stay quiet —
+  feedback only when the user asked. Verified: dev boot clean; browser build unaffected (no button there; 11 tabs,
+  0 errors); release published and the v1.0.4 install observed auto-updating to v1.0.5.
   **F1 History + per-stage gold/hr (goals #2/#3, save-only):** the HUD now records its OWN lean snapshot per save change
   (IndexedDB `tbh-hud-history`, separate from the `tbh-hud` handle store; loaded on startup, merged with the game's
   rolling backups, capped 2400, cleared on Disconnect like the loot timeline). **Per-stage farming rates** from the

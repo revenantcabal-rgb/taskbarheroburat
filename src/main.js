@@ -14,13 +14,23 @@ try {
 } catch (e) { /* dev: not installed */ }
 // Relay updater progress to the renderer so the UI can show a friendly "update ready — restart" banner.
 function sendUpdate(payload) { if (win && !win.isDestroyed()) win.webContents.send('update-status', payload); }
+function checkForUpdatesNow() {
+  if (!autoUpdater) { sendUpdate({ state: 'error' }); return; }
+  try { autoUpdater.checkForUpdates(); } catch (e) { sendUpdate({ state: 'error' }); }
+}
 function wireUpdater() {
   if (!autoUpdater) return;
+  autoUpdater.on('checking-for-update', () => sendUpdate({ state: 'checking' }));
   autoUpdater.on('update-available', (i) => sendUpdate({ state: 'available', version: i && i.version }));
+  autoUpdater.on('update-not-available', () => sendUpdate({ state: 'none', version: app.getVersion() }));
   autoUpdater.on('download-progress', (p) => sendUpdate({ state: 'downloading', percent: Math.round(p && p.percent || 0) }));
   autoUpdater.on('update-downloaded', (i) => sendUpdate({ state: 'downloaded', version: i && i.version }));
   autoUpdater.on('error', () => sendUpdate({ state: 'error' }));
-  try { autoUpdater.checkForUpdates(); } catch (e) { /* offline / dev */ }
+  checkForUpdatesNow();
+  // v1.0.5: the HUD often runs for days next to the game — a launch-only check would never see new releases
+  // (and a release published minutes earlier can be missed while GitHub's CDN propagates). Re-check every 4h;
+  // the renderer's "Check for updates" button triggers the same path on demand.
+  setInterval(checkForUpdatesNow, 4 * 3600 * 1000);
 }
 
 const SAVE_DIR = path.join(process.env.USERPROFILE || os.homedir(), 'AppData', 'LocalLow', 'TesseractStudio', 'TaskbarHero');
@@ -97,6 +107,9 @@ app.whenReady().then(() => {
 ipcMain.on('request-save', sendSave);
 ipcMain.on('request-backups', sendBackups);
 ipcMain.on('request-log', sendLog);
+// Renderer "Check for updates" button → run the same check the app does at launch (with visible feedback).
+ipcMain.on('check-for-updates', checkForUpdatesNow);
+ipcMain.handle('app-version', () => app.getVersion());
 // User clicked "Restart now" on the update banner → install the downloaded update and relaunch.
 ipcMain.on('quit-and-install', () => { if (autoUpdater) { try { autoUpdater.quitAndInstall(); } catch (e) { /* ignore */ } } });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

@@ -175,6 +175,10 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S13b (v1.0.5)** — update UX: "↻ Check for updates" header button (desktop; visible checking/none/error states,
+  quiet in background), 4h periodic re-check (launch-only before — an always-open HUD never saw new releases, and a
+  check minutes after a release could miss it while GitHub's CDN propagated), `checking`/`none` update-status relays,
+  app version in the footer. Browser build untouched (button is Electron-gated).
 - **S13 (v1.0.4) — 3 features + ship everywhere.** **F1 History + per-stage gold/hr:** HUD-own snapshot history
   (IndexedDB `tbh-hud-history`; append in `onBytes`, load at startup, merge with backups, clear on Disconnect) +
   `perStageRates` (combat counter Type 2/Sub 1 over CLEAN single-stage intervals; offline gold auto-excluded) →
@@ -214,7 +218,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.4 · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.5 · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (team fusiondatacompany-projects, CLI `vercel --scope fusiondatacompany-projects`); env var
