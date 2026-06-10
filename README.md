@@ -6,11 +6,13 @@ It **never writes to, modifies, or injects into the game** — it only reads fil
 
 Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 
-## What it shows (7 tabs)
-- **Overview** — gold, current/max stage, total kills, runes, session gold/hr & kills/hr, deployed party, active pet,
-  a "who's carrying" gear-strength ranking, and your best trophies.
-- **Party** — every hero with level, equipped gear (hover for stats), equipped skill names, and a **full "who's
-  carrying" source breakdown**: each deployed hero's stats attributed to Base / Gear / Tree, plus account-wide runes & pet.
+## What it shows (8 tabs)
+- **Overview** — gold, current/max stage, total kills, runes, session gold/hr & kills/hr, an **offline-rewards card**
+  (live idle timer + last collection rate + cap learned from your own logs), deployed party, active pet, a "who's
+  carrying" gear-strength ranking, and your best trophies.
+- **Party** — every hero with level, **real XP-to-next-level progress** (calibrated from the game's level curve),
+  equipped gear (hover for stats), equipped skill names, and a **full "who's carrying" source breakdown**: each deployed
+  hero's stats attributed to Base / Gear / Tree, plus account-wide runes & pet.
 - **Inventory** — every owned item with its real name, rarity (color-framed), real icon, level, enchants, **inherent
   gear stats and unique-mod effects** (hover tooltip). Filter by rarity / materials.
 - **Loot** — Steam boxes held, offline-reward gold (with real timestamps), and a save-diff drop timeline with
@@ -19,23 +21,33 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 - **Lifetime** — total kills, gold earned, per-difficulty completions, owned-by-rarity, and a calibrated
   **kills-by-monster** breakdown.
 - **Trends** — gold/kills/stage progression and gold-per-hour over time, charted from the game's own rolling save backups.
+- **Codex** — a browsable, virtualized grid of the game's **entire catalog** (5,944 items + 197 runes + 36 skills),
+  independent of ownership (owned marked ✓). Filter by type / rarity / gear type, search by name or ID, sort, owned-only.
+  Click any entry for full detail: description, inherent stats + unique mod, material socket effects, rune per-level
+  table, **what a stage box can contain**, **where an item drops from**, and marketable/Steam flags.
 
-Every label (item names, rarity, stats, skills, runes, monsters) is **calibrated from the game's own data tables** —
-nothing is guessed; if something can't be resolved authoritatively it shows an honest fallback.
+Every label (item names, rarity, stats, skills, runes, monsters, drop sources, level curve) is **calibrated from the
+game's own data tables** — nothing is guessed; if something can't be resolved authoritatively it shows an honest fallback.
+
+The UI is **fully responsive** — it works on phone, tablet, and desktop (no horizontal scrolling; wide tables scroll in place).
 
 ## Two ways to use it
 
 ### 1. Browser (no install) — Chrome / Edge
-Open `dashboard.html` and either:
+**Live:** **https://revenantcabal-rgb.github.io/taskbarheroburat/** (GitHub Pages, HTTPS). Then either:
 - **Connect folder** (recommended) → pick `%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\`.
   This reads your live save **plus** the rolling backups and `Player.log`, so you get History/Trends and the loot
   timeline. It updates live as you play.
 - **Connect file** → pick just `SaveFile_Live.es3` (everything except Trends).
 
-No save handy? Click **Preview sample** for a demo. (Hosting `dashboard.html` on GitHub Pages gives friends a link.)
+No save handy? Click **Preview sample** for a demo, or **Browse the full item catalog** to explore the Codex with no save.
+(`?demo` and `?codex` also work as URL shortcuts.) The repo is also **Vercel-ready** (`vercel.json` + `index.html`) — import
+it at vercel.com for a one-click second deployment.
 
 ### 2. Desktop app / installer (Windows)
-A one-click `Setup.exe`. It auto-finds the save, watches it (+ backups + log), and updates live.
+Download the latest **`TBH-HUD-Setup-<version>.exe`** from the
+[Releases page](https://github.com/revenantcabal-rgb/taskbarheroburat/releases) and run it. It auto-finds the save,
+watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases.
 
 ## Develop & test locally
 Requires [Node.js](https://nodejs.org) (LTS) and (to rebuild the game DB) Python + UnityPy + Pillow.
