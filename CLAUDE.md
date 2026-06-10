@@ -156,7 +156,13 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
-- **Session 11 — styling + solidifying UX (v1.0.2):**
+- **Session 11 — styling + solidifying UX + per-hero level ETA (v1.0.2):**
+  • **Per-hero "time to next level"** (Party cards + a "Time to next" roster column): XP remaining (calibrated) ÷ the
+    XP/hr **MEASURED from this session** — never fabricated. `heroCumXp` (sum ExpForLevelUp[1..L-1] + HeroExp, survives
+    a mid-session level-up) is baselined by `ensureSession()` at connect; `heroLevelEta` returns measuring / idle
+    ("not gaining XP") / eta. `fmtEta` → min / Xh Ym / X days. Demo seeds a ~10-min session to showcase it. A Party-tab
+    note states it's the player's real session pace, not a fixed prediction. (Mechanic-agnostic: benched heroes show
+    "not gaining XP" only because the measured rate is 0 — we never assert the XP rule.)
   • **Fixed a significant first-impression bug:** on first connect/demo the active tab-page stayed `.hidden` (gate was
     showing), so the first paint was BLANK until a tab click. `render()` now toggles tab visibility (un-hides the active
     tab). Affects browser AND Electron. The "empty tab" screenshots earlier were this + the rise-animation fade timing.

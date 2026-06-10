@@ -4,7 +4,13 @@ Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md,
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
 ~45 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 9 tabs render vs the live save with 0 console errors.
-- Session 11 — styling + solidifying UX (visual audit across all 9 tabs + connect screen):
+- Session 11 — styling + solidifying UX + per-hero level ETA (visual audit across all 9 tabs + connect screen):
+  • PER-HERO "TIME TO NEXT LEVEL" (Party cards + a "Time to next" roster column): honest = XP remaining (calibrated)
+    ÷ XP/hr MEASURED from this session (cumulative-XP delta since connect, so it survives a mid-session level-up).
+    States: "measuring…" (~2min warm-up), "not gaining XP right now" (idle/benched — measured 0, we don't assert the
+    mechanic), else "≈ 4h 21m to Level 21" + an "N XP/hr measured this session" tooltip. fmtEta → min/Xh Ym/X days.
+    ensureSession() baselines gold+kills+per-hero XP once at connect. Demo seeds a ~10-min session to showcase it.
+    NEVER a fabricated combat number (a live xp/sec would need the memory lane we don't read).
   • FIX (significant first-impression bug): on first connect/demo the active tab-page stayed `.hidden` (the gate had
     been showing), so the FIRST paint was a BLANK page until the user clicked a tab. render() now makes the active tab
     visible — affects browser AND Electron. Verified a fresh ?demo load shows the Overview immediately.

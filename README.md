@@ -12,7 +12,9 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   learned from your own logs), deployed party, active pet, a plain-language **"who's carrying"** gear-strength ranking
   (labeled bar + tooltips, no jargon), and your best trophies.
 - **Party** — every hero with level, **real XP-to-next-level progress** (calibrated from the game's level curve),
-  equipped gear (hover for stats), equipped skill names, and a **full "who's carrying" source breakdown**: each deployed
+  a **"time to next level"** estimate (XP remaining ÷ the XP/hour you're *actually* gaining this session — your real
+  pace, never a guessed number), equipped gear (hover for stats), equipped skill names, and a **full "who's carrying"
+  source breakdown**: each deployed
   hero's stats attributed to Base / Gear / Tree, plus account-wide runes & pet.
 - **Inventory** — every owned item with its real name, rarity (color-framed), real icon, level, enchants, **inherent
   gear stats and unique-mod effects** (hover tooltip). Filter by rarity / materials.
