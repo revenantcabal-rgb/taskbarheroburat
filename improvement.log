@@ -10,6 +10,17 @@ Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S15 (v1.0.8) — owner's next 4.** (1) **Crew shows play hours** (chip on every member + a "Play hours" rank
+  option; the payload already carried it). (2) **Per-tier gear breakdown** — crew chips + Flex card now show
+  "2 Immortal · 6 Legendary"-style counts; `trophies`/`tierCounts` are explicitly GEAR-ONLY in both engines so
+  rarity-NAMED materials ("Scroll of Immortal Inscription", "Immortal Material") can never count toward flexing
+  (verify_save asserts it + that tier counts sum to the trophy count); server whitelists the new `tiers` field.
+  (3) **Loot origin inference** — the save has no origin flag (the old honest deferral stands), but the Cube
+  CONSUMES material instances: the tracker now remembers each instance's material-ness, and one new gear piece +
+  ≥9 material instances vanishing in the same save update = the Cube synthesis pattern → "⚒️ Cube (likely)";
+  new items with nothing consumed → "✦ found" (drop or market — still indistinguishable); mixed reads stay
+  untagged. New Origin column on the Loot table; the rare-alert notification no longer says "drop".
+  (4) Best-gold/XP farming suggestions — already shipped in v1.0.7 (Tips/Overview/Trends/Lifetime).
 - **S14 (v1.0.7) — owner's 4 asks.** (1) **Advisor equip-gating:** an item's Level reads as its equip requirement
   (calibrated: 43/43 equipped instances across both real saves satisfy lvl<=heroLevel, zero counterexamples) —
   upgrades the hero can't wear yet moved to a "Better gear waiting (level-locked)" notice (🔒 needs Lv X · now Lv Y),

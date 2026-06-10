@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBH HUD — Task Bar Hero companion</title>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.7"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.8"></script>
 <style>
   :root{
     --bg:#080a13; --bg2:#0b0e1a; --surface:#121728; --surface2:#171d33; --surface3:#1f2742;
@@ -836,6 +836,10 @@ function enchantStatusD(heroes){
 // statTotals: a hero's full computed stat sheet = base + gear + tree, summed per stat (account-wide runes/pet
 // apply on top and are shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(s){ s=s||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
+// per-tier GEAR-ONLY counts for Legendary and above (mirror of saveEngine.tierCounts) — the flex/crew breakdown
+function tierCountsD(owned){ var out={}; (owned||[]).forEach(function(o){ if(!o.gt||o.mat) return; if(rrank(o.grade)>=3) out[o.grade]=(out[o.grade]||0)+1; }); return out; }
+// "2 Immortal · 6 Legendary" — best tier first; '' when none
+function tierText(tiers){ var t=tiers||{}; return RARITY.slice().reverse().filter(function(g){return t[g];}).map(function(g){return t[g]+' '+cap(g);}).join(' · '); }
 
 /* ---------- Codex: full-catalog index + drop chain (mirror of saveEngine) ----------
    The DB is the game's MASTER catalog, not the owner's inventory — every item (owned or unseen)
@@ -923,7 +927,10 @@ function analyze(psd){
     inv:{owned:owned.length,stash:occ('stashSaveDatas'),stashSlots:(psd.stashSaveDatas||[]).length,
       trade:occ('tradingStashSaveDatas')},
     owned:owned, byRarity:byR,
-    trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
+    // trophies/tiers = GEAR ONLY: materials are excluded explicitly so rarity-NAMED stones ("Scroll of Immortal
+    // Inscription", "Immortal Material") can never count toward owning/flexing high-tier gear.
+    trophies:owned.filter(function(o){return o.gt&&!o.mat&&rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
+    tiers:tierCountsD(owned),
     runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd), killsByMonster:killsByMonster(psd),
     ownedSkills:ownedSkills,
     gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes), stones:enchantStonesD(owned),
@@ -1083,28 +1090,49 @@ function miniBars(vals,opts){
   return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:'+H+'px;display:block">'+bars+'</svg>';
 }
 
-/* ---------- loot tracking (persisted) ---------- */
-var lastUids=null, lootLog=[];
-try{var ls=localStorage.getItem('tbh_loot');if(ls){var o=JSON.parse(ls);lootLog=o.log||[];lastUids=o.uids?new Set(o.uids):null;}}catch(e){}
-// rare-drop alerts — OFF by default, opt-in, silent. Browser desktop Notification on a fresh Legendary+ drop.
+/* ---------- loot tracking (persisted) ----------
+   v1.0.8 — ORIGIN INFERENCE: the save stores no origin flag for new items, but Cube synthesis/crafting CONSUMES
+   material INSTANCES. So we remember each instance's uid + whether it was a material; on the next read:
+   exactly one new GEAR piece + 9 or more material instances gone in the same save update = the Cube's synthesis
+   pattern (the game's own recipe size) -> "Cube (likely)"; new items with ZERO materials consumed -> "found"
+   (dropped or market-bought — those two still can't be told apart). Anything mixed/unclear stays unlabeled.
+   Honest inference from real instance deltas — labeled "likely", never stated as fact. */
+var lastUidMeta=null, lootLog=[];
+try{var ls=localStorage.getItem('tbh_loot');if(ls){var o=JSON.parse(ls);lootLog=o.log||[];
+  if(o.uidm){lastUidMeta=o.uidm;}                              // current format: {uid: 1|0} (1 = material)
+  else if(o.uids){lastUidMeta={};o.uids.forEach(function(u){lastUidMeta[u]=-1;});}   // legacy: material-ness unknown
+}}catch(e){}
+// rare-item alerts — OFF by default, opt-in, silent. Browser desktop Notification on a fresh Legendary+ item.
 var rareAlerts=false; try{rareAlerts=localStorage.getItem('tbh_rare_alerts')==='1';}catch(e){}
 function notifyRare(d){ if(!rareAlerts||!('Notification'in window)||Notification.permission!=='granted')return;
-  try{new Notification('TBH HUD — '+(d.grade||'rare')+' drop!',{body:d.name+(d.lvl?(' · lvl '+d.lvl):''),silent:true});}catch(e){} }
+  try{new Notification('TBH HUD — new '+(d.grade||'rare')+' item!',{body:d.name+(d.lvl?(' · lvl '+d.lvl):''),silent:true});}catch(e){} }
 function toggleRareAlerts(){
   if(rareAlerts){rareAlerts=false;try{localStorage.setItem('tbh_rare_alerts','0');}catch(e){}if(current)renderLoot(current);return;}
   if(!('Notification'in window)){if(current)renderLoot(current);return;}
   Notification.requestPermission().then(function(p){rareAlerts=(p==='granted');try{localStorage.setItem('tbh_rare_alerts',rareAlerts?'1':'0');}catch(e){}if(current)renderLoot(current);});
 }
 function processLoot(owned,ts){
-  var uids=new Set(owned.map(function(o){return o.uid;}));
-  if(lastUids===null){lastUids=uids;persistLoot();return;}
-  var fresh=owned.filter(function(o){return !lastUids.has(o.uid);});
-  // timestamp new drops with the save's own lastSavedTime when available (more accurate than wall-clock)
-  if(fresh.length){fresh.forEach(function(f){lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl});
-    if(rrank(f.grade)>=3)notifyRare(f);});lootLog=lootLog.slice(0,120);}
-  lastUids=uids;persistLoot();
+  var meta={}; owned.forEach(function(o2){meta[o2.uid]=o2.mat?1:0;});
+  if(lastUidMeta===null){lastUidMeta=meta;persistLoot();return;}
+  var fresh=owned.filter(function(o2){return !(o2.uid in lastUidMeta);});
+  // what disappeared since the last read, split by material-ness (legacy -1 entries count as unknown)
+  var removedMats=0, removedUnknown=0;
+  Object.keys(lastUidMeta).forEach(function(u){ if(!(u in meta)){ if(lastUidMeta[u]===1)removedMats++; else if(lastUidMeta[u]===-1)removedUnknown++; } });
+  if(fresh.length){
+    var freshGear=fresh.filter(function(f){return !f.mat;});
+    // interval-level origin: the Cube's synthesis recipe consumes 9 materials -> one new gear + >=9 mats gone = Cube
+    var src=null;
+    if(freshGear.length===1&&removedMats>=9) src='cube';
+    else if(removedMats===0&&removedUnknown===0) src='found';
+    fresh.forEach(function(f){
+      lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl,
+        src:(f.mat?(src==='found'?'found':null):(src==='cube'?'cube':src)),mats:(src==='cube'?removedMats:null)});
+      if(rrank(f.grade)>=3)notifyRare(f);});
+    lootLog=lootLog.slice(0,120);
+  }
+  lastUidMeta=meta;persistLoot();
 }
-function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uids:Array.from(lastUids)}));}catch(e){}}
+function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uidm:lastUidMeta}));}catch(e){}}
 
 /* ---------- Player.log parsing (read-only; same folder as the save) ----------
    The game logs little loot directly (live drops go straight to the save), but it DOES log
@@ -1308,14 +1336,15 @@ function flexShareText(d){
   if(d.kills!=null)parts.push(fmt(d.kills)+' kills');
   if(d.lifeGold!=null)parts.push(fmt(d.lifeGold)+' lifetime gold');
   if(d.runes)parts.push(d.runes.leveled+'/'+d.runes.total+' runes');
-  if(d.trophies&&d.trophies.length)parts.push(d.trophies.length+' Legendary+ trophies');
+  var tts=tierText(d.tiers);
+  if(tts)parts.push(tts+' gear'); else if(d.trophies&&d.trophies.length)parts.push(d.trophies.length+' Legendary+ trophies');
   return parts.join(' · ')+' — via TBH HUD';
 }
 function flexCard(d){
   var items=[
     {ic:'🗺️',k:'Furthest stage',v:stageActLabel(d.maxStage),s:stageName(d.maxStage)||''},
     {ic:'🦸',k:'Top hero',v:flexTopHero(d),s:''},
-    {ic:'💎',k:'Best gear owned',v:flexBest(d),s:''},
+    {ic:'💎',k:'Best gear owned',v:flexBest(d),s:tierText(d.tiers)},
     {ic:'💀',k:'Total kills',v:fmt(d.kills),s:''},
     {ic:'🪙',k:'Lifetime gold',v:fmt(d.lifeGold),s:''},
     {ic:'🔮',k:'Runes leveled',v:(d.runes?(d.runes.leveled+' / '+d.runes.total):'—'),s:''}
@@ -1576,9 +1605,10 @@ function renderLoot(d){
 
   // New-items timeline — items detected between save reads. HONEST: this can't tell a chest DROP from a Cube
   // CRAFT/SYNTHESIS — the game stores no per-item origin and logs neither locally, so both appear here together.
-  p.appendChild(el('<h3 class="sec">New items <span class="tag">detected from your save · drops &amp; Cube crafts · Legendary+ highlighted</span></h3>'));
-  p.appendChild(el('<div class="hint">New gear appears here whether it <b>dropped from a chest / stage</b>, you <b>crafted or synthesized it in the Cube</b>, or you <b>bought it on the Steam Market</b> — the save records no origin flag and logs none of these locally, so they honestly can\'t be told apart. (And in this game build the Steam Market / inventory service is throttled, so market items rarely even arrive.)'+
-    (d&&d.cube?(' Your Cube is <b>level '+d.cube.Level+'</b>.'):'')+' Each item is timestamped in both your local time and UTC.</div>'));
+  p.appendChild(el('<h3 class="sec">New items <span class="tag">detected from your save · origin inferred from what was consumed · Legendary+ highlighted</span></h3>'));
+  p.appendChild(el('<div class="hint">The save stores <b>no origin flag</b> for new items — but the Cube <b>consumes materials</b>, and the HUD watches what disappears between saves. One new piece of gear while <b>9+ material instances vanished</b> in the same save update = the Cube\'s synthesis pattern → tagged <b>⚒️ Cube (likely)</b>. New items with <b>nothing consumed</b> → <b>✦ found</b> (dropped — or market-bought; those two still can\'t be told apart'+
+    ', and in this game build the Steam Market rarely delivers anyway). Mixed or unclear reads stay untagged — the HUD never asserts an origin it didn\'t observe.'+
+    (d&&d.cube?(' Your Cube is <b>level '+d.cube.Level+'</b>.'):'')+'</div>'));
   var alertOn=rareAlerts&&('Notification'in window)&&Notification.permission==='granted';
   var canNotify=('Notification'in window);
   p.appendChild(el('<div class="lootbar"><button class="alertbtn'+(alertOn?' on':'')+'" onclick="toggleRareAlerts()">'+
@@ -1591,14 +1621,18 @@ function renderLoot(d){
   }
   var rows=lootLog.slice(0,80).map(function(l){
     var t=new Date(l.t), rare=rrank(l.grade)>=3;
+    var orig=l.src==='cube'?'<span title="'+esc((l.mats||9)+'+ material instances were consumed in the same save update — the Cube\'s synthesis/craft pattern (likely, not a stored flag)')+'" style="color:var(--purple)">⚒️ Cube</span>'
+      :l.src==='found'?'<span title="No materials were consumed in this save update — dropped (or market-bought; the save can\'t tell those apart)" style="color:var(--green)">✦ found</span>'
+      :'<span title="Several things changed in the same save update — origin unclear, so the HUD doesn\'t guess" style="color:var(--dim)">—</span>';
     return '<tr'+(rare?' class="rare"':'')+'><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
       '<td class="loot-time" style="color:var(--dim)">'+fmtUTC(l.t)+'</td>'+
       '<td><div style="display:flex;align-items:center;gap:10px">'+
         '<div class="mini" style="border-color:'+rvar(l.grade)+'"><img src="'+SPRITE+(l.icon||'')+'.png" onerror="this.style.visibility=\'hidden\'"></div>'+
         '<span>'+(rare?'<span class="rarestar">★</span> ':'')+l.name+(l.lvl?(' <span style="color:var(--dim)">lvl'+l.lvl+'</span>'):'')+'</span></div></td>'+
-      '<td><span class="pill" style="color:'+rvar(l.grade)+'">'+(l.grade||'—')+'</span></td></tr>';
+      '<td><span class="pill" style="color:'+rvar(l.grade)+'">'+(l.grade||'—')+'</span></td>'+
+      '<td>'+orig+'</td></tr>';
   }).join('');
-  p.appendChild(el('<div class="panel"><table><thead><tr><th>Your time</th><th>UTC</th><th>Item</th><th>Rarity</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+  p.appendChild(el('<div class="panel"><table><thead><tr><th>Your time</th><th>UTC</th><th>Item</th><th>Rarity</th><th>Origin</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
 }
 
 function runeIconImg(ic){var img=el('<img src="src/assets/runes/Rune_'+ic+'.png" alt="">');
@@ -2010,7 +2044,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.7';
+var APP_VERSION='1.0.8';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 var crewCfg={optin:false,code:'',name:'',id:'',rankBy:'maxStage'};
 try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','name','id','rankBy'].forEach(function(k){if(cc[k]!=null)crewCfg[k]=cc[k];});}catch(e){}
@@ -2024,7 +2058,8 @@ function crewStats(d){
   return {maxStage:d.maxStage||0, maxStageLabel:stageActLabel(d.maxStage), lifeGold:d.lifeGold!=null?d.lifeGold:null,
     kills:d.kills!=null?d.kills:null, gold:d.gold!=null?d.gold:null, topHeroes:top,
     runesLeveled:d.runes?d.runes.leveled:0, runesTotal:d.runes?d.runes.total:0,
-    trophies:(d.trophies||[]).length, playHours:d.playHours!=null?d.playHours:null, ver:APP_VERSION};
+    trophies:(d.trophies||[]).length, tiers:d.tiers||{},   // gear-only per-tier counts (Legendary/Immortal/…)
+    playHours:d.playHours!=null?d.playHours:null, ver:APP_VERSION};
 }
 var _crewLastPush=0,_crewBoard=null,_crewBoardAt=0,_crewErr=null,_crewTimer=null;
 function crewMsg(txt,color){var s2=$('crewStatus');if(s2){s2.textContent=txt;s2.style.color=color||'var(--dim)';}}
@@ -2053,12 +2088,14 @@ function crewRefresh(quiet){
 }
 function crewStartPolling(){ if(_crewTimer)return; _crewTimer=setInterval(function(){ if(crewCodeOk(crewCfg.code)&&activeTab==='crew'&&!demoMode) crewRefresh(true); },30000); }
 function crewOnSaveRead(d){ crewPush(d,false); }
-var CREW_RANKS=[['maxStage','Max stage'],['lifeGold','Lifetime gold'],['kills','Total kills'],['gold','Gold balance'],['topHero','Top hero level'],['runesLeveled','Runes leveled'],['trophies','Legendary+ items']];
+var CREW_RANKS=[['maxStage','Max stage'],['lifeGold','Lifetime gold'],['kills','Total kills'],['gold','Gold balance'],['topHero','Top hero level'],['runesLeveled','Runes leveled'],['trophies','Legendary+ gear'],['playHours','Play hours']];
 function crewRankVal(st,key){ if(!st)return null;
   if(key==='topHero'){var m2=0;(st.topHeroes||[]).forEach(function(h){if(h.level>m2)m2=h.level;});return m2;}
   return st[key]!=null?st[key]:null; }
 function crewRankDisp(st,key){ var v=crewRankVal(st,key); if(v==null)return '—';
-  return key==='maxStage'?(st.maxStageLabel||stageActLabel(v)):fmt(v); }
+  if(key==='maxStage')return st.maxStageLabel||stageActLabel(v);
+  if(key==='playHours')return fmt(v)+' h';
+  return fmt(v); }
 function fmtAgo(ms){ var s=Math.max(0,(Date.now()-ms)/1000);
   if(s<90)return 'just now'; if(s<3600)return Math.round(s/60)+'m ago'; if(s<172800)return Math.round(s/3600)+'h ago'; return Math.round(s/86400)+'d ago'; }
 function renderCrew(d){
@@ -2068,7 +2105,7 @@ function renderCrew(d){
 
   // ---- setup / privacy panel ----
   var setup=el('<div class="panel"></div>');
-  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes a few <b>brag-stats</b> — max stage, lifetime gold, kills, gold, top-3 hero levels, runes, Legendary+ count, play time — and sees everyone else\'s, live. <b>Nothing else ever leaves your device</b>: not your save file, not your items, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
+  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes a few <b>brag-stats</b> — max stage, lifetime gold, kills, gold, top-3 hero levels, runes, your <b>Legendary/Immortal/Arcana gear counts</b> (gear only — stones never count), and <b>play hours</b> — and sees everyone else\'s, live. <b>Nothing else ever leaves your device</b>: not your save file, not your items, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
   var form=el('<div class="crewform"></div>');
   var inCode=el('<input id="crewCode" maxlength="32" placeholder="Crew code (3-32 letters/numbers)" value="'+esc(crewCfg.code)+'">');
   var inName=el('<input id="crewName" maxlength="24" placeholder="Your display name" value="'+esc(crewCfg.name)+'">');
@@ -2147,7 +2184,11 @@ function renderCrew(d){
         if(st.kills!=null)chips+='<span class="chip">💀 <b>'+fmt(st.kills)+'</b></span>';
         if(st.topHeroes&&st.topHeroes.length)chips+='<span class="chip">🦸 <b>'+st.topHeroes.map(function(h){return esc(h.cls)+' '+h.level;}).join(' · ')+'</b></span>';
         if(st.runesLeveled!=null)chips+='<span class="chip rune">🔮 <b>'+fmt(st.runesLeveled)+(st.runesTotal?('/'+st.runesTotal):'')+'</b></span>';
-        if(st.trophies!=null)chips+='<span class="chip">💎 <b>'+fmt(st.trophies)+'</b> Leg+</span>';
+        // per-tier gear breakdown (v1.0.8) — best tier first, colored; falls back to the old Leg+ total for old payloads
+        var tt=st.tiers&&Object.keys(st.tiers).length?RARITY.slice().reverse().filter(function(g){return st.tiers[g];}).map(function(g){return '<span style="color:'+rvar(g)+'"><b>'+st.tiers[g]+'</b> '+cap(g)+'</span>';}).join(' · '):null;
+        if(tt)chips+='<span class="chip">💎 '+tt+'</span>';
+        else if(st.trophies!=null)chips+='<span class="chip">💎 <b>'+fmt(st.trophies)+'</b> Leg+</span>';
+        if(st.playHours!=null)chips+='<span class="chip">⏱ <b>'+fmt(st.playHours)+'h</b> played</span>';
         row.appendChild(el('<span class="crewchips">'+chips+'</span>'));
         var achBits=[];
         if(m2.achievement&&m2.achievement.text)achBits.push('🏅 '+esc(m2.achievement.text)+(m2.achievement.t?(' <span style="color:var(--dim)">· '+fmtAgo(+new Date(m2.achievement.t))+'</span>'):''));
@@ -2172,13 +2213,13 @@ function demoCrewBoard(){
   var now=Date.now();
   return [
     {id:'demo-you',name:'You (sample)',updatedAt:new Date(now-60000).toISOString(),
-      stats:{maxStage:1210,maxStageLabel:'Act 2-10',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:2,playHours:34.4,ver:APP_VERSION},
+      stats:{maxStage:1210,maxStageLabel:'Act 2-10',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:2,tiers:{LEGENDARY:2},playHours:34.4,ver:APP_VERSION},
       achievement:{t:new Date(now-3600000).toISOString(),text:'Reached Act 2-10'}},
     {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-300000).toISOString(),
-      stats:{maxStage:1208,maxStageLabel:'Act 2-8',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,playHours:41.2,ver:APP_VERSION},
+      stats:{maxStage:1208,maxStageLabel:'Act 2-8',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},playHours:41.2,ver:APP_VERSION},
       achievement:{t:new Date(now-7200000).toISOString(),text:'Slayer hit Lv 22'}},
     {id:'demo-3',name:'IdleQueen',updatedAt:new Date(now-7200000).toISOString(),
-      stats:{maxStage:1110,maxStageLabel:'Act 1-10',lifeGold:512000,kills:31000,gold:204000,topHeroes:[{cls:'Sorcerer',level:16},{cls:'Priest',level:15},{cls:'Hunter',level:14}],runesLeveled:30,runesTotal:197,trophies:1,playHours:18.5,ver:APP_VERSION},
+      stats:{maxStage:1110,maxStageLabel:'Act 1-10',lifeGold:512000,kills:31000,gold:204000,topHeroes:[{cls:'Sorcerer',level:16},{cls:'Priest',level:15},{cls:'Hunter',level:14}],runesLeveled:30,runesTotal:197,trophies:1,tiers:{LEGENDARY:1},playHours:18.5,ver:APP_VERSION},
       achievement:{t:new Date(now-86400000).toISOString(),text:'Found a new Legendary+ item'}}
   ];
 }
@@ -2479,7 +2520,7 @@ function disconnect(){
   // Change-folder = clean slate: reset loot tracking so a DIFFERENT save isn't diffed against the old one
   // (which would flood the timeline with false "drops") and no stale timeline bleeds across saves. Normal page
   // reloads don't call this, so the persisted loot timeline still survives reloads of the SAME save.
-  lastUids=null;lootLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
+  lastUidMeta=null;lootLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
   // Same clean-slate rule for the HUD's own snapshot history: a DIFFERENT save must never inherit (or pollute)
   // another save's trend history. Reloads of the same save don't pass here, so history survives refreshes.
   historyClear();
@@ -2693,8 +2734,8 @@ function loadDemo(){
     var x=xpToNext(h.level,h.exp);h.xpNeed=x.need;h.xpRemaining=x.remaining;h.xpPct=x.pct;});
   var demoAccount={runes:Object.keys(DB.runes||{}).slice(0,8).map(function(k,i){return {n:DB.runes[k].n,eff:DB.runes[k].eff,level:(i%3)?5:10};}),
     pet:(DB.pets&&DB.pets['6003'])?{key:6003,n:DB.pets['6003'].n,desc:DB.pets['6003'].desc}:{key:6003,n:'Dragon'}};
-  lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15},
-    {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15}];
+  lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15,src:'cube',mats:9},
+    {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,src:'found'}];
   // seed a ~10-min session so the sample showcases live rates + per-hero level ETAs (deployed gain XP, bench don't)
   var demoXp0={}; heroes.forEach(function(h){demoXp0[h.key]=heroCumXp(h.level,h.exp)-(h.deployed?42000:0);});
   session={t0:Date.now()-600000,earned0:1574858-48000,kills0:72091-2600,heroXp0:demoXp0};
@@ -2715,7 +2756,8 @@ function loadDemo(){
   render({version:'1.00.11 (sample)',stage:1208,wave:2,maxStage:1210,playHours:34.4,lastSaved:new Date(),
     pet:6003,gold:77298,heroes:heroes,inv:{owned:owned.length,stash:20,stashSlots:343,trade:0},
     owned:owned,byRarity:byR,
-    trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
+    trophies:owned.filter(function(o){return o.gt&&!o.mat&&rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
+    tiers:tierCountsD(owned),
     runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
     account:demoAccount,
     killsByMonster:[{name:'Orc',kills:7683,g:14,x:14},{name:'Slime',kills:7532,g:10,x:10},{name:'Orc Warrior',kills:7230,g:17,x:17},{name:'Skeleton',kills:5740,g:12,x:12},{name:'Scorpion',kills:5685,g:13,x:13},{name:'Bat',kills:5449,g:11,x:11},{name:'Giant Fly',kills:5023,g:15,x:15}],

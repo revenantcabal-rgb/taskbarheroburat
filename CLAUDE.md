@@ -183,6 +183,12 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S15 (v1.0.8)** — Crew play-hours chip + rank option; per-tier GEAR-ONLY breakdown (crew chips + Flex:
+  "2 Immortal · 6 Legendary"; `tierCounts` both engines; rarity-NAMED stones can never count; server `tiers`
+  whitelist; tbh-crew-api redeployed). **Loot origin inference:** the tracker remembers per-instance
+  material-ness; 1 new gear + ≥9 material instances consumed in one save update = Cube synthesis pattern →
+  "⚒️ Cube (likely)"; nothing consumed → "✦ found" (drop/market still indistinguishable); mixed → untagged.
+  Origin column on Loot; alert wording fixed ("new item", not "drop").
 - **S14 (v1.0.7)** — Advisor **equip-gating** (item Level = equip requirement, calibrated 43/43; unwearable upgrades
   become 🔒 level-locked notices, never advice); obsolete "Stages read as Act X-Y" tip removed; **per-stage XP/hr**
   (trendPoint.xp = summed cumulative hero XP; delta over clean intervals) + session XP/hr card + best-gold/hr &

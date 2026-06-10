@@ -64,11 +64,17 @@ const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
 const str = (v, max) => { if (typeof v !== 'string') return null; let out = ''; for (const ch of v) { const c = ch.charCodeAt(0); if (c >= 32 && c !== 127) out += ch; } return out.trim().slice(0, max); };
 
 // whitelist + clamp the brag-stats payload — anything not listed here is dropped, never stored
+const TIER_KEYS = ['LEGENDARY', 'IMMORTAL', 'ARCANA', 'BEYOND', 'CELESTIAL', 'DIVINE', 'COSMIC'];
 function cleanStats(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const heroes = Array.isArray(raw.topHeroes) ? raw.topHeroes.slice(0, 3).map((h) => ({
     cls: str(h && h.cls, 16) || '?', level: num(h && h.level) || 0,
   })) : [];
+  // per-tier gear counts (v1.0.8): only the known tier names, only positive integers
+  const tiers = {};
+  if (raw.tiers && typeof raw.tiers === 'object') {
+    TIER_KEYS.forEach((t) => { const n = num(raw.tiers[t]); if (n != null && n > 0) tiers[t] = Math.min(100000, Math.floor(n)); });
+  }
   return {
     maxStage: num(raw.maxStage) || 0,
     maxStageLabel: str(raw.maxStageLabel, 40) || '',
@@ -79,6 +85,7 @@ function cleanStats(raw) {
     runesLeveled: num(raw.runesLeveled),
     runesTotal: num(raw.runesTotal),
     trophies: num(raw.trophies),
+    tiers,
     playHours: num(raw.playHours),
     ver: str(raw.ver, 12),
   };

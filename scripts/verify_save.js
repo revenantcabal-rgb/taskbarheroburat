@@ -164,6 +164,15 @@ gg.forEach(g => console.log('   ', (g.locked ? '🔒' : '✓ ') + ' ' + g.hero.p
 const stones = eng.enchantStones(psd);
 console.log('enchantStones ', stones.length + ' kind(s) owned' + (stones.length ? (': ' + stones.map(s => s.name + (s.count > 1 ? (' ×' + s.count) : '')).join(', ')) : ' (none — honest empty state in the UI)'));
 
+// trophies/tiers (v1.0.8): GEAR ONLY — a material (e.g. a rarity-NAMED stone) must never count; the per-tier
+// breakdown must sum exactly to the trophy count.
+const troph = eng.trophies(psd);
+if (troph.some(t => t.mat || !t.gt)) problems.push('trophies contains a non-gear item (material leaked into flex counts)');
+const tiersV = eng.tierCounts(psd);
+const tierSum = Object.keys(tiersV).reduce((s, k) => s + tiersV[k], 0);
+if (tierSum !== troph.length) problems.push('tierCounts sum ' + tierSum + ' != trophies ' + troph.length);
+console.log('tiers         ', JSON.stringify(tiersV), '== ' + troph.length + ' Legendary+ gear pieces ✓ (gear-only, stones excluded)');
+
 // runePlan: steps must price from the rune cost table, never exceed the budget, and sum exactly to spent.
 const rp = eng.runePlan(psd, snap.gold);
 const stepSum = rp.steps.reduce((s, x) => s + x.cost, 0);

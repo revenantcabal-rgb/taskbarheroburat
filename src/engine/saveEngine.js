@@ -99,7 +99,12 @@ function inventory(psd){ const occ=a=>(psd[a]||[]).filter(s=>nz(s.ItemUniqueId))
   return { owned:(psd.itemSaveDatas||[]).length, stashFilled:occ('stashSaveDatas'), stashSlots:(psd.stashSaveDatas||[]).length, invFilled:occ('inventorySaveDatas'), invSlots:(psd.inventorySaveDatas||[]).length, tradeFilled:occ('tradingStashSaveDatas') }; }
 function ownedItems(psd){ return (psd.itemSaveDatas||[]).map(it=>{ const info=itemInfo(it.ItemKey); return {uid:String(it.UniqueId),key:String(it.ItemKey),icon:info.ic||iconId(it.ItemKey),ench:(it.EnchantCount||[]).reduce((a,b)=>a+b,0),mods:resolveMods(it.EnchantData),...info}; }); }
 function byRarity(psd){ const g={}; for(const it of ownedItems(psd)){ if(it.grade) g[it.grade]=(g[it.grade]||0)+1; } return g; }
-function trophies(psd){ return ownedItems(psd).filter(it=>rarityRank(it.grade)>=3).sort((a,b)=>rarityRank(b.grade)-rarityRank(a.grade)); }
+// trophies = GEAR ONLY (gt set, not a material). Materials are ungraded in the DB today, but several are NAMED
+// with rarity words ("Scroll of Immortal Inscription", "Immortal Material") — the explicit gear-only filter
+// guarantees stones can never count toward owning/flexing high-tier gear, now or after a game patch.
+function trophies(psd){ return ownedItems(psd).filter(it=>it.gt&&!it.mat&&rarityRank(it.grade)>=3).sort((a,b)=>rarityRank(b.grade)-rarityRank(a.grade)); }
+// per-tier GEAR-ONLY counts for Legendary and above — the flex/crew breakdown (e.g. {LEGENDARY:6, IMMORTAL:2})
+function tierCounts(psd){ const out={}; ownedItems(psd).forEach(it=>{ if(!it.gt||it.mat) return; if(rarityRank(it.grade)>=3) out[it.grade]=(out[it.grade]||0)+1; }); return out; }
 function lootDiff(prevPsd,curPsd){ const prev=new Set((prevPsd.itemSaveDatas||[]).map(it=>String(it.UniqueId))); return ownedItems(curPsd).filter(it=>!prev.has(it.uid)); }
 function runes(psd){ const a=psd.RuneSaveData||[]; return {total:a.length,leveled:a.filter(r=>(r.Level||0)>0).length}; }
 // Surfaces ONLY calibrated lifetime aggregates: Type 2/Sub0 = lifetime gold (its delta matched a gold gain
@@ -276,4 +281,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
