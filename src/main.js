@@ -29,14 +29,28 @@ function sendSave() {
   });
 }
 
+// Read every save snapshot (live + rolling/timestamped backups) for History/Trends. Read-only.
+function sendBackups() {
+  fs.readdir(SAVE_DIR, (err, files) => {
+    if (err || !win || win.isDestroyed()) return;
+    const list = [];
+    for (const name of files.filter(f => /\.es3(\.bak)?$/i.test(f))) {
+      try { list.push({ name, buf: fs.readFileSync(path.join(SAVE_DIR, name)) }); } catch (e) { /* skip */ }
+    }
+    if (win && !win.isDestroyed()) win.webContents.send('backup-bytes', list);
+  });
+}
+
 app.whenReady().then(() => {
   createWindow();
-  let debounce = null;
+  let debounce = null, bDebounce = null;
   try {
     fs.watch(SAVE_DIR, (evt, file) => {
       if (file && file.indexOf('SaveFile_Live') === 0) {
         clearTimeout(debounce);
         debounce = setTimeout(sendSave, 400);
+        clearTimeout(bDebounce);             // refresh trends less often than the live render
+        bDebounce = setTimeout(sendBackups, 8000);
       }
     });
   } catch (e) { /* directory may not exist until the game runs */ }
@@ -44,4 +58,5 @@ app.whenReady().then(() => {
 });
 
 ipcMain.on('request-save', sendSave);
+ipcMain.on('request-backups', sendBackups);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

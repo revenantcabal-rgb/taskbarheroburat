@@ -205,6 +205,9 @@
   .empty{color:var(--dim);font-size:13px;padding:22px;text-align:center;border:1px dashed var(--line);border-radius:12px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:760px){.two{grid-template-columns:1fr}}
+  .chartp{padding:12px 6px 6px}
+  .xaxis{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);padding:5px 8px 0;
+    font-family:ui-monospace,Consolas,monospace}
   footer{max-width:1180px;margin:0 auto;padding:22px 24px 50px;color:var(--dim);font-size:11.5px;
     border-top:1px solid var(--line);margin-top:30px}
   footer b{color:var(--muted)}
@@ -222,7 +225,8 @@
   <div class="spacer"></div>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">no save</span></div>
   <button class="ghost" id="demoBtn">Preview sample</button>
-  <button class="primary" id="connectBtn">Connect save</button>
+  <button class="ghost" id="connectBtn">Connect file</button>
+  <button class="primary" id="connectFolderBtn">Connect folder</button>
   <input type="file" id="fileInput" accept=".es3" class="hidden">
 </header>
 
@@ -233,14 +237,18 @@
   <button data-tab="loot">Loot <span class="count" id="tabLootCount"></span></button>
   <button data-tab="runes">Runes <span class="count" id="tabRuneCount"></span></button>
   <button data-tab="lifetime">Lifetime</button>
+  <button data-tab="trends">Trends <span class="count" id="tabTrendCount"></span></button>
 </nav>
 
 <main>
   <div class="gate" id="gate">
     <div class="logo">⚔️</div>
     <h2>Connect your Task Bar Hero save</h2>
-    <p>Click <b>Connect save</b> and pick <code>SaveFile_Live.es3</code> from<br>
+    <p>Click <b>Connect folder</b> and pick the folder<br>
       <code>%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\</code></p>
+    <p class="fine">The folder option (Chrome / Edge) reads your live save <b>plus the game's rolling
+      backups</b> to chart your history &amp; trends over time. <b>Connect file</b> loads just the single
+      <code>SaveFile_Live.es3</code> (no trends).</p>
     <p class="fine">Decrypted and read entirely on your machine — nothing is uploaded, and the game is
       never modified. Chrome / Edge keep it live as you play; other browsers load once (re-pick to refresh).</p>
     <p class="fine">No save handy? <a href="#" id="demoLink" style="color:var(--blue2)">Preview with sample data →</a></p>
@@ -252,6 +260,7 @@
   <div id="tab-loot" class="tab-page hidden"></div>
   <div id="tab-runes" class="tab-page hidden"></div>
   <div id="tab-lifetime" class="tab-page hidden"></div>
+  <div id="tab-trends" class="tab-page hidden"></div>
 </main>
 
 <div id="tip"></div>
@@ -347,6 +356,75 @@ function analyze(psd){
     runes:runeDetail(psd.RuneSaveData||[]),
     kills:pick(0,0), lifeGold:pick(2,0), perDiff:[0,1,2,3].map(function(d){return pick(16,d);})
   };
+}
+
+/* ============================================================================
+   History / trends — derived from the game's own rolling save backups.
+   trendPoint(): lean scalar snapshot. buildTrends(): sort + dedup + per-interval
+   rates (gold earned & kills per hour PLAYED, falling back to wall-clock). All
+   values come straight from the save aggregates — calibrated, never fabricated.
+   ========================================================================== */
+function trendPoint(psd){
+  var c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[];
+  function pick(t,s){var r=a.find(function(x){return x.Type===t&&x.SubKey===s;});return r?r.Value:null;}
+  var goldRow=(psd.currenySaveDatas||[]).find(function(x){return x.Key===GOLD_KEY;});
+  var d=ticksToDate(c.lastSavedTime);
+  return {t:d?+d:null, gold:goldRow?goldRow.Quantity:0, lifeGold:pick(2,0), kills:pick(0,0),
+    playH:c.playTime?+(c.playTime/3600).toFixed(2):null, maxStage:c.maxCompletedStage,
+    items:(psd.itemSaveDatas||[]).length, runes:(psd.RuneSaveData||[]).filter(function(r){return (r.Level||0)>0;}).length};
+}
+function buildTrends(points){
+  var seen={}, pts=[];
+  (points||[]).filter(function(p){return p&&p.t;}).sort(function(a,b){return a.t-b.t;}).forEach(function(p){
+    var k=p.t+'/'+p.lifeGold; if(seen[k])return; seen[k]=1; pts.push(p);   // dedup live vs _1.bak
+  });
+  for(var i=1;i<pts.length;i++){
+    var a=pts[i-1], b=pts[i];
+    var dPlay=(b.playH!=null&&a.playH!=null)?(b.playH-a.playH):null;
+    var dWall=(b.t-a.t)/3600000;
+    var h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall;        // prefer hours actually played
+    var dLife=(b.lifeGold!=null&&a.lifeGold!=null)?(b.lifeGold-a.lifeGold):null;
+    var dKills=(b.kills!=null&&a.kills!=null)?(b.kills-a.kills):null;
+    b.goldPerHr=(dLife!=null&&h>0.01)?Math.round(dLife/h):null;
+    b.killsPerHr=(dKills!=null&&h>0.01)?Math.round(dKills/h):null;
+    b.dLife=dLife; b.dKills=dKills; b.dPlay=dPlay; b.dWall=dWall;
+  }
+  return pts;
+}
+var trends=[];
+async function setTrendsFromBuffers(list){
+  // list: [{name, buf(ArrayBuffer)}]. Decrypt each read-only, extract a trend point.
+  var pts=[];
+  for(var i=0;i<list.length;i++){
+    try{ pts.push(trendPoint(loadInner(await decryptSave(list[i].buf)))); }catch(e){ /* skip unreadable */ }
+  }
+  trends=buildTrends(pts);
+  $('tabTrendCount').textContent=trends.length||'';
+  if(activeTab==='trends'&&current) renderTrends(current);
+  return trends.length;
+}
+
+/* ---------- lightweight SVG charts (no dependency; works in browser + Electron) ---------- */
+function miniLine(vals,opts){
+  opts=opts||{}; var W=520,H=opts.h||120,pl=10,pr=10,pt=12,pb=10; var n=vals.length; if(!n)return'';
+  var max=Math.max.apply(null,vals),min=opts.min0?0:Math.min.apply(null,vals);
+  if(!isFinite(max))return''; if(max===min)max=min+1;
+  var iw=W-pl-pr,ih=H-pt-pb,col=opts.color||'var(--blue)',id=opts.id||'c';
+  var P=function(i){return [pl+(n===1?iw/2:iw*i/(n-1)), pt+ih-(vals[i]-min)/(max-min)*ih];};
+  var line=vals.map(function(v,i){var p=P(i);return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ');
+  var area=line+' L'+P(n-1)[0].toFixed(1)+' '+(pt+ih)+' L'+P(0)[0].toFixed(1)+' '+(pt+ih)+' Z';
+  var dots=n<=14?vals.map(function(v,i){var p=P(i);return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="2.4" fill="'+col+'"/>';}).join(''):'';
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:'+H+'px;display:block">'+
+    '<defs><linearGradient id="grad'+id+'" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="'+col+'" stop-opacity=".30"/><stop offset="1" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>'+
+    '<path d="'+area+'" fill="url(#grad'+id+')"/><path d="'+line+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round"/>'+dots+'</svg>';
+}
+function miniBars(vals,opts){
+  opts=opts||{}; var W=520,H=opts.h||120,pl=10,pr=10,pt=12,pb=10; var n=vals.length; if(!n)return'';
+  var max=Math.max.apply(null,vals.concat([0])); if(max<=0)max=1;
+  var iw=W-pl-pr,ih=H-pt-pb,col=opts.color||'var(--green)',gap=4,bw=(iw/n)-gap;
+  var bars=vals.map(function(v,i){var bh=Math.max(0,(v||0)/max*ih);var x=pl+i*(iw/n)+gap/2;var y=pt+ih-bh;
+    return '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+Math.max(1,bw).toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="2" fill="'+col+'"/>';}).join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:'+H+'px;display:block">'+bars+'</svg>';
 }
 
 /* ---------- loot tracking (persisted) ---------- */
@@ -617,12 +695,61 @@ function renderLifetime(d){
     'Per-difficulty completions and lifetime gold/kills above are read straight from the save\'s aggregate counters.</div>'));
 }
 
+function fmtDay(ms){var d=new Date(ms);function z(n){return (n<10?'0':'')+n;}
+  return (d.getMonth()+1)+'/'+d.getDate()+' '+z(d.getHours())+':'+z(d.getMinutes());}
+function renderTrends(d){
+  var p=$('tab-trends');p.innerHTML='';
+  var pts=trends||[];
+  p.appendChild(el('<h3 class="sec">History &amp; trends <span class="tag">from the game\'s rolling save backups (read-only)</span></h3>'));
+  if(pts.length<2){
+    p.appendChild(el('<div class="empty">'+(pts.length?('Only '+pts.length+' snapshot loaded. '):'')+
+      'Need at least 2 save snapshots to chart trends. Use <b>Connect folder</b> (Chrome / Edge) or the desktop app '+
+      'to read the game\'s rolling save backups (read-only) and chart gold/hr, kills and progression over time.</div>'));
+    return;
+  }
+  var first=pts[0], last=pts[pts.length-1];
+  var spanH=(last.t-first.t)/3600000;
+  var rated=pts.slice(1).filter(function(x){return x.goldPerHr!=null;});
+  var peak=rated.length?Math.max.apply(null,rated.map(function(x){return x.goldPerHr;})):null;
+  var latestRate=rated.length?rated[rated.length-1].goldPerHr:null;
+  var killsWin=(last.kills!=null&&first.kills!=null)?(last.kills-first.kills):null;
+  var playWin=(last.playH!=null&&first.playH!=null)?(last.playH-first.playH):null;
+
+  p.appendChild(el('<div class="grid cards">'+[
+    card('Latest gold / hr', latestRate==null?'—':fmt(latestRate),'green','most recent interval','📈'),
+    card('Peak gold / hr', peak==null?'—':fmt(peak),'gold','best interval','🔥'),
+    card('Kills tracked', killsWin==null?'—':('+'+fmt(killsWin)),'blue', fmt(pts.length)+' snapshots','💀'),
+    card('Span', spanH>=24?((spanH/24).toFixed(1)+' days'):(spanH.toFixed(1)+' h'), '', (playWin!=null?('+'+playWin.toFixed(1)+'h played'):''),'🕒')
+  ].join('')+'</div>'));
+
+  var labels=pts.map(function(x){return fmtDay(x.t);});
+  function chartBlock(title,sub,svg,lo,hi){return '<div><h3 class="sec">'+title+(sub?' <span class="tag">'+sub+'</span>':'')+
+    '</h3><div class="panel chartp">'+svg+'<div class="xaxis"><span>'+(lo||labels[0])+'</span><span>'+(hi||labels[labels.length-1])+'</span></div></div></div>';}
+
+  p.appendChild(el('<div class="two">'+
+    chartBlock('Lifetime gold','cumulative · '+fmt(last.lifeGold), miniLine(pts.map(function(x){return x.lifeGold||0;}),{color:'var(--gold)',id:'lg',min0:true}))+
+    chartBlock('Total kills','cumulative · '+fmt(last.kills), miniLine(pts.map(function(x){return x.kills||0;}),{color:'var(--blue)',id:'k',min0:true}))+
+  '</div>'));
+  p.appendChild(el('<div class="two">'+
+    chartBlock('Gold / hr by interval','earned per hour played', miniBars(rated.map(function(x){return x.goldPerHr;}),{color:'var(--green)'}))+
+    chartBlock('Max stage','progression · now '+fmt(last.maxStage), miniLine(pts.map(function(x){return x.maxStage||0;}),{color:'var(--purple)',id:'ms'}))+
+  '</div>'));
+
+  var rows=pts.slice().reverse().map(function(x){
+    return '<tr><td class="loot-time">'+fmtDay(x.t)+'</td><td class="r">'+fmt(x.gold)+'</td><td class="r">'+fmt(x.lifeGold)+'</td>'+
+      '<td class="r">'+(x.goldPerHr!=null?('<b style="color:var(--green)">'+fmt(x.goldPerHr)+'</b>'):'—')+'</td>'+
+      '<td class="r">'+fmt(x.kills)+'</td><td class="r">'+fmt(x.maxStage)+'</td><td class="r">'+(x.playH!=null?(x.playH+'h'):'—')+'</td></tr>';
+  }).join('');
+  p.appendChild(el('<h3 class="sec">Snapshots <span class="tag">newest first · '+pts.length+'</span></h3>'));
+  p.appendChild(el('<div class="panel"><table><thead><tr><th>Saved</th><th class="r">Gold</th><th class="r">Lifetime</th><th class="r">Gold/hr</th><th class="r">Kills</th><th class="r">Stage</th><th class="r">Played</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+}
+
 /* ---------- tab switching ---------- */
 function setTab(name){
   activeTab=name;
   Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
     b.classList.toggle('active',b.dataset.tab===name);});
-  ['overview','party','inventory','loot','runes','lifetime'].forEach(function(t){
+  ['overview','party','inventory','loot','runes','lifetime','trends'].forEach(function(t){
     $('tab-'+t).classList.toggle('hidden',t!==name);});
   if(current)renderTab(name,current);
 }
@@ -633,6 +760,7 @@ function renderTab(name,d){
   else if(name==='loot')renderLoot(d);
   else if(name==='runes')renderRunes(d);
   else if(name==='lifetime')renderLifetime(d);
+  else if(name==='trends')renderTrends(d);
 }
 
 function render(d){
@@ -665,6 +793,36 @@ async function connectFS(){
   async function poll(){try{var f=await handle.getFile();if(f.lastModified!==lastMod){lastMod=f.lastModified;onBytes(await f.arrayBuffer());}}catch(e){}}
   await poll();if(timer)clearInterval(timer);timer=setInterval(poll,4000);
 }
+/* directory access: live save + the game's rolling backups -> live dashboard AND History/Trends.
+   Pure reads (mode:'read'); the game folder is never written to. */
+var dirHandle=null,dirTimer=null,liveMod=0,scanTick=0;
+async function connectFolder(){
+  dirHandle=await window.showDirectoryPicker({id:'tbh-save',mode:'read'});
+  await scanFolder(true);
+  if(dirTimer)clearInterval(dirTimer);
+  dirTimer=setInterval(function(){scanFolder(false);},5000);
+}
+async function scanFolder(full){
+  if(!dirHandle)return;
+  try{
+    var liveH=null,backups=[];
+    for await(var entry of dirHandle.values()){
+      if(entry.kind!=='file')continue;
+      if(entry.name==='SaveFile_Live.es3')liveH=entry;
+      if(/\.es3(\.bak)?$/i.test(entry.name))backups.push(entry);
+    }
+    if(liveH){var lf=await liveH.getFile();if(lf.lastModified!==liveMod){liveMod=lf.lastModified;await onBytes(await lf.arrayBuffer());}}
+    // rebuild trends on first load, when viewing the Trends tab, or ~once a minute (new backups appear periodically)
+    if(full||activeTab==='trends'||(scanTick++%12===0)){
+      var list=[];
+      for(var i=0;i<backups.length;i++){try{var bf=await backups[i].getFile();list.push({name:backups[i].name,buf:await bf.arrayBuffer()});}catch(e){}}
+      await setTrendsFromBuffers(list);
+    }
+  }catch(e){console.error('scanFolder',e);}
+}
+if(window.showDirectoryPicker){
+  $('connectFolderBtn').addEventListener('click',async function(){try{await connectFolder();}catch(e){if(e.name!=='AbortError')console.error(e);}});
+}else{$('connectFolderBtn').classList.add('hidden');}
 $('connectBtn').addEventListener('click',async function(){
   if(window.showOpenFilePicker){try{await connectFS();}catch(e){if(e.name!=='AbortError')console.error(e);}}
   else $('fileInput').click();
@@ -674,8 +832,13 @@ $('fileInput').addEventListener('change',function(e){if(e.target.files[0]){var r
 /* Electron native bridge */
 if(window.tbhNative&&window.tbhNative.onSave){
   $('connectBtn').classList.add('hidden');
+  $('connectFolderBtn').classList.add('hidden');
   window.tbhNative.onSave(function(buf){onBytes(buf);});
+  if(window.tbhNative.onBackups)window.tbhNative.onBackups(function(list){
+    setTrendsFromBuffers((list||[]).map(function(x){return {name:x.name,buf:x.buf};}));
+  });
   if(window.tbhNative.requestSave)window.tbhNative.requestSave();
+  if(window.tbhNative.requestBackups)window.tbhNative.requestBackups();
 }
 Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
   b.addEventListener('click',function(){setTab(b.dataset.tab);});
