@@ -1,5 +1,5 @@
 > **HISTORICAL — this Session-7 brief is DONE and SHIPPED (all P1-P5).** Kept for the record only.
-> Current state / what's next: `improvement.log` + `docs/PROGRESS.md` + CLAUDE.md §Next (app is at **v1.0.3**, 9 tabs).
+> Current state / what's next: `improvement.log` + `docs/PROGRESS.md` + CLAUDE.md §Next (superseded; see docs/PROGRESS.md for the current version).
 
 # TBH HUD — GOAL (Session 7: HONESTY + UX).  `/goal` reads this. CONTINUE; do NOT redo shipped work.
 Read CLAUDE.md + docs/PRD.md + improvement.log + docs/PROGRESS.md FIRST. Read-only, calibrated, verify vs the LIVE save,

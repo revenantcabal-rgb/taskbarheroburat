@@ -10,6 +10,20 @@ Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S17 (v1.0.10) — rune Stat List + crew clarity + microscopic sweep.** **Rune Stat List** (mirrors the game's
+  Runes → Stat List): per effect, sum the per-level table values of every leveled rune to its current level —
+  reading justified structurally (ALL 135 multi-level runes have CONSTANT per-level values with RISING costs, so
+  each level grants its value; "value-at-level" would make levels 2+ pure gold sinks) and the UI shows its
+  derivation per entry (runes × levels) + asks the player to report any mismatch vs the in-game list (the last
+  calibration step; a slot-count cross-check was void — both saves have identical 260/343 slot arrays despite
+  different Expansion rune levels, so the arrays are preallocated). Shown on the Runes tab + pushed (top 6) as a
+  crew flex line. **Crew version tags:** members on older app versions now show "app vX — fewer stats until they
+  update" (this is exactly why crew rows look different: old clients send old payloads; ≥1.0.6 self-update,
+  ≤1.0.5 need the one-time reinstall). **Header version label** now reads "game v1.00.11" — that's the GAME's
+  version from the save, not the HUD's (the HUD's own version is in the footer; owner asked why "v1.00.11 wasn't
+  updated"). **Sweep:** no TODO/FIXME/placeholder/dead-rename leftovers in code; stale "9 tabs"/v1.0.3 claims
+  fixed in PROGRESS + historical docs genericized; PROGRESS gained the missing sessions 13b-17 record + an
+  improvement backlog; verify_save now ASSERTS version sync (package.json == APP_VERSION == ?v= cache-bust).
 - **S16 (v1.0.9) — offline vs online, researched + productized.** RESEARCH on both real histories: saves only
   exist while the game runs, so offline progress arrives as ONE lump at reopen; continuous-play pairs show
   wall-vs-played jitter of 0.0–0.15h while pairs containing a real restart show 0.49h+ AND their "other"-bucket

@@ -75,6 +75,10 @@ function cleanStats(raw) {
   if (raw.tiers && typeof raw.tiers === 'object') {
     TIER_KEYS.forEach((t) => { const n = num(raw.tiers[t]); if (n != null && n > 0) tiers[t] = Math.min(100000, Math.floor(n)); });
   }
+  // top rune stats (v1.0.10): max 6 entries of {e: effect name, v: summed value}
+  const runeStats = Array.isArray(raw.runeStats) ? raw.runeStats.slice(0, 6).map((s) => ({
+    e: str(s && s.e, 32) || '?', v: num(s && s.v) || 0,
+  })).filter((s) => s.e !== '?' && s.v > 0) : [];
   return {
     maxStage: num(raw.maxStage) || 0,
     maxStageLabel: str(raw.maxStageLabel, 40) || '',
@@ -86,6 +90,7 @@ function cleanStats(raw) {
     runesTotal: num(raw.runesTotal),
     trophies: num(raw.trophies),
     tiers,
+    runeStats,
     playHours: num(raw.playHours),
     ver: str(raw.ver, 12),
   };

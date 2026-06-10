@@ -1,5 +1,5 @@
 > **HISTORICAL** — this #2 / #3 session brief is long DONE, as are all later briefs (incl. GOAL.md = Session 7).
-> Current state / what's next: `improvement.log` + `docs/PROGRESS.md` + CLAUDE.md §Next (app is at **v1.0.3**, 9 tabs).
+> Current state / what's next: `improvement.log` + `docs/PROGRESS.md` + CLAUDE.md §Next (superseded; see docs/PROGRESS.md for the current version).
 > Kept only as a trace of a completed session.
 
 Pick up TBH HUD - READ-ONLY companion for "TBH: Task Bar Hero". Work autonomously 2-3h, no stopping; don't ask unless truly blocked. Commit + push continuously; keep local = remote.

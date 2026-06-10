@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBH HUD — Task Bar Hero companion</title>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.9"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.10"></script>
 <style>
   :root{
     --bg:#080a13; --bg2:#0b0e1a; --surface:#121728; --surface2:#171d33; --surface3:#1f2742;
@@ -838,6 +838,20 @@ function enchantStatusD(heroes){
 function statTotals(s){ s=s||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 // per-tier GEAR-ONLY counts for Legendary and above (mirror of saveEngine.tierCounts) — the flex/crew breakdown
 function tierCountsD(owned){ var out={}; (owned||[]).forEach(function(o){ if(!o.gt||o.mat) return; if(rrank(o.grade)>=3) out[o.grade]=(out[o.grade]||0)+1; }); return out; }
+// runeStatList (mirror of saveEngine): the account-wide rune Stat List — per effect, sum the per-level values
+// of every leveled rune up to its current level (all multi-level runes have constant per-level values with
+// rising costs, so each level grants its value). Derivation included so the UI shows its work.
+function runeStatListD(runeSave){
+  var lvlOf={}; (runeSave||[]).forEach(function(r){lvlOf[String(r.RuneKey)]=r.Level||0;});
+  var by={};
+  Object.keys(DB.runes||{}).forEach(function(k){ var d=DB.runes[k]; var L=lvlOf[k]||0; if(!L||!d.lv) return;
+    var tot=0,ok=false;
+    d.lv.forEach(function(x){ if(x.l<=L){ var v=parseFloat(x.val); if(!isNaN(v)){tot+=v;ok=true;} } });
+    if(!ok) return;
+    if(!by[d.eff]) by[d.eff]={eff:d.eff,total:0,levels:0,runes:0};
+    by[d.eff].total+=tot; by[d.eff].levels+=L; by[d.eff].runes++; });
+  return Object.keys(by).map(function(k){return by[k];}).sort(function(a,b){return b.total-a.total;});
+}
 // "2 Immortal · 6 Legendary" — best tier first; '' when none
 function tierText(tiers){ var t=tiers||{}; return RARITY.slice().reverse().filter(function(g){return t[g];}).map(function(g){return t[g]+' '+cap(g);}).join(' · '); }
 
@@ -934,6 +948,7 @@ function analyze(psd){
     runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd), killsByMonster:killsByMonster(psd),
     ownedSkills:ownedSkills,
     gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes), stones:enchantStonesD(owned),
+    runeStats:runeStatListD(psd.RuneSaveData),
     kills:pick(0,0), lifeGold:pick(2,0), goldBySource:goldBySourceInline(a)
     // NOTE: aggregate Type 16 ([Normal-band counts]) is NOT surfaced. It is uncalibrated and, read as
     // per-difficulty completions, is DISPROVEN by this save (Normal-only at Act 2-10 yet would claim
@@ -1681,6 +1696,16 @@ function renderRunes(d){
   var p=$('tab-runes');p.innerHTML='';
   var r=d.runes||{list:[],leveled:0,total:0};
   p.appendChild(el('<h3 class="sec">Rune tree <span class="tag">'+r.leveled+' / '+r.total+' nodes leveled · authoritative names & effects</span></h3>'));
+  // account-wide Stat List (v1.0.10) — mirrors the game's Runes -> Stat List, with the derivation shown
+  var rs=d.runeStats||[];
+  if(rs.length){
+    p.appendChild(el('<h3 class="sec">Stat list <span class="tag">account-wide totals from your leveled runes — should match the game\'s Runes → Stat List</span></h3>'));
+    var chips=rs.map(function(s){
+      return '<span class="chip" title="'+esc(s.runes+' rune'+(s.runes>1?'s':'')+' · '+s.levels+' level'+(s.levels>1?'s':'')+' bought — each level adds its table value')+'">'+esc(s.eff)+' <b>+'+fmt(s.total)+'</b> <span class="mt">'+s.levels+' lv</span></span>';
+    }).join('');
+    p.appendChild(el('<div class="panel"><div class="bd-stats" style="gap:7px">'+chips+'</div>'+
+      '<div class="crewnote" style="margin-top:10px">Each total = the per-level table values of your leveled runes, summed to their current levels (the game prices every level, and every level grants its value). If any number here differs from the in-game Stat List, that\'s a bug — please report it.</div></div>'));
+  }
   // cheapest next upgrades (not maxed, has a known next cost)
   var rec=r.list.filter(function(x){return x.max&&x.level<x.max&&x.nextCost!=null;})
     .sort(function(a,b){return a.nextCost-b.nextCost;}).slice(0,6);
@@ -2099,7 +2124,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.9';
+var APP_VERSION='1.0.10';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 var crewCfg={optin:false,code:'',name:'',id:'',rankBy:'maxStage'};
 try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','name','id','rankBy'].forEach(function(k){if(cc[k]!=null)crewCfg[k]=cc[k];});}catch(e){}
@@ -2110,10 +2135,13 @@ function crewCodeOk(c){return /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/.test(c||'');}
 function crewStats(d){
   var top=(d.heroes||[]).slice().sort(function(a,b){return (b.level||0)-(a.level||0);}).slice(0,3)
     .map(function(h){return {cls:h.cls,level:h.level};});
+  // top rune stats (v1.0.10): the biggest account-wide rune totals, for crew flexing — name + summed value
+  var rstats=(d.runeStats||[]).slice(0,6).map(function(s){return {e:String(s.eff).slice(0,32),v:s.total};});
   return {maxStage:d.maxStage||0, maxStageLabel:stageActLabel(d.maxStage), lifeGold:d.lifeGold!=null?d.lifeGold:null,
     kills:d.kills!=null?d.kills:null, gold:d.gold!=null?d.gold:null, topHeroes:top,
     runesLeveled:d.runes?d.runes.leveled:0, runesTotal:d.runes?d.runes.total:0,
     trophies:(d.trophies||[]).length, tiers:d.tiers||{},   // gear-only per-tier counts (Legendary/Immortal/…)
+    runeStats:rstats,
     playHours:d.playHours!=null?d.playHours:null, ver:APP_VERSION};
 }
 var _crewLastPush=0,_crewBoard=null,_crewBoardAt=0,_crewErr=null,_crewTimer=null;
@@ -2248,6 +2276,14 @@ function renderCrew(d){
         else if(st.trophies!=null)chips+='<span class="chip">💎 <b>'+fmt(st.trophies)+'</b> Leg+</span>';
         if(st.playHours!=null)chips+='<span class="chip">⏱ <b>'+fmt(st.playHours)+'h</b> played</span>';
         row.appendChild(el('<span class="crewchips">'+chips+'</span>'));
+        // rune stat flex line (v1.0.10) — members on older app versions don't send it
+        if(st.runeStats&&st.runeStats.length){
+          var rline=st.runeStats.slice(0,4).map(function(x){return esc(x.e)+' <b style="color:var(--purple)">+'+fmt(x.v)+'</b>';}).join(' · ');
+          row.appendChild(el('<span class="crewach" style="color:var(--muted)">🧬 '+rline+(st.runeStats.length>4?(' <span class="gap">+'+(st.runeStats.length-4)+' more</span>'):'')+'</span>'));
+        } else if(st.ver&&st.ver!==APP_VERSION){
+          // older client: their HUD sends an older payload — that's why their chips show less detail
+          row.appendChild(el('<span class="crewach"><span class="gap" title="This member\'s HUD is on an older version, so it shares fewer stats. v1.0.6+ updates itself; v1.0.5 or older needs a one-time reinstall.">app v'+esc(st.ver)+' — fewer stats until they update</span></span>'));
+        }
         var achBits=[];
         if(m2.achievement&&m2.achievement.text)achBits.push('🏅 '+esc(m2.achievement.text)+(m2.achievement.t?(' <span style="color:var(--dim)">· '+fmtAgo(+new Date(m2.achievement.t))+'</span>'):''));
         if(!isMe&&meVal!=null){var tv=crewRankVal(st,key);
@@ -2271,7 +2307,7 @@ function demoCrewBoard(){
   var now=Date.now();
   return [
     {id:'demo-you',name:'You (sample)',updatedAt:new Date(now-60000).toISOString(),
-      stats:{maxStage:1210,maxStageLabel:'Act 2-10',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:2,tiers:{LEGENDARY:2},playHours:34.4,ver:APP_VERSION},
+      stats:{maxStage:1210,maxStageLabel:'Act 2-10',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},runeStats:[{e:'Increase Gold Amount',v:300},{e:'All Hero Attack Damage Percent',v:120},{e:'Drop Chance Normal Chest Percent',v:90}],playHours:34.4,ver:APP_VERSION},
       achievement:{t:new Date(now-3600000).toISOString(),text:'Reached Act 2-10'}},
     {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-300000).toISOString(),
       stats:{maxStage:1208,maxStageLabel:'Act 2-8',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},playHours:41.2,ver:APP_VERSION},
@@ -2540,7 +2576,8 @@ function render(d){
   current=d;
   $('gate').classList.add('hidden');
   $('tabs').classList.remove('hidden');
-  $('ver').textContent='v'+(d.version||'?')+(d.playHours?(' · '+d.playHours+'h played'):'');
+  // labeled "game v…" so it can't be confused with the HUD's own version (shown in the footer as "app v…")
+  $('ver').textContent='game v'+(d.version||'?')+(d.playHours?(' · '+d.playHours+'h played'):'');
   $('tabInvCount').textContent=d.owned.length;
   $('tabLootCount').textContent=lootLog.length||'';
   $('tabRuneCount').textContent=(d.runes&&d.runes.leveled)?(d.runes.leveled+'/'+d.runes.total):'';
@@ -2794,6 +2831,7 @@ function loadDemo(){
     pet:(DB.pets&&DB.pets['6003'])?{key:6003,n:DB.pets['6003'].n,desc:DB.pets['6003'].desc}:{key:6003,n:'Dragon'}};
   lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15,src:'cube',mats:9},
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,src:'found'}];
+  var demoRuneSave=Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};});
   // seed a ~10-min session so the sample showcases live rates + per-hero level ETAs (deployed gain XP, bench don't)
   var demoXp0={}; heroes.forEach(function(h){demoXp0[h.key]=heroCumXp(h.level,h.exp)-(h.deployed?42000:0);});
   session={t0:Date.now()-600000,earned0:1574858-48000,kills0:72091-2600,heroXp0:demoXp0};
@@ -2823,7 +2861,7 @@ function loadDemo(){
     owned:owned,byRarity:byR,
     trophies:owned.filter(function(o){return o.gt&&!o.mat&&rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     tiers:tierCountsD(owned),
-    runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
+    runes:runeDetail(demoRuneSave), runeStats:runeStatListD(demoRuneSave),
     account:demoAccount,
     killsByMonster:[{name:'Orc',kills:7683,g:14,x:14},{name:'Slime',kills:7532,g:10,x:10},{name:'Orc Warrior',kills:7230,g:17,x:17},{name:'Skeleton',kills:5740,g:12,x:12},{name:'Scorpion',kills:5685,g:13,x:13},{name:'Bat',kills:5449,g:11,x:11},{name:'Giant Fly',kills:5023,g:15,x:15}],
     gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes), stones:enchantStonesD(owned),

@@ -231,6 +231,23 @@ function gearGaps(psd){
   return out;
 }
 
+// runeStatList: the account-wide rune Stat List (v1.0.10) — mirrors the game's Runes -> Stat List. Per effect,
+// sum the per-level values of every leveled rune up to its current level. Reading justified structurally: all
+// 135 multi-level runes have CONSTANT per-level values with RISING per-level costs — "value at level" would
+// make levels 2+ pure gold sinks, so each level grants its value. Derivation (runes x levels) is returned so
+// the UI can show its work and any mismatch with the in-game list is immediately visible.
+function runeStatList(psd){
+  const lvlOf={}; (psd.RuneSaveData||[]).forEach(r=>lvlOf[String(r.RuneKey)]=r.Level||0);
+  const by={};
+  Object.keys((DB&&DB.runes)||{}).forEach(k=>{ const d=DB.runes[k]; const L=lvlOf[k]||0; if(!L||!d.lv) return;
+    let tot=0,ok=false;
+    d.lv.forEach(x=>{ if(x.l<=L){ const v=parseFloat(x.val); if(!isNaN(v)){tot+=v;ok=true;} } });
+    if(!ok) return;
+    if(!by[d.eff]) by[d.eff]={eff:d.eff,total:0,levels:0,runes:0};
+    by[d.eff].total+=tot; by[d.eff].levels+=L; by[d.eff].runes++; });
+  return Object.keys(by).map(k=>by[k]).sort((a,b)=>b.total-a.total);
+}
+
 // onlineOffline: ONLINE vs OFFLINE progress measured across the snapshot history (v1.0.9).
 // Per consecutive pair: played time comes from the save's own playTime; closed-game ("away") time =
 // wall-clock minus played where that exceeds the jitter threshold. Gold splits by the calibrated partition:
@@ -315,4 +332,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

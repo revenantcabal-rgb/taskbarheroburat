@@ -100,6 +100,14 @@ if (gs) {
   if (gs.combat + gs.other !== gs.total) problems.push('goldBySource ' + gs.combat + '+' + gs.other + ' != total ' + gs.total);
   else console.log('gold sources  ', 'combat ' + gs.combat.toLocaleString() + ' + other ' + gs.other.toLocaleString() + ' == lifetime ' + gs.total.toLocaleString() + ' ✓ (combat ' + Math.round(gs.combat / gs.total * 100) + '%; "other" bundles offline+Cube+misc, not split)');
 }
+// --- version consistency: package.json, the dashboard's APP_VERSION and the ?v= cache-bust must agree ---
+const pkgVer = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
+const dash = fs.readFileSync(path.join(__dirname, '..', 'dashboard.html'), 'utf8');
+const mApp = dash.match(/APP_VERSION='([\d.]+)'/), mBust = dash.match(/gamedata\.min\.js\?v=([\d.]+)/);
+if (!mApp || mApp[1] !== pkgVer) problems.push('APP_VERSION (' + (mApp && mApp[1]) + ') != package.json version (' + pkgVer + ')');
+if (!mBust || mBust[1] !== pkgVer) problems.push('?v= cache-bust (' + (mBust && mBust[1]) + ') != package.json version (' + pkgVer + ')');
+console.log('version sync  ', 'package.json ' + pkgVer + ' == APP_VERSION ' + (mApp && mApp[1]) + ' == ?v= ' + (mBust && mBust[1]) + ((mApp && mApp[1] === pkgVer && mBust && mBust[1] === pkgVer) ? ' ✓' : ' MISMATCH'));
+
 // --- v1.0.4 engine fns: invariant assertions (work on ANY save, not just the committed test one) ---
 console.log('--- v1.0.4 ---');
 // trendPoint: lean history point must carry the calibrated combat counter + the active stage.

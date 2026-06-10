@@ -190,6 +190,12 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S17 (v1.0.10)** — rune **Stat List** (additive reading structurally proven: all 135 multi-level runes have
+  constant per-level vals + rising costs; derivation shown in-UI; in-game-screen confirmation requested) on the
+  Runes tab + top-6 as a crew flex line (server-whitelisted `runeStats`); crew members on older app versions get
+  an explanatory version tag; header now says "game vX" (vs the HUD's "app vX" in the footer); doc sweep
+  (PROGRESS caught up on sessions 13b-17 + backlog; stale 9-tab/v1.0.3 claims fixed); verify_save asserts
+  package.json == APP_VERSION == ?v=.
 - **S16 (v1.0.9)** — offline/online research (see VERIFIED facts) → per-stage rates exclude offline-spanning
   intervals from XP/kills (gold counter proven immune, kept); Trends "Online vs offline" section (played vs away
   hours, farming vs offline gold, away gaps, exact Player.log collections); crew stale rows dimmed + freeze note;
@@ -243,7 +249,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.6 is SHIPPED everywhere** — desktop release (installer + latest.yml + blockmap; auto-update WORKS from
+1. **v1.0.10 is SHIPPED everywhere** — desktop release (installer + latest.yml + blockmap; auto-update WORKS from
    v1.0.6 on — older installs need one manual reinstall, see S13c),
    GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from
    the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project `tbh-crew-api`
