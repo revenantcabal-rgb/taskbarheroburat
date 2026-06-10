@@ -6,7 +6,7 @@ It **never writes to, modifies, or injects into the game** — it only reads fil
 
 Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 
-## What it shows (8 tabs)
+## What it shows (9 tabs)
 - **Overview** — gold, current & max stage (shown as **"Act X-Y" + the real stage name**, never a raw key), total
   kills, runes, session gold/hr & kills/hr, an **offline-rewards card** (live idle timer + last collection rate + cap
   learned from your own logs), deployed party, active pet, a plain-language **"who's carrying"** gear-strength ranking
@@ -16,8 +16,10 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   hero's stats attributed to Base / Gear / Tree, plus account-wide runes & pet.
 - **Inventory** — every owned item with its real name, rarity (color-framed), real icon, level, enchants, **inherent
   gear stats and unique-mod effects** (hover tooltip). Filter by rarity / materials.
-- **Loot** — Steam boxes held, offline-reward gold (with real timestamps), and a save-diff drop timeline with
-  **Legendary+ rare-drop alerts** (optional, opt-in silent desktop notification).
+- **Loot** — Steam boxes held, offline-reward gold, and a **"new items" timeline** (each entry timestamped in **both
+  your local time and UTC**) with **Legendary+ rare-item alerts** (optional, opt-in silent desktop notification).
+  New gear is shown whether it dropped or was crafted/synthesized in the Cube — the game records no origin, so the
+  tool honestly doesn't guess which.
 - **Runes** — the 197-node rune tree with real names/effects, leveled status, and cheapest-next-upgrade recommendations.
 - **Lifetime** — total kills, gold earned, max stage (as "Act X-Y"), owned-by-rarity, and a calibrated
   **kills-by-monster** breakdown (the per-monster counts sum exactly to total kills). Only counters whose meaning is
@@ -28,6 +30,10 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   independent of ownership (owned marked ✓). Filter by type / rarity / gear type, search by name or ID, sort, owned-only.
   Click any entry for full detail: description, inherent stats + unique mod, material socket effects, rune per-level
   table, **what a stage box can contain**, **where an item drops from**, and marketable/Steam flags.
+- **Tips** — **personalized suggestions** built live from your save (unspent ability points, empty gear slots, the
+  cheapest rune upgrade you can afford, a nearly-full stash, bench heroes falling behind, farming stagnation) plus
+  **game tips** worth knowing. Every suggestion is calibrated from your save; it never invents "do X for +Y" numbers
+  that would require reading the running game (which it doesn't).
 
 Every label (item names, rarity, stats, skills, runes, monsters, drop sources, level curve) is **calibrated from the
 game's own data tables** — nothing is guessed; if something can't be resolved authoritatively it shows an honest fallback.

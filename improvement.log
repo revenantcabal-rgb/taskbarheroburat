@@ -1,9 +1,29 @@
 # TBH HUD — improvement.log
-Updated 2026-06-10 (cowork, session 8). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
+Updated 2026-06-10 (cowork, session 9). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~39 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 8 tabs render vs the live save with 0 console errors.
+~41 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 9 tabs render vs the live save with 0 console errors.
+- Session 9 — TIPS + LOOT honesty + session correctness (calibrated, never fabricated):
+  • NEW "Tips" tab (9th) + an Overview top-suggestion strip + a tab badge. "Suggestions for you" are derived ONLY
+    from the current save and refresh each read — every number calibrated: unspent ability points per hero; deployed
+    heroes with empty gear slots; the cheapest AFFORDABLE rune upgrade vs your gold (VERIFIED: all 663 rune-level costs
+    are paid in Gold, CostItemKey 100001); stash near full; bench heroes far behind your mains; stagnation (max-stage
+    flat across your last 3 save-backup snapshots). "Game tips" = 10 general-knowledge cards incl. the owner's two
+    (pets help even when not deployed; ACT bosses != STAGE bosses) + data-grounded ones. HONEST LIMIT note: live
+    "clears 32s faster" / "farm 3-1 vs 3-4 for better gold/hr" optimizations are NOT shown — they need in-combat timing
+    from game memory (never read; ban-safe). Trends is the closest honest efficiency signal. No fabricated numbers.
+  • LOOT crafted-vs-dropped: INVESTIGATED and found it is NOT calibratable — a cube CRAFT and a chest DROP both create a
+    new gear UniqueId, the save stores no origin flag, Player.log logs neither (CraftingRecipeInfoData &
+    SynthesisRecipeInfoData both output Gear). So renamed "Drop timeline" -> "New items" with an honest note that drops
+    AND Cube crafts both land there and can't be split; surfaced the real Cube level (cubeSaveLevelData) as context.
+  • LOOT dual timestamps: added "Your time" (local) + "UTC" columns to the new-items timeline AND the offline-rewards
+    table; new items are stamped with the save file's true UTC mtime so both columns are accurate.
+  • SESSION STALENESS (owner's question): verified every read re-parses the FULL save -> nothing displayed accumulates
+    stale data; a newly-joined hero appears correctly next read (heroes rebuilt from heroSaveDatas each time). Only the
+    "This session" baseline is session-scoped (reset on Disconnect). FIXED: gold/hr now uses LIFETIME gold earned
+    (monotonic) not the balance, so spending gold on upgrades never makes it go negative.
+- Session 8 — UX + the owner's 3 questions answered concretely (multi-user / uninstall / auto-update):
 - Session 8 — UX + the owner's 3 questions answered concretely (multi-user / uninstall / auto-update):
   • MULTI-USER (it already is — made it obvious + robust): the app is a STATIC CLIENT-SIDE reader. Each visitor
     connects their OWN local save in their OWN browser via the File System Access API — nothing uploaded, no account,

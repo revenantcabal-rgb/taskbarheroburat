@@ -144,7 +144,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   `runes` (197, per-level effects+costs+tree). Rebuilt by `scripts/build_gamedata.py` from the game's own tables.
 - `src/engine/item_names_en.json` — 511 authoritative item names from the game.
 - `scripts/extract_icons.py` — read-only UnityPy extractor (Phase 2). Re-run to refresh icons after a game patch.
-- `dashboard.html` — premium multi-tab UI: **Overview / Party / Inventory / Loot / Runes / Lifetime / Trends / Codex**.
+- `dashboard.html` — premium multi-tab UI: **Overview / Party / Inventory / Loot / Runes / Lifetime / Trends / Codex / Tips**.
   Animated hero GIFs, rarity-framed icon grid + enchant pips + tooltips (now incl. inherent stats + unique mods),
   per-hero equipped gear + skill chips, session gold/hr & kills/hr, rune tree (cheapest-next), lifetime stats +
   owned-by-rarity + kills-by-monster, History/Trends charts (SVG, from backups), Loot tab (boxes + offline rewards + save-diff drops).
@@ -156,6 +156,24 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Session 9 — Tips tab + Loot honesty + session correctness (v1.0.2, 9 tabs):**
+  • **NEW "Tips" tab** (9th) + an Overview top-suggestion strip + a tab badge. **"Suggestions for you"** are computed
+    ONLY from the current save and refresh each read — all calibrated: unspent ability points (per hero), deployed
+    heroes with empty gear slots, the cheapest AFFORDABLE rune upgrade vs your gold (**VERIFIED: all 663 rune-level
+    costs use the Gold currency**, CostItemKey 100001), stash near full, bench heroes far behind your mains, and
+    stagnation (max-stage flat across the last 3 save-backup snapshots). **"Game tips"** = 10 knowledge cards incl. the
+    owner's two (pets help even undeployed; ACT≠STAGE boss) + data-grounded ones. **Honest limit note:** live
+    clear-time / per-map gold-rate optimizations are NOT shown (need the memory lane we don't read); Trends is the
+    closest honest efficiency signal. No fabricated numbers.
+  • **Loot — crafted vs dropped:** investigated and found it ISN'T calibratable — a Cube craft and a chest drop both
+    mint a new gear UniqueId, the save has no origin flag, and Player.log logs neither (CraftingRecipeInfoData &
+    SynthesisRecipeInfoData both output Gear). So renamed "Drop timeline" → **"New items"** with an honest note that
+    drops AND Cube crafts both appear and can't be split; surfaced the real Cube level (`cubeSaveLevelData`).
+  • **Loot — dual timestamps:** "Your time" (local) + "UTC" columns on the new-items timeline AND the offline-rewards
+    table; new items are stamped with the save file's true UTC mtime so both columns are accurate.
+  • **Session staleness (owner's question):** confirmed every read re-parses the FULL save → no stale accumulation; a
+    newly-joined hero shows up correctly next read. **Fixed:** session gold/hr now uses LIFETIME gold earned (monotonic)
+    not the balance, so spending gold never makes it negative. analyze() now also exposes `cube`.
 - **Session 8 — UX + answering the owner's 3 questions (multi-user / uninstall / auto-update), v1.0.2:**
   • **Multi-user (confirmed + made obvious):** the app is a STATIC CLIENT-SIDE reader — each visitor connects their OWN
     local save in their OWN browser (File System Access API), nothing uploaded, no account, no shared backend. So anyone
