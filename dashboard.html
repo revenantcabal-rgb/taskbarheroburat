@@ -297,6 +297,26 @@
   .connect-hint .ch-sub{font-size:12.5px;color:var(--muted);line-height:1.55}
   .connect-hint .ch-sub b{color:var(--text);font-weight:600}
   .connect-hint .ch-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+  /* tips & suggestions cards */
+  .tipgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+  .tipcard{background:linear-gradient(160deg,var(--surface),var(--bg2));border:1px solid var(--line);
+    border-radius:14px;padding:15px 16px}
+  .tipcard.sugg{border-color:var(--line2);background:linear-gradient(160deg,rgba(75,125,255,.10),var(--bg2))}
+  .tipcard.sugg::before{content:"";display:block;height:3px;width:34px;border-radius:3px;margin-bottom:10px;
+    background:linear-gradient(90deg,var(--blue),var(--purple))}
+  .tipcard .tip-h{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+  .tipcard .tip-ic{font-size:18px;line-height:1}
+  .tipcard .tip-t{font-size:13.5px;font-weight:600;color:var(--text);line-height:1.35}
+  .tipcard .tip-b{font-size:12.5px;color:var(--muted);line-height:1.55}
+  /* Overview "top suggestion" strip */
+  .suggstrip{display:flex;align-items:center;gap:13px;background:linear-gradient(160deg,rgba(75,125,255,.12),var(--surface));
+    border:1px solid var(--line2);border-radius:14px;padding:13px 16px;cursor:pointer;transition:.15s}
+  .suggstrip:hover{border-color:var(--blue);transform:translateY(-1px)}
+  .suggstrip .ss-ic{font-size:21px;line-height:1}
+  .suggstrip .ss-txt{flex:1;min-width:0}
+  .suggstrip .ss-t{font-size:13.5px;font-weight:600;color:var(--text)}
+  .suggstrip .ss-b{font-size:12px;color:var(--muted);margin-top:2px}
+  .suggstrip .ss-go{font-size:12px;color:var(--blue2);font-weight:600;white-space:nowrap}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:760px){.two{grid-template-columns:1fr}}
   /* ---------- responsive / mobile ---------- */
@@ -444,6 +464,7 @@
   <button data-tab="lifetime">Lifetime</button>
   <button data-tab="trends">Trends <span class="count" id="tabTrendCount"></span></button>
   <button data-tab="codex">Codex <span class="count" id="tabCodexCount"></span></button>
+  <button data-tab="tips">Tips <span class="count" id="tabTipCount"></span></button>
 </nav>
 
 <main>
@@ -474,6 +495,7 @@
   <div id="tab-lifetime" class="tab-page hidden"></div>
   <div id="tab-trends" class="tab-page hidden"></div>
   <div id="tab-codex" class="tab-page hidden"></div>
+  <div id="tab-tips" class="tab-page hidden"></div>
 </main>
 
 <div id="tip"></div>
@@ -521,6 +543,8 @@ function stageLabel(stageKey){ var a=stageActLabel(stageKey), nm=stageName(stage
 // compact duration: "2h 14m", "14m 03s", "0m 09s" (for idle/offline countdowns)
 function fmtDur(sec){sec=Math.max(0,Math.floor(sec));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
   if(h>0)return h+'h '+(m<10?'0':'')+m+'m'; if(m>0)return m+'m '+(s<10?'0':'')+s+'s'; return s+'s';}
+// UTC time-of-day (HH:MM:SS) — the "server / reference" column next to the user's local time.
+function fmtUTC(ms){var d=new Date(ms);function z(n){return (n<10?'0':'')+n;}return z(d.getUTCHours())+':'+z(d.getUTCMinutes())+':'+z(d.getUTCSeconds())+' UTC';}
 function rrank(g){return RARITY.indexOf(g);}
 function rvar(g){return g?('var(--r-'+g+')'):'var(--line)';}
 function nz(v){return v&&v!==0&&v!=='0';}
@@ -679,6 +703,7 @@ function analyze(psd){
     version:c.version, stage:c.currentStageKey, wave:c.currentStageWave, maxStage:c.maxCompletedStage,
     playHours:c.playTime?+(c.playTime/3600).toFixed(1):null, lastSaved:ticksToDate(c.lastSavedTime),
     pet:c.ArrangedPetKey, gold:goldRow?goldRow.Quantity:0, heroes:heroes,
+    cube:psd.cubeSaveLevelData||null,   // {Level,Exp} — crafting/synthesis progress (the game tracks the Cube, not per-item origin)
     inv:{owned:owned.length,stash:occ('stashSaveDatas'),stashSlots:(psd.stashSaveDatas||[]).length,
       trade:occ('tradingStashSaveDatas')},
     owned:owned, byRarity:byR,
@@ -973,10 +998,15 @@ function renderOverview(d){
   var p=$('tab-overview');p.innerHTML='';
   // session rates
   var now=Date.now();
-  if(!session) session={t0:now,gold0:d.gold,kills0:d.kills};
+  // Session rates use LIFETIME gold EARNED (monotonic) + TOTAL kills, captured once at connect — NOT the gold
+  // balance, so spending gold (e.g. on rune upgrades) never makes "gold/hr" go negative. Every save read
+  // re-parses the FULL save into a fresh `d`, so nothing displayed accumulates stale data across reads; this
+  // baseline is the only session-scoped value (and it's reset on Disconnect).
+  var earnedNow=(d.lifeGold!=null?d.lifeGold:d.gold);
+  if(!session) session={t0:now,earned0:earnedNow,kills0:d.kills};
   var hrs=(now-session.t0)/3600000;
   var measuring=hrs<0.0167; // hold rates for the first ~minute to avoid wild extrapolation
-  var gph=measuring?null:Math.round((d.gold-session.gold0)/hrs);
+  var gph=measuring?null:Math.round((earnedNow-session.earned0)/hrs);
   var kph=(measuring||d.kills==null)?null:Math.round((d.kills-session.kills0)/hrs);
 
   p.appendChild(el('<h3 class="sec">Overview <span class="tag">'+(d.version?('v'+d.version):'')+
@@ -989,9 +1019,19 @@ function renderOverview(d){
     card('Runes',d.runes.leveled+'<span style="font-size:16px;color:var(--dim)"> / '+d.runes.total+'</span>','','leveled nodes','🔮')
   ].join('')+'</div>'));
 
+  // top suggestion teaser → the full, live list lives on the Tips tab
+  var topSugg=computeSuggestions(d);
+  if(topSugg.length){ var ts=topSugg[0];
+    var strip=el('<div class="suggstrip" title="See all your suggestions"><span class="ss-ic">'+ts.ic+'</span>'+
+      '<span class="ss-txt"><span class="ss-t">'+esc(ts.t)+'</span><span class="ss-b">'+esc(ts.b)+'</span></span>'+
+      '<span class="ss-go">'+topSugg.length+' tip'+(topSugg.length>1?'s':'')+' →</span></div>');
+    strip.addEventListener('click',function(){setTab('tips');});
+    p.appendChild(strip);
+  }
+
   p.appendChild(el('<h3 class="sec">This session</h3>'));
   p.appendChild(el('<div class="grid cards">'+[
-    card('Gold / hr',gph==null?'measuring…':fmt(gph),'green',measuring?'watching…':('<b>+'+fmt(d.gold-session.gold0)+'</b> so far'),'📈'),
+    card('Gold / hr',gph==null?'measuring…':fmt(gph),'green',measuring?'watching…':('<b>+'+fmt(earnedNow-session.earned0)+'</b> earned'),'📈'),
     card('Kills / hr',kph==null?'measuring…':fmt(kph),'green',measuring?'watching…':('<b>+'+fmt(d.kills-session.kills0)+'</b> kills'),'⚔️'),
     card('Session length',hrs<0.017?'just started':(hrs.toFixed(2)+' h'),'','since you connected','⏱️'),
     card('Inventory',fmt(d.inv.owned),'',d.inv.stash+' in stash'+(d.inv.trade?(' · '+d.inv.trade+' trading'):''),'🎒')
@@ -1161,32 +1201,36 @@ function renderLoot(d){
   if(logData.offline&&logData.offline.length){
     p.appendChild(el('<h3 class="sec">Offline rewards <span class="tag">gold granted while away · from Player.log</span></h3>'));
     var orows=logData.offline.slice(0,20).map(function(o){
-      return '<tr><td class="loot-time">'+new Date(o.t).toLocaleString()+'</td><td class="r"><b style="color:var(--gold)">+'+fmt(o.gold)+'</b> gold</td></tr>';
+      return '<tr><td class="loot-time">'+new Date(o.t).toLocaleString()+'</td><td class="loot-time" style="color:var(--dim)">'+fmtUTC(o.t)+'</td><td class="r"><b style="color:var(--gold)">+'+fmt(o.gold)+'</b> gold</td></tr>';
     }).join('');
-    p.appendChild(el('<div class="panel"><table><thead><tr><th>When</th><th class="r">Reward</th></tr></thead><tbody>'+orows+'</tbody></table></div>'));
+    p.appendChild(el('<div class="panel"><table><thead><tr><th>Your time</th><th>UTC</th><th class="r">Reward</th></tr></thead><tbody>'+orows+'</tbody></table></div>'));
   }
 
-  // Save-diff drop timeline — real items detected between save reads (live drops aren't in the game log)
-  p.appendChild(el('<h3 class="sec">Drop timeline <span class="tag">new items detected from your save · Legendary+ highlighted</span></h3>'));
+  // New-items timeline — items detected between save reads. HONEST: this can't tell a chest DROP from a Cube
+  // CRAFT/SYNTHESIS — the game stores no per-item origin and logs neither locally, so both appear here together.
+  p.appendChild(el('<h3 class="sec">New items <span class="tag">detected from your save · drops &amp; Cube crafts · Legendary+ highlighted</span></h3>'));
+  p.appendChild(el('<div class="hint">New gear appears here whether it <b>dropped from a chest / stage</b> or you <b>crafted or synthesized it in the Cube</b> — the game records no origin flag and logs neither locally, so they honestly can\'t be told apart.'+
+    (d&&d.cube?(' Your Cube is <b>level '+d.cube.Level+'</b>.'):'')+' Each item is timestamped in both your local time and UTC.</div>'));
   var alertOn=rareAlerts&&('Notification'in window)&&Notification.permission==='granted';
   var canNotify=('Notification'in window);
   p.appendChild(el('<div class="lootbar"><button class="alertbtn'+(alertOn?' on':'')+'" onclick="toggleRareAlerts()">'+
-    (alertOn?'🔔 Rare-drop alerts: ON':'🔕 Rare-drop alerts: OFF')+'</button>'+
-    '<span class="loothint">'+(canNotify?'Silent desktop alert when a Legendary or better drops (opt-in).':'Desktop alerts not supported in this browser.')+'</span></div>'));
+    (alertOn?'🔔 Rare-item alerts: ON':'🔕 Rare-item alerts: OFF')+'</button>'+
+    '<span class="loothint">'+(canNotify?'Silent desktop alert when a Legendary or better appears (opt-in).':'Desktop alerts not supported in this browser.')+'</span></div>'));
   if(!lootLog.length){
-    p.appendChild(el('<div class="empty">Watching for drops… new items appear here with a timestamp and rarity as you play.<br>'+
-      '<span style="font-size:11.5px">Live combat drops aren\'t written to the game\'s log, so the HUD detects them from changes to your save file.</span></div>'));
+    p.appendChild(el('<div class="empty">Watching for new items… they appear here with a timestamp and rarity as you play.<br>'+
+      '<span style="font-size:11.5px">Live drops aren\'t written to the game\'s log, so the HUD detects new items from changes to your save file (this includes anything you craft in the Cube).</span></div>'));
     return;
   }
   var rows=lootLog.slice(0,80).map(function(l){
     var t=new Date(l.t), rare=rrank(l.grade)>=3;
     return '<tr'+(rare?' class="rare"':'')+'><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
+      '<td class="loot-time" style="color:var(--dim)">'+fmtUTC(l.t)+'</td>'+
       '<td><div style="display:flex;align-items:center;gap:10px">'+
         '<div class="mini" style="border-color:'+rvar(l.grade)+'"><img src="'+SPRITE+(l.icon||'')+'.png" onerror="this.style.visibility=\'hidden\'"></div>'+
         '<span>'+(rare?'<span class="rarestar">★</span> ':'')+l.name+(l.lvl?(' <span style="color:var(--dim)">lvl'+l.lvl+'</span>'):'')+'</span></div></td>'+
       '<td><span class="pill" style="color:'+rvar(l.grade)+'">'+(l.grade||'—')+'</span></td></tr>';
   }).join('');
-  p.appendChild(el('<div class="panel"><table><thead><tr><th>Time</th><th>Item</th><th>Rarity</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+  p.appendChild(el('<div class="panel"><table><thead><tr><th>Your time</th><th>UTC</th><th>Item</th><th>Rarity</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
 }
 
 function runeIconImg(ic){var img=el('<img src="src/assets/runes/Rune_'+ic+'.png" alt="">');
@@ -1217,6 +1261,93 @@ function renderRunes(d){
   var list=r.list.slice().sort(function(a,b){return ((b.level>0)-(a.level>0))||(Number(a.key)-Number(b.key));});
   list.forEach(function(rn){grid.appendChild(runeCard(rn));});
   p.appendChild(grid);
+}
+
+/* ============================================================================
+   Tips & Suggestions. Two kinds, kept strictly separate:
+   • SUGGESTIONS — derived ONLY from the user's current save state (gold, gear, runes,
+     unspent points, stash, progress, trends). Every number is calibrated; refreshes each read.
+   • GAME TIPS — general game knowledge (not the user's data). No fabricated per-user stats.
+   What we DELIBERATELY do NOT do: live "clear X 32s faster" / "farm 3-1 vs 3-4 for better gold/hr"
+   optimizations — those need in-combat timing from the running game's memory, which we never read
+   (read-only, ban-safe). Trends (from save backups) is the closest honest efficiency signal we offer.
+   ========================================================================== */
+function computeSuggestions(d){
+  var out=[], heroes=d.heroes||[];
+  // 1) unspent ability points — free, unused stat gains (save field AbilityPoint)
+  heroes.forEach(function(h){ if(h.unspent>0) out.push({pri:1,ic:'✨',
+    t:cap(h.cls)+' has '+h.unspent+' unspent ability point'+(h.unspent>1?'s':''),
+    b:'Open the game and spend '+(h.unspent>1?'them':'it')+' in '+cap(h.cls)+'’s ability tree — that’s free power sitting unused.'}); });
+  // 2) deployed hero with empty gear slots (each filled slot adds real stats)
+  heroes.filter(function(h){return h.deployed&&h.gear<10;}).forEach(function(h){ out.push({pri:2,ic:'🛡️',
+    t:cap(h.cls)+' (in your party) has '+h.gear+'/10 gear slots filled',
+    b:'Empty slots are wasted power. Equip gear on '+cap(h.cls)+' — even an unenchanted piece beats an empty slot.'}); });
+  // 3) rune upgrades — costs are GOLD (verified: all 663 rune-level costs use the Gold currency), so
+  //    affordability is exact. d.runes.list[].nextCost is the gold cost of the next level.
+  var runes=(d.runes&&d.runes.list)||[];
+  var up=runes.filter(function(x){return x.max&&x.level<x.max&&x.nextCost!=null;}).sort(function(a,b){return a.nextCost-b.nextCost;});
+  var afford=up.filter(function(x){return x.nextCost<=(d.gold||0);});
+  if(afford.length){ var c=afford[0];
+    out.push({pri:3,ic:'🔮',t:'Upgrade '+c.name+' to Lv '+(c.level+1)+'/'+c.max+' for '+fmt(c.nextCost)+' gold',
+      b:'You have '+fmt(d.gold)+' gold — enough for '+afford.length+' rune upgrade'+(afford.length>1?'s':'')+' right now. Runes are account-wide ('+c.eff+'), so every level boosts all your heroes. Cheapest shown first.'}); }
+  else if(up.length){ var n=up[0];
+    out.push({pri:5,ic:'🔮',t:'Save '+fmt(n.nextCost)+' gold for your next rune upgrade',
+      b:'Cheapest available is '+n.name+' Lv '+(n.level+1)+'/'+n.max+' ('+n.eff+') for '+fmt(n.nextCost)+' gold. You have '+fmt(d.gold)+'. Runes are account-wide and permanent.'}); }
+  // 4) stash nearly full — new drops need room
+  if(d.inv&&d.inv.stashSlots){ var ratio=d.inv.stash/d.inv.stashSlots; if(ratio>=0.85) out.push({pri:4,ic:'🎒',
+    t:'Your stash is nearly full ('+d.inv.stash+'/'+d.inv.stashSlots+')',
+    b:'Synthesize 9 materials into gear in the Cube, or clear low-rarity items, so incoming drops have somewhere to go.'}); }
+  // 5) bench hero far behind your mains (factual level gap; no XP-mechanic claim)
+  var maxLvl=Math.max.apply(null,heroes.map(function(h){return h.level||0;}).concat([0]));
+  heroes.filter(function(h){return !h.deployed&&h.level>0&&(maxLvl-h.level)>=8;}).forEach(function(h){ out.push({pri:6,ic:'🧭',
+    t:cap(h.cls)+' (Lv '+h.level+') is well behind your Lv '+maxLvl+' mains',
+    b:'If you want a deeper or swappable roster, bring '+cap(h.cls)+' into your active party to level it up.'}); });
+  // 6) stagnation — only from real trend snapshots (folder mode); no fabrication if absent
+  var pts=(typeof trends!=='undefined'&&trends)?trends:[];
+  if(pts.length>=3){ var last=pts.slice(-3);
+    if(last.every(function(p){return p.maxStage===last[0].maxStage;})) out.push({pri:7,ic:'📈',
+      t:'Your max stage hasn’t moved across your last '+last.length+' save snapshots',
+      b:'Looks like you’re farming '+stageLabel(last[last.length-1].maxStage)+'. To push deeper, upgrade runes/gear or move your strongest party forward.'}); }
+  out.sort(function(a,b){return a.pri-b.pri;});
+  return out;
+}
+// General game knowledge (NOT the user's save data). Items tagged "verified" are grounded in the game's
+// own data tables; the rest are gameplay knowledge. Kept honest — no invented per-user numbers.
+var GAME_TIPS=[
+  {ic:'🐾',t:'Pets help even when not deployed',b:'A pet you OWN applies its bonus — you don’t have to set it as your active pet for it to count. Collecting more pets stacks more bonuses.'},
+  {ic:'👑',t:'Act bosses are not stage bosses',b:'The boss at the end of an Act is a separate, tougher fight from the regular stage bosses along the way — different difficulty and rewards.'},
+  {ic:'🔮',t:'Runes are account-wide and cost gold',b:'Every rune level is paid in gold (verified from the game’s tables) and boosts ALL your heroes at once — often the best home for spare gold.'},
+  {ic:'🎲',t:'An item’s rarity is in its ID',b:'The 3rd digit of an item’s ID is its grade, Common (0) → Cosmic (9). Higher grade = stronger base item. (Verified — that’s how this tool reads rarity.)'},
+  {ic:'⚒️',t:'The Cube crafts AND synthesizes gear',b:'Crafting builds a specific weapon type from set materials; synthesis combines 9 materials into a piece of gear of a chosen grade. Both are great material sinks. (Verified.)'},
+  {ic:'💎',t:'Materials show their tier in the name',b:'e.g. “Soulstone - Normal” or “Minor Ruby”. Higher-tier materials unlock better enchant and synthesis results — hold onto the good ones.'},
+  {ic:'🧬',t:'Each item holds up to 3 enchants',b:'The colored pips on an item are its enchant slots. Higher enchant tiers give bigger stat bonuses. (Verified — from the item’s enchant data.)'},
+  {ic:'😴',t:'Offline rewards scale with your stage',b:'While away you bank gold and XP based on the stage you’re farming. Hop back in to collect — the Overview shows your idle time and last collection rate.'},
+  {ic:'🧱',t:'Fill all 10 gear slots',b:'Every hero has 10 equipment slots plus an ability tree. An empty slot is wasted power — even a low-level item beats nothing.'},
+  {ic:'🗺️',t:'Stages read as “Act X-Y”',b:'A stage key like 1208 means Act 2-8. Your “max stage” is how far you’ve pushed on your current difficulty.'}
+];
+var _tipIdx=0;
+function renderTips(d){
+  var p=$('tab-tips');p.innerHTML='';
+  // ---- Suggestions for you (data-driven) ----
+  var sugg=d?computeSuggestions(d):[];
+  p.appendChild(el('<h3 class="sec">Suggestions for you <span class="tag">'+(d?('from your save · '+sugg.length+' found · updates live'):'connect a save to see personalized suggestions')+'</span></h3>'));
+  if(!d){
+    p.appendChild(el('<div class="connect-hint"><div class="ch-ico">💡</div><div class="ch-title">Connect your save for personalized suggestions</div>'+
+      '<div class="ch-sub">Suggestions are built from your gold, gear, runes, unspent points and progress — all read locally. Until then, the game tips below apply to everyone.</div></div>'));
+  } else if(!sugg.length){
+    p.appendChild(el('<div class="empty">Nothing urgent right now — your points are spent, gear slots are filling up, and there’s no cheap rune upgrade waiting. Keep farming! 🎉</div>'));
+  } else {
+    var sg=el('<div class="tipgrid"></div>');
+    sugg.forEach(function(s){ sg.appendChild(el('<div class="tipcard sugg"><div class="tip-h"><span class="tip-ic">'+s.ic+'</span><span class="tip-t">'+esc(s.t)+'</span></div><div class="tip-b">'+esc(s.b)+'</div></div>')); });
+    p.appendChild(sg);
+  }
+  // honest limit note
+  p.appendChild(el('<div class="hint" style="margin-top:14px">These come from your <b>save’s current state</b>. Live tips that need in-combat timing — “this map clears 32s faster” or “farm 3-1 instead of 3-4 for better gold/hr” — aren’t here: they’d require reading the running game’s memory, which this tool never does (read-only & ban-safe). The <b>Trends</b> tab (from your save backups) is the closest honest signal for farming efficiency over time.</div>'));
+  // ---- Game tips (general knowledge) ----
+  p.appendChild(el('<h3 class="sec">Game tips <span class="tag">good to know · general knowledge, not your save</span></h3>'));
+  var tg=el('<div class="tipgrid"></div>');
+  GAME_TIPS.forEach(function(t){ tg.appendChild(el('<div class="tipcard"><div class="tip-h"><span class="tip-ic">'+t.ic+'</span><span class="tip-t">'+esc(t.t)+'</span></div><div class="tip-b">'+esc(t.b)+'</div></div>')); });
+  p.appendChild(tg);
 }
 function renderLifetime(d){
   var p=$('tab-lifetime');p.innerHTML='';
@@ -1527,7 +1658,7 @@ function openCodexDetail(e,owned){
 function closeCodexDetail(){if(!_cxModal)return;document.removeEventListener('keydown',_cxModal.onKey);if(_cxModal.ov.parentNode)_cxModal.ov.parentNode.removeChild(_cxModal.ov);_cxModal=null;}
 
 /* ---------- tab switching ---------- */
-var TABS=['overview','party','inventory','loot','runes','lifetime','trends','codex'];
+var TABS=['overview','party','inventory','loot','runes','lifetime','trends','codex','tips'];
 function showConnectHint(name){var p=$('tab-'+name);if(!p)return;
   var nice={overview:'your overview',party:'your heroes',inventory:'your inventory',loot:'your loot timeline',runes:'your rune tree',lifetime:'your lifetime stats',trends:'your history & trends'};
   p.innerHTML='<div class="connect-hint">'+
@@ -1545,6 +1676,7 @@ function setTab(name){
   TABS.forEach(function(t){$('tab-'+t).classList.toggle('hidden',t!==name);});
   if(current)renderTab(name,current);
   else if(name==='codex')renderCodex(null);
+  else if(name==='tips')renderTips(null);   // game tips apply with no save; suggestions show a connect prompt
   else showConnectHint(name);
 }
 function renderTab(name,d){
@@ -1556,6 +1688,7 @@ function renderTab(name,d){
   else if(name==='lifetime')renderLifetime(d);
   else if(name==='trends')renderTrends(d);
   else if(name==='codex')renderCodex(d);
+  else if(name==='tips')renderTips(d);
 }
 var _cxResizeT=null;
 addEventListener('resize',function(){if(activeTab!=='codex'||!CX)return;clearTimeout(_cxResizeT);_cxResizeT=setTimeout(codexLayout,120);});
@@ -1569,6 +1702,7 @@ function render(d){
   $('tabLootCount').textContent=lootLog.length||'';
   $('tabRuneCount').textContent=(d.runes&&d.runes.leveled)?(d.runes.leveled+'/'+d.runes.total):'';
   $('tabCodexCount').textContent=fmt(catalogTotalCount());
+  var nSugg=computeSuggestions(d).length; $('tabTipCount').textContent=nSugg||'';
   $('lastSaved').textContent=d.lastSaved?(' · save updated '+d.lastSaved.toLocaleString()):'';
   setConnectedUI(true);
   renderTab(activeTab,d);
@@ -1605,7 +1739,7 @@ function disconnect(){
   $('ver').textContent='not connected';
   $('dot').className='dot';$('statusText').textContent='no save';
   $('lastSaved').textContent='';
-  ['tabInvCount','tabLootCount','tabRuneCount','tabCodexCount'].forEach(function(id){$(id).textContent='';});
+  ['tabInvCount','tabLootCount','tabRuneCount','tabCodexCount','tabTipCount'].forEach(function(id){$(id).textContent='';});
   setConnectedUI(false);
   try{window.scrollTo(0,0);}catch(e){}
 }
@@ -1614,7 +1748,9 @@ function disconnect(){
 async function onBytes(buf){
   try{
     var d=analyze(loadInner(await decryptSave(buf)));
-    processLoot(d.owned, d.lastSaved?+d.lastSaved:Date.now());
+    // timestamp new items with the file's TRUE UTC mtime when available (the .es3 lastSavedTime field is LOCAL
+    // ticks); falls back to ticks / now. This makes the loot timeline's local + UTC columns both accurate.
+    processLoot(d.owned, lastSaveFileMs||(d.lastSaved?+d.lastSaved:Date.now()));
     render(d);
     $('dot').className='dot live';$('statusText').textContent='reading your save';
   }catch(e){
