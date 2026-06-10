@@ -371,6 +371,17 @@ function heroSources(hSave, equipped, attrSave){
     tree:sumStats(treeList), treeSkills:treeSkills, treeNodes:(attrSave||[]).filter(function(n){return n.Level>0&&DB.attributes&&DB.attributes[n.Key]&&String(DB.attributes[n.Key].h)===String(hSave.heroKey);}).length};
 }
 // accountBuffs: runes + active pet (apply to ALL heroes — account-wide, shown once).
+// killsByMonster: aggregateSaveDatas Type-0 sub-counters are per-MonsterKey kill counts
+// (VALIDATED: they sum exactly to the total-kills counter). Resolve via DB.monsters. No fabrication.
+function killsByMonster(psd){
+  var out=[];
+  (psd.aggregateSaveDatas||[]).forEach(function(a){
+    if(a.Type!==0||a.SubKey===0||!(a.Value>0))return;
+    var nm=DB.monsters&&(DB.monsters[a.SubKey]||DB.monsters[String(a.SubKey)]);
+    out.push({key:a.SubKey,name:nm||('Monster #'+a.SubKey),kills:a.Value});
+  });
+  return out.sort(function(x,y){return y.kills-x.kills;});
+}
 function accountBuffs(psd){
   var runes=[];
   (psd.RuneSaveData||[]).forEach(function(r){
@@ -433,7 +444,7 @@ function analyze(psd){
       trade:occ('tradingStashSaveDatas')},
     owned:owned, byRarity:byR,
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
-    runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd),
+    runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd), killsByMonster:killsByMonster(psd),
     kills:pick(0,0), lifeGold:pick(2,0), perDiff:[0,1,2,3].map(function(d){return pick(16,d);})
   };
 }
@@ -909,10 +920,24 @@ function renderLifetime(d){
       '<div class="rlegend">'+(rleg||'<span style="color:var(--dim)">no graded items</span>')+'</div></div></div>'+
   '</div>'));
 
+  // Kills by monster — calibrated: aggregate Type-0 sub-counters = per-MonsterKey kills (sum == total kills)
+  var km=d.killsByMonster||[];
+  if(km.length){
+    var maxK=km[0].kills||1, kmSum=km.reduce(function(s,m){return s+m.kills;},0);
+    p.appendChild(el('<h3 class="sec">Kills by monster <span class="tag">'+km.length+' types · '+fmt(kmSum)+' kills · from save counters</span></h3>'));
+    var kbars=km.slice(0,20).map(function(m){
+      var pct=Math.round(m.kills/maxK*100);
+      return '<div class="bar"><div class="top"><span class="nm">'+m.name+'</span><span class="nv">'+fmt(m.kills)+'</span></div>'+
+        '<div class="track"><div class="fill" style="width:'+pct+'%;background:linear-gradient(90deg,var(--red),var(--amber))"></div></div></div>';
+    }).join('');
+    p.appendChild(el('<div class="panel"><div class="bars">'+kbars+'</div>'+
+      (km.length>20?('<div style="color:var(--dim);font-size:11.5px;margin-top:12px">+ '+(km.length-20)+' more monster types</div>'):'')+'</div>'));
+  }
+
   p.appendChild(el('<h3 class="sec">Notes</h3>'));
   p.appendChild(el('<div class="panel" style="color:var(--muted);font-size:13px">'+
-    'Live combat DPS, clear-time and gold/hr <i>per act</i> come from the live-telemetry reader (Phase 4). '+
-    'Per-difficulty completions and lifetime gold/kills above are read straight from the save\'s aggregate counters.</div>'));
+    'Live combat DPS, clear-time and gold/hr <i>per act</i> come from the live-telemetry reader (Phase 4, not built — needs game memory, ban-risk). '+
+    'Lifetime gold/kills, per-difficulty completions and the kills-by-monster breakdown above are read straight from the save\'s aggregate counters (calibrated: the per-monster counts sum exactly to total kills).</div>'));
 }
 
 function fmtDay(ms){var d=new Date(ms);function z(n){return (n<10?'0':'')+n;}
@@ -1110,6 +1135,7 @@ function loadDemo(){
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
     account:demoAccount,
+    killsByMonster:[{name:'Orc',kills:7683},{name:'Slime',kills:7532},{name:'Orc Warrior',kills:7230},{name:'Skeleton',kills:5740},{name:'Scorpion',kills:5685},{name:'Bat',kills:5449},{name:'Giant Fly',kills:5023}],
     kills:72091,lifeGold:1574858,perDiff:[200,127,72,1]});
   $('dot').className='dot live';$('statusText').textContent='sample data';
 }

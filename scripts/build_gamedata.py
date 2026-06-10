@@ -159,6 +159,14 @@ def main():
         pets[r["PetKey"]] = {"n": L(r.get("NameKey")) or prettify((r.get("NameKey") or "").replace("PetName_", "")),
                              "desc": L(r.get("DescriptionKey"))}
 
+    # ---- monsters: MonsterKey -> name. aggregateSaveDatas Type 0 sub-counters are per-MonsterKey kill
+    # counts (VALIDATED: they sum exactly to total kills) -> enables an honest "kills by monster" breakdown.
+    monsters = {}
+    for r in rows("MonsterInfoData.txt"):
+        nm = L(r.get("MonsterNameStringKey"))
+        if nm:
+            monsters[r["MonsterKey"]] = nm
+
     # ---- rune per-level effects: LevelKey -> [{level, cost, value, stat}] ----
     rune_levels = {}
     for r in rows("RuneLevelInfoData.txt"):
@@ -245,6 +253,7 @@ def main():
         "attributes": attributes,
         "passives": passives,
         "pets": pets,
+        "monsters": monsters,
         "runes": runes,
         "_calibrated": {
             "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/GearInfoData/UniqueModInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
@@ -270,7 +279,7 @@ def main():
     print(f"items {len(items)} | names auth {name_resolved+name_literal}, fallback {name_fallback} | desc {desc_count} | mat-effects {mat_fx}")
     print(f"stats {len(stats)} | runes {len(runes)} (with per-level effects)")
     print(f"gear {len(gear)} | inherent-stat sets {gear_inh} | unique mods {gear_um}")
-    print(f"skills {len(skills)} | heroes {len(heroes)} (w/ base stats) | attributes {len(attributes)} | passives {len(passives)} | pets {len(pets)}")
+    print(f"skills {len(skills)} | heroes {len(heroes)} (w/ base stats) | attributes {len(attributes)} | passives {len(passives)} | pets {len(pets)} | monsters {len(monsters)}")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 
