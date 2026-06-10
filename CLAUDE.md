@@ -156,6 +156,21 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Session 10 — connection blockers + flex + honest "no DPS" (v1.0.2):**
+  • **Refresh no longer boots you out:** the picked folder/file handle is persisted in **IndexedDB** (`idbSet/idbGet`,
+    store `handles`) and re-attached on reload by `restoreHandle()` — auto-resumes if `queryPermission`==='granted',
+    else a one-click **Reconnect** box (`requestPermission` on a user gesture). `Disconnect` calls `forgetHandles()`.
+    Browser-only (guarded by `!window.tbhNative`; Electron auto-connects).
+  • **Blocked folder** ("this folder contains system files" = Chromium File System Access blocklist on AppData): added a
+    gate **"Trouble connecting?"** `<details>` (Connect file / drag-drop / desktop app; pick TaskbarHero itself) **plus
+    universal drag-and-drop** of `SaveFile_Live.es3` anywhere (classic File API → bypasses the blocklist). No dead end.
+  • **Flex (honest):** new **Flex card** on the Overview — shareable brag stats (furthest stage, top hero, best rarity
+    owned, kills, lifetime gold, runes) from calibrated save data + a **Copy-to-share** button (`flexShareText`). NO
+    fabricated DPS. Reframed **"Who's carrying"** to answer "who hits hardest": no live DPS meter on purpose (needs the
+    memory lane = ban risk); ranks by equipped gear power as the honest stand-in.
+  • **Demo clarity:** "Preview sample"→"See a demo"; demo now shows an **amber "SAMPLE — not your data"** status (`.dot.demo`).
+  • **Market items:** investigated → "purchased from market" is NOT calibratable (no origin flag; trade stash empty;
+    Steam inventory throttled/empty this build). Honest Loot note now covers drop vs Cube-craft vs Market-buy can't be split.
 - **Session 9 — Tips tab + Loot honesty + session correctness (v1.0.2, 9 tabs):**
   • **NEW "Tips" tab** (9th) + an Overview top-suggestion strip + a tab badge. **"Suggestions for you"** are computed
     ONLY from the current save and refresh each read — all calibrated: unspent ability points (per hero), deployed

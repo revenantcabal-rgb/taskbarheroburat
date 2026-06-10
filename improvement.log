@@ -1,9 +1,26 @@
 # TBH HUD — improvement.log
-Updated 2026-06-10 (cowork, session 9). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
+Updated 2026-06-11 (cowork, session 10). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~41 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 9 tabs render vs the live save with 0 console errors.
+~43 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 9 tabs render vs the live save with 0 console errors.
+- Session 10 — connection blockers + flex + honest "no DPS" (owner's friend was blocked from using it at all):
+  • REFRESH NO LONGER BOOTS YOU OUT: the picked folder/file handle is persisted in IndexedDB and re-attached on reload
+    — auto-resumes if permission is still granted, else a one-click "Reconnect" box on the connect screen. Disconnect
+    clears the stored handle. (Restore is browser-only; Electron auto-connects via the native bridge.)
+  • BLOCKED FOLDER ("this folder contains system files" = Chrome's File System Access blocklist on AppData): added a
+    "Trouble connecting?" help section (use Connect file / drag-and-drop / desktop app; pick TaskbarHero itself) AND
+    universal DRAG-AND-DROP of SaveFile_Live.es3 anywhere on the page (classic File API, not subject to the blocklist)
+    — a blocked folder is no longer a dead end.
+  • FLEX (honest, no fabricated DPS): new "Flex card" on the Overview — shareable bragging rights from calibrated save
+    stats (furthest stage, top hero, best rarity owned, kills, lifetime gold, runes) + a "Copy to share with friends"
+    button (Discord-ready text). Reframed "Who's carrying" to directly answer "who hits hardest": there is NO live DPS
+    meter on purpose (needs reading game memory = CodeStage ban risk) — it ranks by equipped gear power as the honest proxy.
+  • DEMO CLARITY: "Preview sample" -> "See a demo" (+ tooltip); demo shows an amber "SAMPLE — not your data" status (not
+    the green live dot) so it's never confused with a real save.
+  • MARKET ITEMS: investigated — "purchased from market" has NO calibrated signal (no per-item origin flag; trade stash
+    empty; Steam inventory throttled/empty this build). Extended the honest Loot note: new items can't be split into
+    drop vs Cube-craft vs Market-buy, so we don't guess.
 - Session 9 — TIPS + LOOT honesty + session correctness (calibrated, never fabricated):
   • NEW "Tips" tab (9th) + an Overview top-suggestion strip + a tab badge. "Suggestions for you" are derived ONLY
     from the current save and refresh each read — every number calibrated: unspent ability points per hero; deployed

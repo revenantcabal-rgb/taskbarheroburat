@@ -75,6 +75,22 @@ anything.)
 **Does the installer come with an uninstaller?** Yes. It shows up in Windows **Settings → Apps → "Add or remove
 programs"** as *TBH HUD* — click **Uninstall** like any other app. (It installs per-user and never touches the game.)
 
+**It says "this folder contains system files" and won't let me pick the folder.** That's your *browser* blocking the
+folder for safety (Chrome/Edge restrict `AppData`), not a bug. Any of these works instead: (1) click **Connect file**
+and pick just `SaveFile_Live.es3`; (2) **drag-and-drop** your `SaveFile_Live.es3` anywhere onto the page (this always
+works); or (3) use the **desktop app**, which reads the folder directly with no browser restrictions. The connect
+screen has a **"Trouble connecting?"** helper with these steps.
+
+**It boots me back to the connect screen when I refresh.** Fixed — the browser version now remembers your folder and
+re-attaches on reload (it'll either reconnect automatically or show a one-click **Reconnect** button). Use
+**Disconnect** if you want to forget it.
+
+**Where's the DPS counter — who in my party deals the most damage?** There isn't a live DPS meter, on purpose:
+measuring real-time damage would mean reading the running game's memory, which this tool never does (it would risk a
+CodeStage anti-cheat ban). The honest stand-in is the **"Who's carrying"** ranking on the Overview (by equipped gear
+power) — and the **Flex card** gives you shareable bragging rights (furthest stage, top hero, best gear, kills,
+lifetime gold) with a one-click **Copy to share with friends**.
+
 **Will it auto-update when you ship changes?** Yes, two ways: the **browser version is always current** (it's served
 from the host, so a refresh gets the latest), and the **desktop app auto-updates** — on launch it checks GitHub
 releases, downloads any newer version in the background, and offers a one-click **Restart to update** (or applies it on
