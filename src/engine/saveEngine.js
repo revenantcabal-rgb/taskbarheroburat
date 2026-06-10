@@ -4,8 +4,8 @@ const ES3_PASSWORD = 'emuMqG3bLYJ938ZDCfieWJ';
 const GOLD_KEY = 100001;
 const NET_TICKS_TO_UNIX_MS = 62135596800000;
 const RARITY = ['COMMON','UNCOMMON','RARE','LEGENDARY','IMMORTAL','ARCANA','BEYOND','CELESTIAL','DIVINE','COSMIC'];
-let DB = null;
-function setDB(db){ DB = db; }
+let DB = null, _dropSrc = null;
+function setDB(db){ DB = db; _dropSrc = null; }
 
 function decryptEs3(buffer){ const b=Buffer.isBuffer(buffer)?buffer:Buffer.from(buffer); const iv=b.subarray(0,16),ct=b.subarray(16); const key=crypto.pbkdf2Sync(ES3_PASSWORD,iv,100,16,'sha1'); const d=crypto.createDecipheriv('aes-128-cbc',key,iv); return Buffer.concat([d.update(ct),d.final()]).toString('utf8'); }
 function safeJsonParse(t){ return JSON.parse(String(t).replace(/([:\[,])(\s*)(\d{16,})(?=\s*[,\]}])/g,'$1$2"$3"')); }
@@ -48,6 +48,16 @@ function accountBuffs(psd){
   const pk=(psd.commonSaveData||{}).ArrangedPetKey; const p=(pk&&DB&&DB.pets)?(DB.pets[pk]||DB.pets[String(pk)]):null;
   return {runes, pet:p?{key:pk,n:p.n,desc:p.desc}:(pk?{key:pk,n:'#'+pk}:null)};
 }
+// box contents: a STAGEBOX item's possible member ItemKeys (item.dk -> DB.drops, built from
+// DropInfoData -> ItemGroupInfoData). Korean ItemGroup names are deliberately omitted (golden rule).
+function boxContents(boxKey){ const it=DB&&DB.items&&(DB.items[boxKey]||DB.items[String(boxKey)]); if(!it||it.t!=='STAGEBOX'||!it.dk)return []; return (DB.drops&&DB.drops[it.dk])||[]; }
+// reverse of DB.drops: which STAGEBOX items can drop a given ItemKey ("drops from"). Cached; reset by setDB.
+function dropSources(itemKey){
+  if(!_dropSrc){ _dropSrc={}; const items=(DB&&DB.items)||{};
+    for(const k in items){ const i=items[k]; if(i.t==='STAGEBOX'&&i.dk){ const mem=(DB.drops&&DB.drops[i.dk])||[];
+      for(const ik of mem){ (_dropSrc[ik]=_dropSrc[ik]||[]).push(k); } } } }
+  return _dropSrc[String(itemKey)]||[];
+}
 const rarityRank=g=>{const i=RARITY.indexOf(g);return i<0?-1:i;};
 
 function gold(psd){ const c=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); return c?c.Quantity:0; }
@@ -69,4 +79,4 @@ function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev
 function trendPoint(psd){ const c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[]; const goldRow=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); const d=netTicksToDate(c.lastSavedTime); return {t:d?+d:null,gold:goldRow?goldRow.Quantity:0,lifeGold:pick(a,2,0),kills:pick(a,0,0),playH:c.playTime?+(c.playTime/3600).toFixed(2):null,maxStage:c.maxCompletedStage,items:(psd.itemSaveDatas||[]).length,runes:(psd.RuneSaveData||[]).filter(r=>(r.Level||0)>0).length}; }
 function buildTrends(points){ const seen={},pts=[]; (points||[]).filter(p=>p&&p.t).sort((a,b)=>a.t-b.t).forEach(p=>{const k=p.t+'/'+p.lifeGold; if(seen[k])return; seen[k]=1; pts.push(p);}); for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i]; const dPlay=(b.playH!=null&&a.playH!=null)?b.playH-a.playH:null; const dWall=(b.t-a.t)/3600000; const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; const dLife=(b.lifeGold!=null&&a.lifeGold!=null)?b.lifeGold-a.lifeGold:null; const dKills=(b.kills!=null&&a.kills!=null)?b.kills-a.kills:null; b.goldPerHr=(dLife!=null&&h>0.01)?Math.round(dLife/h):null; b.killsPerHr=(dKills!=null&&h>0.01)?Math.round(dKills/h):null; } return pts; }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,GOLD_KEY};

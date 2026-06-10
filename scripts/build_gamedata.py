@@ -242,6 +242,31 @@ def main():
             "req": int(r["PrevNodeRequiredLevel"]) if r.get("PrevNodeRequiredLevel") else None,
         }
 
+    # ---- drop tables: box DropKey -> member ItemKeys (DropInfoData -> ItemGroupInfoData) ----
+    # Chain: a STAGEBOX item carries a DropKey -> DropInfoData rows -> REWARDTYPE ITEMGROUP (RewardKey ->
+    # ItemGroupInfoData member ItemKeys) or REWARDTYPE ITEM (RewardKey is the ItemKey directly).
+    # We key by DropKey (normalized: boxes sharing a DropKey aren't duplicated). The renderer/engine resolve
+    # a box's contents via item.dk -> drops[dk], and the reverse "drops from" by inverting this map.
+    # We restrict to DropKeys actually owned by a STAGEBOX item (the player-facing, EN-named sources) and
+    # OMIT the Korean ItemGroup GroupName entirely (golden rule: never expose/guess unlocalized text).
+    group_members = {}
+    for r in rows("ItemGroupInfoData.txt"):
+        group_members.setdefault(r["ItemGroupKey"], []).append(r["ItemKey"])
+    box_dropkeys = set(e["dk"] for e in items.values() if e.get("t") == "STAGEBOX" and e.get("dk"))
+    drops_set = {}
+    for r in rows("DropInfoData.txt"):
+        dk = r["DropKey"]
+        if dk not in box_dropkeys:
+            continue
+        s = drops_set.setdefault(dk, set())
+        if r["REWARDTYPE"] == "ITEMGROUP":
+            for ik in group_members.get(r["RewardKey"], []):
+                s.add(ik)
+        elif r["REWARDTYPE"] == "ITEM" and r.get("RewardKey"):
+            s.add(r["RewardKey"])
+    drops = {k: sorted(v, key=lambda x: int(x) if x.isdigit() else x) for k, v in sorted(drops_set.items())}
+    drop_member_refs = sum(len(v) for v in drops.values())
+
     out = {
         "version": {"game": GAME_VERSION, "save": old.get("version", {}).get("save")},
         "grades": old.get("grades"),
@@ -255,6 +280,7 @@ def main():
         "pets": pets,
         "monsters": monsters,
         "runes": runes,
+        "drops": drops,
         "_calibrated": {
             "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/GearInfoData/UniqueModInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
             "rarityFrom": "itemKey 3rd digit == GRADE column, validated 5760/5760 gear rows",
@@ -265,6 +291,9 @@ def main():
             "gearInherentStats": gear_inh,
             "gearUniqueMods": gear_um,
             "gearBaseStatsShown": "no - GearTypeInfoData absent, BaseStat1/2 columns unlabeled, not guessed",
+            "dropBoxes": len(drops),
+            "dropMemberRefs": drop_member_refs,
+            "dropGroupNames": "omitted - ItemGroupInfoData GroupNames are Korean/unlocalized (golden rule)",
             "gameVersion": GAME_VERSION,
         },
     }
@@ -280,6 +309,7 @@ def main():
     print(f"stats {len(stats)} | runes {len(runes)} (with per-level effects)")
     print(f"gear {len(gear)} | inherent-stat sets {gear_inh} | unique mods {gear_um}")
     print(f"skills {len(skills)} | heroes {len(heroes)} (w/ base stats) | attributes {len(attributes)} | passives {len(passives)} | pets {len(pets)} | monsters {len(monsters)}")
+    print(f"drops {len(drops)} box DropKeys | {drop_member_refs} member refs (box contents / reverse drop sources)")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 

@@ -243,6 +243,84 @@
   footer{max-width:1180px;margin:0 auto;padding:22px 24px 50px;color:var(--dim);font-size:11.5px;
     border-top:1px solid var(--line);margin-top:30px}
   footer b{color:var(--muted)}
+
+  /* ---------- Codex (full-catalog browser) ---------- */
+  .cxbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:11px}
+  .cxbar .grp{display:flex;gap:5px;flex-wrap:wrap}
+  .cxbar input.cxq{flex:1;min-width:170px;background:var(--surface2);border:1px solid var(--line);
+    border-radius:20px;padding:8px 14px;color:var(--text);font:inherit;font-size:13px}
+  .cxbar input.cxq:focus{outline:none;border-color:var(--line2)}
+  .cxbar select{background:var(--surface2);border:1px solid var(--line);border-radius:9px;
+    color:var(--text);font:inherit;font-size:12.5px;padding:7px 10px;cursor:pointer}
+  .cxbar button{padding:6px 11px;font-size:12.5px;border-radius:18px}
+  .cxbar button.on{background:var(--surface3);border-color:var(--line2);color:var(--text)}
+  .cxcount{font-size:12px;color:var(--dim);white-space:nowrap;margin-left:4px}
+  .codex-vp{height:72vh;min-height:440px;overflow-y:auto;overflow-x:hidden;
+    border:1px solid var(--line);border-radius:14px;background:var(--bg2);padding:0 12px}
+  .codex-spacer{position:relative;width:100%}
+  .codex-win{position:absolute;left:0;right:0;display:grid;grid-auto-rows:152px;gap:12px}
+  .cxcard{position:relative;height:152px;border-radius:13px;cursor:pointer;overflow:hidden;
+    border:1.5px solid var(--rc,var(--line));transition:transform .12s,box-shadow .12s;
+    background:radial-gradient(circle at 50% 22%, color-mix(in srgb, var(--rc,var(--line2)) 16%, var(--bg2)), var(--surface) 78%);
+    display:flex;flex-direction:column;align-items:center;padding:12px 8px 9px}
+  .cxcard:hover{transform:translateY(-3px);box-shadow:0 12px 22px -12px var(--rc,#000);z-index:2}
+  .cxcard.notowned{opacity:.74}
+  .cxic{width:60px;height:60px;display:grid;place-items:center;position:relative}
+  .cxic img{max-width:100%;max-height:100%;image-rendering:pixelated;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5))}
+  .cxglyph{font-size:30px;color:var(--blue2);filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+  .cxic .miss{position:absolute;inset:0;display:grid;place-items:center;font-size:11px;color:var(--dim);font-weight:700}
+  .cxname{font-size:12px;font-weight:600;text-align:center;margin-top:8px;line-height:1.25;width:100%;
+    max-height:2.5em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .cxmeta{font-size:10.5px;color:var(--dim);margin-top:auto;text-align:center;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .cxmeta .cxr{font-weight:700}
+  .cxown{position:absolute;right:6px;top:6px;width:17px;height:17px;border-radius:50%;
+    background:var(--green);color:#04140d;font-size:11px;font-weight:800;display:grid;place-items:center;z-index:3;
+    box-shadow:0 0 0 2px var(--bg2)}
+  /* detail modal */
+  .cxmodal-ov{position:fixed;inset:0;z-index:90;background:rgba(4,6,12,.66);backdrop-filter:blur(3px);
+    display:grid;place-items:center;padding:24px;animation:fade .15s ease both}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .cxmodal{width:min(560px,96vw);max-height:88vh;overflow-y:auto;
+    background:linear-gradient(165deg,var(--surface2),var(--bg2));
+    border:1px solid var(--line2);border-radius:18px;box-shadow:var(--shadow);padding:18px 22px 22px}
+  .cxmodal .cxclose{position:sticky;top:0;float:right;margin:-4px -10px 0 0;background:none;border:none;
+    color:var(--dim);font-size:23px;cursor:pointer;padding:0 8px;line-height:1}
+  .cxmodal .cxclose:hover{color:var(--text);transform:none}
+  .cxhd{display:flex;gap:15px;align-items:flex-start}
+  .cxbig{width:74px;height:74px;flex:0 0 auto;border-radius:14px;display:grid;place-items:center;overflow:hidden;
+    border:1.5px solid var(--rc,var(--line));
+    background:radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--rc,var(--line2)) 20%, var(--bg2)), var(--bg2) 75%)}
+  .cxbig img{width:80%;height:80%;image-rendering:pixelated;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+  .cxbig .cxglyph{font-size:38px}
+  .cxttl{flex:1;min-width:0}
+  .cxtn{font-size:18px;font-weight:700;line-height:1.2}
+  .cxtsub{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .cxtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .cxtag{font-size:10.5px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:7px;
+    background:var(--surface3);color:var(--muted)}
+  .cxtag.own{background:rgba(25,201,139,.16);color:var(--green)}
+  .cxtag.mkt{background:rgba(242,180,65,.14);color:var(--gold)}
+  .cxtag.miss{background:var(--surface3);color:var(--dim)}
+  .cxsec{margin-top:16px}
+  .cxsec .cxlbl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);font-weight:700;margin-bottom:7px}
+  .cxsec .cxdesc{color:var(--muted);font-size:13px;line-height:1.5}
+  .cxstat{display:flex;justify-content:space-between;gap:14px;color:var(--muted);font-size:12.5px;padding:3px 0;border-top:1px solid var(--line)}
+  .cxstat:first-of-type{border-top:none}
+  .cxstat b{color:var(--blue2);font-weight:600} .cxstat.ench b{color:var(--amber)}
+  .cxstat .mt{opacity:.5;font-size:10px;margin-left:4px}
+  .cxuniq{color:var(--purple);font-size:12.5px;line-height:1.45}
+  .cxuniq::before{content:"★ ";opacity:.9}
+  .cxmembers{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px}
+  .cxmem{aspect-ratio:1;border-radius:10px;border:1.5px solid var(--rc,var(--line));cursor:pointer;position:relative;overflow:hidden;
+    background:radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--rc,var(--line2)) 18%, var(--bg2)), var(--bg2) 74%)}
+  .cxmem img{position:absolute;inset:0;margin:auto;width:64%;height:64%;image-rendering:pixelated}
+  .cxmem:hover{transform:translateY(-2px);box-shadow:0 8px 16px -8px var(--rc,#000)}
+  .cxsrc{display:flex;flex-wrap:wrap;gap:6px}
+  .cxsrc .chip{cursor:pointer} .cxsrc .chip:hover{border-color:var(--line2);color:var(--text)}
+  .cxrune table{font-size:12px} .cxrune td{padding:4px 8px}
+  .cxnote{color:var(--dim);font-size:11.5px;line-height:1.45}
+
   /* accessibility: honor reduced-motion — drop the looping pulse/shine/rise + bar/tooltip transitions */
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
@@ -275,6 +353,7 @@
   <button data-tab="runes">Runes <span class="count" id="tabRuneCount"></span></button>
   <button data-tab="lifetime">Lifetime</button>
   <button data-tab="trends">Trends <span class="count" id="tabTrendCount"></span></button>
+  <button data-tab="codex">Codex <span class="count" id="tabCodexCount"></span></button>
 </nav>
 
 <main>
@@ -288,7 +367,8 @@
       <code>SaveFile_Live.es3</code> (no trends).</p>
     <p class="fine">Decrypted and read entirely on your machine — nothing is uploaded, and the game is
       never modified. Chrome / Edge keep it live as you play; other browsers load once (re-pick to refresh).</p>
-    <p class="fine">No save handy? <a href="#" id="demoLink" style="color:var(--blue2)">Preview with sample data →</a></p>
+    <p class="fine">No save handy? <a href="#" id="demoLink" style="color:var(--blue2)">Preview with sample data →</a>
+      &nbsp;·&nbsp; <a href="#" id="codexLink" style="color:var(--blue2)">Browse the full item catalog →</a></p>
   </div>
 
   <div id="tab-overview" class="tab-page hidden"></div>
@@ -298,6 +378,7 @@
   <div id="tab-runes" class="tab-page hidden"></div>
   <div id="tab-lifetime" class="tab-page hidden"></div>
   <div id="tab-trends" class="tab-page hidden"></div>
+  <div id="tab-codex" class="tab-page hidden"></div>
 </main>
 
 <div id="tip"></div>
@@ -397,6 +478,39 @@ function accountBuffs(psd){
 /* structural icon resolver — see saveEngine.iconId */
 function iconId(key){var s=String(key);if(s.length!==6)return s;var t=s.slice(0,2),r=s[2],suf=s.slice(3);if(r==='0')return s;return t+'00'+suf.slice(0,2);}
 
+/* ---------- Codex: full-catalog index + drop chain (mirror of saveEngine) ----------
+   The DB is the game's MASTER catalog, not the owner's inventory — every item (owned or unseen)
+   is here. buildCatalog() flattens items+runes+skills into one browsable list; ownership is overlaid
+   separately so the Codex works even with no save loaded. No fabrication — all fields come from the DB. */
+var _catalog=null;
+function buildCatalog(){
+  if(_catalog)return _catalog;
+  var list=[],k;
+  for(k in (DB.items||{})){var i=DB.items[k];
+    var cat=i.t==='MATERIAL'?'MATERIAL':(i.t==='STAGEBOX'?'BOX':'GEAR');
+    list.push({cat:cat,key:k,name:i.n||('#'+k),grade:i.g||null,gt:i.gt||null,lvl:i.lvl||null,
+      icon:i.ic||iconId(k),type:i.t,mat:!!i.mat,desc:i.desc||null,fx:i.fx||null,mt:i.mt||null,
+      gk:i.gk||null,base:gearStats(i.gk),steam:i.steam||0,mkt:i.mkt||0,dk:i.dk||null,n:Number(k)||0});}
+  for(k in (DB.runes||{})){var r=DB.runes[k];
+    list.push({cat:'RUNE',key:k,name:r.n,grade:null,gt:null,lvl:null,icon:null,runeIc:r.ic,
+      eff:r.eff,max:r.max,rlv:r.lv,type:'RUNE',n:Number(k)||0});}
+  for(k in (DB.skills||{})){var s=DB.skills[k];
+    list.push({cat:'SKILL',key:k,name:s.n,grade:null,gt:null,lvl:null,icon:null,
+      sdesc:s.d||null,type:'SKILL',n:Number(k)||0});}
+  _catalog=list;return list;
+}
+// box contents: STAGEBOX item.dk -> DB.drops (DropInfoData -> ItemGroupInfoData). Korean group names omitted.
+function boxContents(boxKey){var it=DB.items&&(DB.items[boxKey]||DB.items[String(boxKey)]);if(!it||it.t!=='STAGEBOX'||!it.dk)return[];return (DB.drops&&DB.drops[it.dk])||[];}
+// reverse of DB.drops: which STAGEBOX items can drop a given ItemKey ("drops from"). Cached.
+var _dropSrc=null;
+function dropSources(itemKey){
+  if(!_dropSrc){_dropSrc={};var items=DB.items||{};
+    for(var k in items){var i=items[k];if(i.t==='STAGEBOX'&&i.dk){var mem=(DB.drops&&DB.drops[i.dk])||[];
+      for(var j=0;j<mem.length;j++){(_dropSrc[mem[j]]=_dropSrc[mem[j]]||[]).push(k);}}}}
+  return _dropSrc[String(itemKey)]||[];
+}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
 async function decryptSave(buf){
   var b=new Uint8Array(buf), iv=b.slice(0,16), ct=b.slice(16);
   var base=await crypto.subtle.importKey('raw',new TextEncoder().encode(PASSWORD),{name:'PBKDF2'},false,['deriveKey']);
@@ -436,6 +550,10 @@ function analyze(psd){
       equipped:equipped,skills:skills,sources:heroSources(h,equipped,psd.attributeSaveDatas),
       deployed:party.indexOf(String(h.heroKey))>=0};
   }).sort(function(x,y){return (y.deployed-x.deployed)||(y.level-x.level);});
+  // owned skill keys (equipped by any hero + unlocked via the attribute tree) — for Codex ownership marking
+  var ownedSkills={};
+  (psd.heroSaveDatas||[]).forEach(function(h){(h.equippedSKillKey||[]).forEach(function(s){if(s&&s!==-1)ownedSkills[String(s)]=1;});});
+  (psd.attributeSaveDatas||[]).forEach(function(n){if(!(n.Level>0))return;var a=DB.attributes&&DB.attributes[n.Key];if(a&&a.type==='ACTIVESKILL'&&a.val)ownedSkills[String(a.val)]=1;});
   return {
     version:c.version, stage:c.currentStageKey, wave:c.currentStageWave, maxStage:c.maxCompletedStage,
     playHours:c.playTime?+(c.playTime/3600).toFixed(1):null, lastSaved:ticksToDate(c.lastSavedTime),
@@ -445,6 +563,7 @@ function analyze(psd){
     owned:owned, byRarity:byR,
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd), killsByMonster:killsByMonster(psd),
+    ownedSkills:ownedSkills,
     kills:pick(0,0), lifeGold:pick(2,0), perDiff:[0,1,2,3].map(function(d){return pick(16,d);})
   };
 }
@@ -989,14 +1108,233 @@ function renderTrends(d){
   p.appendChild(el('<div class="panel"><table><thead><tr><th>Saved</th><th class="r">Gold</th><th class="r">Lifetime</th><th class="r">Gold/hr</th><th class="r">Kills</th><th class="r">Stage</th><th class="r">Played</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
 }
 
+/* ============================================================================
+   Codex — full-catalog browser (virtualized). Renders the game's ENTIRE catalog
+   (5944 items + 197 runes + 36 skills) independent of ownership; overlays "owned"
+   markers when a save is loaded. A windowed grid keeps ~6k rows smooth. Click any
+   entry for full detail (desc, inherent stats, unique mod, material effects, rune
+   per-level table, box contents, drop sources, marketable). All data from the DB.
+   ========================================================================== */
+var codexState={cat:'ALL',rarity:'ALL',gt:'ALL',q:'',sort:'rarity',owned:'ALL'};
+var CX=null, _cxModal=null, _catByKey=null;
+var CX_MINW=130, CX_GAP=12, CX_CARDH=152, CX_ROWH=CX_CARDH+CX_GAP, CX_PADY=12;
+
+function catalogTotalCount(){return buildCatalog().length;}
+function catalogEntry(key){if(!_catByKey){_catByKey={};buildCatalog().forEach(function(e){_catByKey[String(e.key)]=e;});}return _catByKey[String(key)]||null;}
+function codexOwnPredicate(d){
+  var ownItem={},ownRune={},ownSkill=(d&&d.ownedSkills)||{};
+  if(d){(d.owned||[]).forEach(function(o){ownItem[String(o.key)]=1;});
+    ((d.runes&&d.runes.list)||[]).forEach(function(r){if(r.level>0)ownRune[String(r.key)]=1;});}
+  return function(e){return e.cat==='RUNE'?!!ownRune[e.key]:(e.cat==='SKILL'?!!ownSkill[e.key]:!!ownItem[e.key]);};
+}
+function codexFilterSort(){
+  var s=codexState, all=buildCatalog(), q=s.q.trim().toLowerCase();
+  var list=all.filter(function(e){
+    if(s.cat!=='ALL'&&e.cat!==s.cat)return false;
+    if(s.rarity!=='ALL'&&e.grade!==s.rarity)return false;
+    if(s.gt!=='ALL'&&e.gt!==s.gt)return false;
+    if(q&&e.name.toLowerCase().indexOf(q)<0&&String(e.key).indexOf(q)<0)return false;
+    if(s.owned!=='ALL'&&CX){var ow=CX.own(e);if(s.owned==='OWNED'&&!ow)return false;if(s.owned==='MISSING'&&ow)return false;}
+    return true;
+  });
+  var catOrder={GEAR:0,MATERIAL:1,BOX:2,RUNE:3,SKILL:4};
+  list.sort(function(a,b){
+    if(s.sort==='name')return a.name.localeCompare(b.name);
+    if(s.sort==='level')return ((b.lvl||0)-(a.lvl||0))||(rrank(b.grade)-rrank(a.grade))||(a.n-b.n);
+    if(s.sort==='key')return a.n-b.n;
+    return (rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0))||((catOrder[a.cat]||0)-(catOrder[b.cat]||0))||(a.n-b.n);
+  });
+  return list;
+}
+function cxSub(e){return e.cat==='RUNE'?'Rune':(e.cat==='SKILL'?'Skill':(e.cat==='BOX'?'Box':(e.mat?((e.mt?cap(e.mt)+' ':'')+'material'):(e.gt?cap(e.gt):cap(e.type||e.cat)))));}
+function codexCard(e,owned){
+  var rc=rvar(e.grade);
+  var n=el('<div class="cxcard '+(CX&&CX.hasOwn&&!owned?'notowned':'')+'" style="--rc:'+rc+'"></div>');
+  if(owned)n.appendChild(el('<span class="cxown" title="Owned">✓</span>'));
+  var ic=el('<div class="cxic"></div>');
+  if(e.cat==='RUNE')ic.appendChild(runeIconImg(e.runeIc));
+  else if(e.cat==='SKILL')ic.appendChild(el('<span class="cxglyph">✦</span>'));
+  else ic.appendChild(iconImg(e.icon));
+  n.appendChild(ic);
+  n.appendChild(el('<div class="cxname" title="'+esc(e.name)+'">'+esc(e.name)+'</div>'));
+  var meta=(e.grade?'<span class="cxr" style="color:'+rc+'">'+cap(e.grade)+'</span> · ':'')+'<span>'+esc(cxSub(e))+'</span>'+(e.lvl?(' · L'+e.lvl):'');
+  n.appendChild(el('<div class="cxmeta">'+meta+'</div>'));
+  if(e.cat==='GEAR'||e.cat==='MATERIAL'||e.cat==='BOX'){
+    n.addEventListener('mouseenter',function(ev){showTip(ev,e);});
+    n.addEventListener('mousemove',moveTip);n.addEventListener('mouseleave',hideTip);
+  }
+  n.addEventListener('click',function(){hideTip();openCodexDetail(e,owned);});
+  return n;
+}
+function codexLayout(){
+  if(!CX)return;
+  var vp=CX.vp,win=CX.win,spacer=CX.spacer,n=CX.list.length;
+  var w=spacer.clientWidth||(vp.clientWidth-24);
+  var cols=Math.max(1,Math.floor((w+CX_GAP)/(CX_MINW+CX_GAP)));
+  CX.cols=cols;win.style.gridTemplateColumns='repeat('+cols+',1fr)';
+  CX.rows=Math.ceil(n/cols);
+  spacer.style.height=(CX_PADY*2+CX.rows*CX_ROWH-CX_GAP)+'px';
+  CX.lastFirst=-1;codexDraw();
+}
+function codexDraw(){
+  if(!CX)return;
+  var vp=CX.vp,win=CX.win,n=CX.list.length,cols=CX.cols;
+  var first=Math.max(0,Math.floor((vp.scrollTop-CX_PADY)/CX_ROWH)-2);
+  if(first===CX.lastFirst)return;CX.lastFirst=first;
+  var visRows=Math.ceil(vp.clientHeight/CX_ROWH)+4;
+  var startI=first*cols,endI=Math.min(n,(first+visRows)*cols);
+  win.style.transform='translateY('+(CX_PADY+first*CX_ROWH)+'px)';
+  var fr=document.createDocumentFragment();
+  for(var i=startI;i<endI;i++)fr.appendChild(codexCard(CX.list[i],CX.own(CX.list[i])));
+  win.innerHTML='';win.appendChild(fr);
+}
+function codexApply(){
+  if(!CX)return;
+  CX.list=codexFilterSort();CX.vp.scrollTop=0;
+  if(CX.countEl)CX.countEl.textContent=fmt(CX.list.length)+' shown';
+  if(!CX.list.length){CX.spacer.style.height='0';CX.win.innerHTML='';CX.win.style.transform='none';
+    if(!CX.empty){CX.empty=el('<div class="empty" style="margin-top:12px">No catalog entries match these filters.</div>');CX.vp.parentNode.appendChild(CX.empty);}
+    CX.empty.style.display='';return;}
+  if(CX.empty)CX.empty.style.display='none';
+  codexLayout();
+}
+function cxSelect(opts,cur,onch){
+  var sel=el('<select></select>');
+  opts.forEach(function(o){sel.appendChild(el('<option value="'+esc(o[0])+'"'+(o[0]===cur?' selected':'')+'>'+esc(o[1])+'</option>'));});
+  sel.addEventListener('change',function(){onch(sel.value);});return sel;
+}
+function renderCodex(d){
+  var p=$('tab-codex');p.innerHTML='';closeCodexDetail();
+  var cat=buildCatalog(), own=codexOwnPredicate(d), hasOwn=!!d;
+  var nItems=0,nRune=0,nSkill=0;cat.forEach(function(e){if(e.cat==='RUNE')nRune++;else if(e.cat==='SKILL')nSkill++;else nItems++;});
+  p.appendChild(el('<h3 class="sec">Codex <span class="tag">the game\'s full catalog · '+fmt(nItems)+' items · '+nRune+' runes · '+nSkill+' skills'+(hasOwn?' · ✓ owned':' · connect a save to mark owned')+'</span></h3>'));
+
+  var bar=el('<div class="cxbar"></div>');
+  // category (primary axis) — rebuilds controls so the rarity/type filters track the category
+  var gCat=el('<div class="grp"></div>');
+  [['ALL','All'],['GEAR','Gear'],['MATERIAL','Materials'],['BOX','Boxes'],['RUNE','Runes'],['SKILL','Skills']].forEach(function(c){
+    var b=el('<button class="'+(codexState.cat===c[0]?'on':'')+'">'+c[1]+'</button>');
+    b.addEventListener('click',function(){codexState.cat=c[0];
+      if(c[0]==='RUNE'||c[0]==='SKILL'||c[0]==='MATERIAL')codexState.rarity='ALL';
+      if(c[0]!=='GEAR'&&c[0]!=='ALL')codexState.gt='ALL';
+      renderCodex(current);});
+    gCat.appendChild(b);});
+  bar.appendChild(gCat);
+  // search
+  var q=el('<input class="cxq" type="search" placeholder="Search name or ID…" value="'+esc(codexState.q)+'">');
+  var qT=null;q.addEventListener('input',function(){codexState.q=q.value;clearTimeout(qT);qT=setTimeout(codexApply,130);});
+  bar.appendChild(q);
+  // rarity (gear-ish only)
+  if(codexState.cat==='ALL'||codexState.cat==='GEAR'||codexState.cat==='BOX'){
+    var rOpts=[['ALL','Any rarity']].concat(RARITY.map(function(r){return [r,cap(r)];}));
+    bar.appendChild(cxSelect(rOpts,codexState.rarity,function(v){codexState.rarity=v;codexApply();}));
+  }
+  // gear type (gear only)
+  if(codexState.cat==='ALL'||codexState.cat==='GEAR'){
+    var seen={};cat.forEach(function(e){if(e.cat==='GEAR'&&e.gt)seen[e.gt]=1;});
+    var gOpts=[['ALL','Any type']].concat(Object.keys(seen).sort().map(function(g){return [g,cap(g)];}));
+    bar.appendChild(cxSelect(gOpts,codexState.gt,function(v){codexState.gt=v;codexApply();}));
+  }
+  // sort
+  bar.appendChild(cxSelect([['rarity','Sort: Rarity'],['level','Sort: Level'],['name','Sort: Name'],['key','Sort: ID']],
+    codexState.sort,function(v){codexState.sort=v;codexApply();}));
+  // owned (only with a save)
+  if(hasOwn)bar.appendChild(cxSelect([['ALL','Owned + missing'],['OWNED','Owned only'],['MISSING','Missing only']],
+    codexState.owned,function(v){codexState.owned=v;codexApply();}));
+  var countEl=el('<span class="cxcount"></span>');bar.appendChild(countEl);
+  p.appendChild(bar);
+
+  var vp=el('<div class="codex-vp"></div>'), spacer=el('<div class="codex-spacer"></div>'), win=el('<div class="codex-win"></div>');
+  spacer.appendChild(win);vp.appendChild(spacer);p.appendChild(vp);
+  vp.addEventListener('scroll',codexDraw);
+  CX={vp:vp,win:win,spacer:spacer,own:own,hasOwn:hasOwn,list:[],cols:1,rows:0,lastFirst:-1,countEl:countEl,empty:null};
+  codexApply();
+  // self-correct if the viewport width wasn't settled at first paint (tab transition / late layout)
+  if(window.requestAnimationFrame)requestAnimationFrame(function(){if(CX&&activeTab==='codex')codexLayout();});
+}
+function openCodexDetail(e,owned){
+  closeCodexDetail();
+  var rc=rvar(e.grade);
+  var hd=el('<div class="cxhd"></div>');
+  var big=el('<div class="cxbig" style="--rc:'+rc+'"></div>');
+  if(e.cat==='RUNE')big.appendChild(runeIconImg(e.runeIc));
+  else if(e.cat==='SKILL')big.appendChild(el('<span class="cxglyph">✦</span>'));
+  else big.appendChild(iconImg(e.icon));
+  hd.appendChild(big);
+  var tags='';
+  if(e.grade)tags+='<span class="cxtag" style="color:'+rc+'">'+cap(e.grade)+'</span>';
+  if(e.lvl)tags+='<span class="cxtag">Lvl '+e.lvl+'</span>';
+  if(CX&&CX.hasOwn)tags+=owned?'<span class="cxtag own">✓ Owned</span>':'<span class="cxtag miss">Not owned</span>';
+  if(e.mkt)tags+='<span class="cxtag mkt">Marketable</span>';
+  hd.appendChild(el('<div class="cxttl"><div class="cxtn">'+esc(e.name)+'</div><div class="cxtsub">'+esc(cxSub(e))+' · ID '+esc(e.key)+'</div><div class="cxtags">'+tags+'</div></div>'));
+
+  function sec(label,inner){return '<div class="cxsec"><div class="cxlbl">'+label+'</div>'+inner+'</div>';}
+  var html='';
+  if(e.desc)html+=sec('Description','<div class="cxdesc">'+esc(e.desc)+'</div>');
+  else if(e.cat==='SKILL'&&e.sdesc)html+=sec('Description','<div class="cxdesc">'+esc(e.sdesc)+'</div>');
+  else if(e.cat==='GEAR')html+=sec('Description','<div class="cxnote">The game ships no flavor text for gear — it\'s defined by the stats below.</div>');
+  if(e.base&&e.base.i&&e.base.i.length)
+    html+=sec('Inherent stats',e.base.i.map(function(s){var tag=(s.m&&s.m!=='FLAT'&&s.m!=='PERCENT')?(' <span class="mt">'+esc(s.m.toLowerCase().slice(0,4))+'</span>'):'';
+      return '<div class="cxstat"><span>'+esc(s.sn)+tag+'</span><b>'+fmt(s.v)+(s.m==='PERCENT'?'%':'')+'</b></div>';}).join(''));
+  if(e.base&&e.base.u)html+=sec('Unique mod','<div class="cxuniq">'+esc(e.base.u)+'</div>');
+  if(e.fx&&e.fx.length)html+=sec('Socket effects (by gear type)',e.fx.map(function(f){return '<div class="cxstat"><span>'+esc(cap(f.g))+'</span><b>'+esc(f.sn)+(f.t?(' · T'+f.t):'')+'</b></div>';}).join(''));
+  if(e.cat==='RUNE'){
+    var rh='<div class="cxnote">'+esc(e.eff||'')+(e.max?(' · max Lv '+e.max):'')+'</div>';
+    if(e.rlv&&e.rlv.length)rh+='<div class="cxrune"><table><thead><tr><th>Level</th><th>Value</th><th class="r">Cost</th></tr></thead><tbody>'+
+      e.rlv.map(function(x){return '<tr><td>Lv '+x.l+'</td><td>'+esc(String(x.val))+'</td><td class="r">'+(x.cost!=null?(fmt(x.cost)+' g'):'—')+'</td></tr>';}).join('')+'</tbody></table></div>';
+    html+=sec('Rune effect',rh);
+  }
+  if(e.cat==='BOX'){
+    var mem=boxContents(e.key);
+    html+=mem.length?sec('Box can contain ('+mem.length+')','<div class="cxmembers" data-members="1"></div>'):
+      sec('Box contents','<div class="cxnote">No resolvable contents in the drop tables.</div>');
+  }
+  if(e.cat==='GEAR'||e.cat==='MATERIAL'){
+    var src=dropSources(e.key);
+    if(src.length)html+=sec('Drops from ('+src.length+')','<div class="cxsrc">'+src.map(function(bk){var bi=DB.items[bk]||{};
+      return '<span class="chip" data-box="'+esc(bk)+'">'+esc(bi.n||('Box '+bk))+'</span>';}).join('')+'</div>');
+  }
+  var flags=[];if(e.steam)flags.push('Steam item');
+  if(e.mkt)flags.push('tradeable / marketable on the Steam Community Market');
+  else if(e.cat==='GEAR'||e.cat==='MATERIAL')flags.push('not marketable');
+  if(flags.length)html+=sec('Trading','<div class="cxnote">'+esc(flags.join(' · '))+'</div>');
+
+  var sections=el('<div></div>');sections.innerHTML=html;
+  var mo=el('<div class="cxmodal"></div>');
+  mo.appendChild(el('<button class="cxclose" title="Close (Esc)">×</button>'));
+  mo.appendChild(hd);mo.appendChild(sections);
+  var ov=el('<div class="cxmodal-ov"></div>');ov.appendChild(mo);document.body.appendChild(ov);
+
+  // box member tiles (built as DOM for graceful icon fallback + click-through)
+  var mc=mo.querySelector('[data-members]');
+  if(mc)boxContents(e.key).forEach(function(ik){var mi=DB.items[ik]||{};
+    var t=el('<div class="cxmem" style="--rc:'+rvar(mi.g)+'" title="'+esc((mi.n||ik)+(mi.g?(' · '+cap(mi.g)):'')+(mi.lvl?(' · L'+mi.lvl):''))+'"></div>');
+    t.appendChild(iconImg(mi.ic||iconId(ik)));
+    t.addEventListener('click',function(){var ce=catalogEntry(ik);if(ce)openCodexDetail(ce,CX&&CX.own?CX.own(ce):false);});
+    mc.appendChild(t);});
+  Array.prototype.forEach.call(mo.querySelectorAll('.cxsrc .chip'),function(ch){
+    ch.addEventListener('click',function(){var ce=catalogEntry(ch.getAttribute('data-box'));if(ce)openCodexDetail(ce,CX&&CX.own?CX.own(ce):false);});});
+
+  function onKey(ev){if(ev.key==='Escape')closeCodexDetail();}
+  ov.addEventListener('click',function(ev){if(ev.target===ov)closeCodexDetail();});
+  mo.querySelector('.cxclose').addEventListener('click',closeCodexDetail);
+  document.addEventListener('keydown',onKey);
+  _cxModal={ov:ov,onKey:onKey};
+}
+function closeCodexDetail(){if(!_cxModal)return;document.removeEventListener('keydown',_cxModal.onKey);if(_cxModal.ov.parentNode)_cxModal.ov.parentNode.removeChild(_cxModal.ov);_cxModal=null;}
+
 /* ---------- tab switching ---------- */
+var TABS=['overview','party','inventory','loot','runes','lifetime','trends','codex'];
+function showConnectHint(name){var p=$('tab-'+name);if(p)p.innerHTML='<div class="empty" style="margin-top:34px">Connect your save to see this view.<br>'+
+  '<span style="font-size:11.5px">Use <b>Connect folder</b> above — or keep browsing the full <b>Codex</b>.</span></div>';}
 function setTab(name){
   activeTab=name;
   Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
     b.classList.toggle('active',b.dataset.tab===name);});
-  ['overview','party','inventory','loot','runes','lifetime','trends'].forEach(function(t){
-    $('tab-'+t).classList.toggle('hidden',t!==name);});
+  TABS.forEach(function(t){$('tab-'+t).classList.toggle('hidden',t!==name);});
   if(current)renderTab(name,current);
+  else if(name==='codex')renderCodex(null);
+  else showConnectHint(name);
 }
 function renderTab(name,d){
   if(name==='overview')renderOverview(d);
@@ -1006,7 +1344,10 @@ function renderTab(name,d){
   else if(name==='runes')renderRunes(d);
   else if(name==='lifetime')renderLifetime(d);
   else if(name==='trends')renderTrends(d);
+  else if(name==='codex')renderCodex(d);
 }
+var _cxResizeT=null;
+addEventListener('resize',function(){if(activeTab!=='codex'||!CX)return;clearTimeout(_cxResizeT);_cxResizeT=setTimeout(codexLayout,120);});
 
 function render(d){
   current=d;
@@ -1016,6 +1357,7 @@ function render(d){
   $('tabInvCount').textContent=d.owned.length;
   $('tabLootCount').textContent=lootLog.length||'';
   $('tabRuneCount').textContent=(d.runes&&d.runes.leveled)?(d.runes.leveled+'/'+d.runes.total):'';
+  $('tabCodexCount').textContent=fmt(catalogTotalCount());
   $('lastSaved').textContent=d.lastSaved?(' · save updated '+d.lastSaved.toLocaleString()):'';
   renderTab(activeTab,d);
 }
@@ -1141,7 +1483,15 @@ function loadDemo(){
 }
 $('demoBtn').addEventListener('click',loadDemo);
 $('demoLink').addEventListener('click',function(e){e.preventDefault();loadDemo();});
+/* Browse the full catalog with no save loaded (the Codex is the game's master catalog, not your inventory) */
+function browseCatalog(){
+  $('gate').classList.add('hidden');$('tabs').classList.remove('hidden');
+  $('tabCodexCount').textContent=fmt(catalogTotalCount());
+  setTab('codex');
+}
+$('codexLink').addEventListener('click',function(e){e.preventDefault();browseCatalog();});
 if(location.search.indexOf('demo')>=0)loadDemo();
+else if(location.search.indexOf('codex')>=0)browseCatalog();
 </script>
 </body>
 </html>
