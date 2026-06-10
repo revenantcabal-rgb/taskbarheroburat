@@ -61,9 +61,15 @@ the keyring but is NOT active — don't switch to it. Live distribution: Release
   (~every few hours) — useful as historical diff points for trend charts (goal #10).
 
 ### aggregateSaveDatas (lifetime — partially decoded; finish it)
-- Type 2 / SubKey 0 = lifetime **gold earned** (calibrated: its delta matched a gold gain exactly). Sub 1/2/3 also large.
-- Type 0 / SubKey 0 = **total kills**. Type 0 also has structured subkeys (10011, 10021-10023, 10031, 10041-10053,
-  20011-20091) = likely per-monster/per-item-category counters.
+- Type 2 / SubKey 0 = lifetime **gold earned** (calibrated). **The Sub-keys are a SUM-VALIDATED gold-by-source
+  partition: Sub0 == Sub1 + Sub2 + Sub3 exactly.** Sub1 = **gold from combat/stages** (delta-confirmed on the live
+  save: Sub1 grows 1:1 with the total during active farming while Sub2/Sub3 stay flat). Sub2 + Sub3 = non-combat gold
+  (offline + Cube + misc) — too small/uncalibrated to split into a standalone "Cube gold" figure, so bucketed honestly
+  as "other" (golden rule). Surfaced as `aggregates.goldBySource {total,combat,other,validated}`.
+- Type 0 / SubKey 0 = **total kills**. Type 0 sub-counters (10011, 10021-10023, 10031, 10041-10053, 20011-20091, …)
+  = **per-MonsterKey kills** (VALIDATED: sum exactly to total kills). MonsterInfoData gives each monster's **base**
+  RewardGold/RewardExp (baked into `DB.monsters {n,g,x}`) → "kills + base gold/xp per kill" (actual is higher with
+  gold/XP buffs: Σ(kills×baseGold) ≈ 49% of Sub1, so per-kill values are labeled "base", never "actual earned").
 - Type 16 / SubKey 0-3 = **UNKNOWN — DO NOT SHOW**. Previously guessed as per-difficulty completions
   (Normal/Nightmare/Hell/Torment) and *shipped*, but the LIVE save DISPROVES that reading: the account is Normal-only
   (`maxCompletedStage` 1210 = Act 2-10, the first difficulty band) yet Type 16 = `[263,179,83,1]` would claim
@@ -156,6 +162,22 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Session 12 — gold-by-source + farming insights + Electron verified (v1.0.3):**
+  • **Gold by source (calibrated):** Type 2 sub-keys are a sum-validated partition (Sub0 == Sub1+Sub2+Sub3); Sub1 =
+    combat (delta-confirmed live). New Lifetime "Gold by source" panel: "From combat 99.5% / Other (offline, Cube, misc)
+    0.5%". HONEST — the small "other" bucket isn't split, so no fabricated standalone "Cube gold". `goldBySource` in both
+    engines + a verify_save sum assertion.
+  • **Per-monster base rewards + honest "best farming stage":** `DB.monsters` now `{n,g,x}` (RewardGold/RewardExp);
+    kills-by-monster shows "Ng/Nxp each (base)". A note answers "best gold/XP farming STAGE" truthfully: no StageInfoData
+    (no monster→stage map) + a true per-stage rate needs the memory lane (not read) → no fabricated best-stage; the honest
+    signals are per-monster base rewards + Trends gold/hr. (Σ(kills×baseGold) ≈ 49% of Sub1 due to buffs → "base" label.)
+  • **BUG FIX (since session 7):** `el()` returns only the first element, so `el('<h3>…</h3>'+'<div class="panel">…')`
+    silently dropped the panel — the **Owned-by-rarity bar+legend had been missing**. Switched it + the new gold panel to
+    `frag()`. Audited the rest: other multi-line `el()` calls are single-root wrappers (fine).
+  • **Electron smoke test (closed the gap):** ran `npm start` — clean launch (4 procs, 0 stderr, electron-updater no-ops
+    in dev); window closed after. Renderer = the same dashboard.html verified in-browser.
+  • **Version → 1.0.3** (cache-bust `?v=1.0.3`; DB gained monster rewards). The 1.0.2 line was never published; next
+    release is 1.0.3 (includes all of sessions 7-12). Installer rebuilt.
 - **Session 11 — styling + solidifying UX + per-hero level ETA (v1.0.2):**
   • **Per-hero "time to next level"** (Party cards + a "Time to next" roster column): XP remaining (calibrated) ÷ the
     XP/hr **MEASURED from this session** — never fabricated. `heroCumXp` (sum ExpForLevelUp[1..L-1] + HeroExp, survives
@@ -344,7 +366,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   `CreateSteamItem returned OK but items is empty`), so live market value isn't reliably available.
 - **Stat %% interpretation:** exact meaning of MULTIPLICATIVE/ADDITIVE values not asserted; shown raw + modtype tag.
 
-## Build / run  (app v1.0.2 · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.3 · fully responsive: phone/tablet/desktop)
 - Browser (no install): **https://revenantcabal-rgb.github.io/taskbarheroburat/** (GitHub Pages, HTTPS; bare URL works via
   index.html) -> Connect folder. Or open `dashboard.html` locally in Chrome/Edge. `?codex` browses the full catalog with no
   save; `?demo` loads sample data. NOTE: bump `?v=` on the `gamedata.min.js` script tag when the DB changes (cache-bust).

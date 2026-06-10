@@ -1,9 +1,27 @@
 # TBH HUD — improvement.log
-Updated 2026-06-11 (cowork, session 11). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
+Updated 2026-06-11 (cowork, session 12). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.3.
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
+NOTE: the 1.0.2 line (sessions 7-11) was built but never published; the next release is 1.0.3 (all of sessions 7-12).
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~45 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 9 tabs render vs the live save with 0 console errors.
+~47 commits. Read-only, calibrated (web SHIPPED on push; next desktop release = v1.0.3). All 9 tabs render vs the live save with 0 console errors.
+- Session 12 — gold-by-source + farming insights + Electron verified (answers "gold from Cube" / "best farming stage"):
+  • GOLD BY SOURCE (calibrated): aggregate Type 2 sub-keys are a SUM-VALIDATED partition of lifetime gold
+    (Sub0 == Sub1+Sub2+Sub3). Sub1 = combat gold — DELTA-CONFIRMED on the live save (Sub1 grew 1:1 with the total
+    during active farming while Sub2/Sub3 stayed flat). New Lifetime "Gold by source" panel: From combat 99.5% /
+    Other (offline+Cube+misc) 0.5%. HONEST: the tiny "other" bucket isn't split, so NO fabricated standalone "Cube
+    gold" — the truthful takeaway is cube/offline gold is a ~0.5% sliver. verify_save asserts combat+other==lifetime.
+  • PER-MONSTER BASE REWARDS + honest "best farming STAGE": MonsterInfoData has RewardGold/RewardExp -> baked into
+    DB.monsters {n,g,x}; kills-by-monster shows "Ng/Nxp each (base, before buffs)". Best-stage answered truthfully:
+    no StageInfoData (no monster->stage map) and a real per-stage rate needs the memory lane (not read) -> no
+    fabricated best-stage; honest signals = per-monster base rewards + Trends gold/hr. (Σ(kills×baseGold) ≈ 49% of
+    Sub1 because gold buffs multiply base -> values labeled "base", never "actual earned".)
+  • BUG FIX (latent since session 7): el(html) returns only the FIRST element, so el('<h3>…</h3>'+'<div class=panel>…')
+    silently DROPPED the panel — the Owned-by-rarity bar+legend had been missing on Lifetime. Switched it + the new
+    gold panel to frag(); audited the rest (other multi-line el() calls are single-root wrappers, fine).
+  • ELECTRON SMOKE TEST (closed the gap the owner flagged): ran npm start — clean launch (4 procs, 0 stderr,
+    electron-updater no-ops in dev); closed the window after. Renderer = same dashboard.html verified in-browser.
+  • Version -> 1.0.3 (cache-bust ?v=1.0.3; DB gained monster rewards). Installer rebuilt as 1.0.3.
 - Session 11 — styling + solidifying UX + per-hero level ETA (visual audit across all 9 tabs + connect screen):
   • PER-HERO "TIME TO NEXT LEVEL" (Party cards + a "Time to next" roster column): honest = XP remaining (calibrated)
     ÷ XP/hr MEASURED from this session (cumulative-XP delta since connect, so it survives a mid-session level-up).

@@ -1,6 +1,6 @@
 {
   "name": "tbh-hud",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Read-only companion HUD for TBH: Task Bar Hero",
   "main": "src/main.js",
   "scripts": {

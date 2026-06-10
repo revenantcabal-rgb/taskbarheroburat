@@ -23,10 +23,12 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   New gear is shown whether it dropped or was crafted/synthesized in the Cube — the game records no origin, so the
   tool honestly doesn't guess which.
 - **Runes** — the 197-node rune tree with real names/effects, leveled status, and cheapest-next-upgrade recommendations.
-- **Lifetime** — total kills, gold earned, max stage (as "Act X-Y"), owned-by-rarity, and a calibrated
-  **kills-by-monster** breakdown (the per-monster counts sum exactly to total kills). Only counters whose meaning is
-  calibrated are shown — uncalibrated save aggregates are omitted rather than guessed (so nothing claims progress your
-  save doesn't support).
+- **Lifetime** — total kills, gold earned, max stage (as "Act X-Y"), a **gold-by-source split** (sum-validated:
+  *from combat* vs *other — offline, Cube, misc*), owned-by-rarity, and a calibrated **kills-by-monster** breakdown
+  with each monster's **base gold/XP per kill** (the per-monster counts sum exactly to total kills). Only counters
+  whose meaning is calibrated are shown — uncalibrated save aggregates are omitted rather than guessed. *Note:* a true
+  "best gold/XP farming **stage**" isn't shown because the save stores no per-stage rate (that needs live combat data
+  we don't read) — the honest signals are the per-monster base rewards here and the gold/hr-over-time on **Trends**.
 - **Trends** — gold/kills/stage progression and gold-per-hour over time, charted from the game's own rolling save backups.
 - **Codex** — a browsable, virtualized grid of the game's **entire catalog** (5,944 items + 197 runes + 36 skills),
   independent of ownership (owned marked ✓). Filter by type / rarity / gear type, search by name or ID, sort, owned-only.
