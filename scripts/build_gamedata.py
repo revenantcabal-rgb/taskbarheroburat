@@ -277,6 +277,16 @@ def main():
         except (ValueError, KeyError):
             pass
 
+    # ---- stage names: StageName_<stageKey> from localization (P2 stage display). The renderer/engine
+    # decode act=floor(k/100)-10, stage=k%100 (VERIFIED: 1208 -> Act 2-8 "Sacred Tomb"; 1101 -> Act 1-1
+    # "Pasture") and append this real name where present, else show just "Act X-Y". There is no
+    # StageInfoData table; names come straight from the game's en-US localization (30 named stages, acts 1-3).
+    stages = {}
+    for k, v in loc.items():
+        m = re.match(r"^StageName_(\d+)$", k)
+        if m and v:
+            stages[m.group(1)] = v
+
     out = {
         "version": {"game": GAME_VERSION, "save": old.get("version", {}).get("save")},
         "grades": old.get("grades"),
@@ -292,6 +302,7 @@ def main():
         "runes": runes,
         "drops": drops,
         "levels": levels,
+        "stages": stages,
         "_calibrated": {
             "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/GearInfoData/UniqueModInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
             "rarityFrom": "itemKey 3rd digit == GRADE column, validated 5760/5760 gear rows",
@@ -322,6 +333,7 @@ def main():
     print(f"skills {len(skills)} | heroes {len(heroes)} (w/ base stats) | attributes {len(attributes)} | passives {len(passives)} | pets {len(pets)} | monsters {len(monsters)}")
     print(f"drops {len(drops)} box DropKeys | {drop_member_refs} member refs (box contents / reverse drop sources)")
     print(f"levels {len(levels)} (hero XP-to-next curve, calibrated vs live save)")
+    print(f"stages {len(stages)} (StageName_<key> from localization; decode act=floor(k/100)-10, stage=k%100)")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 

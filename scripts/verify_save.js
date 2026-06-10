@@ -25,8 +25,8 @@ console.log('playTimeHours ', snap.summary.playTimeHours);
 console.log('gold          ', snap.gold.toLocaleString());
 console.log('lifetimeGold  ', snap.aggregates.lifetimeGold && snap.aggregates.lifetimeGold.toLocaleString());
 console.log('totalKills    ', snap.aggregates.totalKills && snap.aggregates.totalKills.toLocaleString());
-console.log('perDiff       ', JSON.stringify(snap.aggregates.perDifficultyCompletions));
-console.log('maxStage      ', snap.summary.maxCompletedStage, 'cur', snap.summary.currentStage, 'wave', snap.summary.currentWave);
+console.log('maxStage      ', snap.summary.maxStageLabel, '(key ' + snap.summary.maxCompletedStage + ')');
+console.log('curStage      ', snap.summary.currentStageLabel, '(key ' + snap.summary.currentStage + ') wave', snap.summary.currentWave);
 console.log('party         ', JSON.stringify(snap.summary.arrangedParty));
 console.log('lastSaved     ', snap.summary.lastSaved);
 console.log('heroes        ', snap.heroes.length, 'unlocked,', snap.heroes.filter(h => h.deployed).length, 'deployed');
@@ -67,4 +67,36 @@ else {
   console.log('log events    ', off.count, '| cap learned from logs:', off.capSec != null ? (off.capSec + 's') : 'not yet observed (no reward<delta) — no assumed cap');
   if (off.last) console.log('last reward   ', '+' + (off.last.gold || 0) + ' gold over ' + off.last.reward + 's' + (off.rate ? (' (~' + off.rate.toFixed(2) + ' gold/s)') : '') + ' [delta=' + off.last.delta + 's, ' + (off.last.delta > off.last.reward ? 'CAPPED' : 'uncapped') + ']');
   if (off.capSec != null) console.log('time-to-cap   ', off.atCap ? 'CAPPED — collect now' : (Math.floor(off.timeToCapSec) + 's'), off.bankedEst != null ? ('| est banked ~' + off.bankedEst + ' gold') : '');
+}
+
+// --- Data-honesty assertions (P1): nothing the app surfaces may claim progress the save doesn't support ---
+console.log('--- data honesty ---');
+const problems = [];
+// 1) The fabricated "per-difficulty completions" must NOT be surfaced by the engine anymore.
+if ('perDifficultyCompletions' in snap.aggregates) problems.push('aggregates still exposes perDifficultyCompletions (uncalibrated Type 16)');
+// 2) Only CALIBRATED aggregates may appear. Whitelist: lifetimeGold (Type2/Sub0, delta-matched a gold gain),
+//    totalKills (Type0/Sub0, sum-validated by per-monster sub-counters). Any other key = an uncalibrated leak.
+const allowedAgg = ['lifetimeGold', 'totalKills'];
+const extraAgg = Object.keys(snap.aggregates).filter(k => allowedAgg.indexOf(k) < 0);
+if (extraAgg.length) problems.push('aggregates exposes uncalibrated key(s): ' + extraAgg.join(', '));
+// 3) Show WHY Type 16 is omitted: max progress decodes to the FIRST difficulty band (an early act), yet
+//    Type 16 read as per-difficulty would claim Nightmare/Hell/Torment completions => self-contradicting => omit.
+const raw16 = (psd.aggregateSaveDatas || []).filter(x => x.Type === 16).sort((a, b) => a.SubKey - b.SubKey).map(x => x.Value);
+const maxAct = Math.floor((snap.summary.maxCompletedStage || 0) / 100) - 10;
+if (raw16.length >= 2 && raw16.slice(1).some(v => (v || 0) > 0) && maxAct <= 3) {
+  console.log('type16 raw    ', JSON.stringify(raw16), '— NOT shown. As per-difficulty it would claim Nightmare/Hell/Torment > 0, but max progress is "' + snap.summary.maxStageLabel + '" (first difficulty band) => disproven, omitted (golden rule).');
+}
+// 4) The one calibrated multi-counter we DO show (kills-by-monster) must sum EXACTLY to total kills.
+const km = eng.killsByMonster(psd);
+const kmSum = km.reduce((s, m) => s + (m.kills || 0), 0);
+if (snap.aggregates.totalKills != null && kmSum !== snap.aggregates.totalKills) {
+  problems.push('kills-by-monster sum ' + kmSum + ' != totalKills ' + snap.aggregates.totalKills);
+} else {
+  console.log('kills check   ', 'per-monster sum ' + kmSum.toLocaleString() + ' == totalKills (' + km.length + ' monster types) ✓');
+}
+if (problems.length) {
+  console.error('FAIL data honesty:\n  - ' + problems.join('\n  - '));
+  process.exitCode = 1;
+} else {
+  console.log('PASS          ', 'only calibrated aggregates surfaced; no per-difficulty claim; stages decoded to "Act X-Y".');
 }

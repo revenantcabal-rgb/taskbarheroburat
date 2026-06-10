@@ -102,8 +102,25 @@ function byRarity(psd){ const g={}; for(const it of ownedItems(psd)){ if(it.grad
 function trophies(psd){ return ownedItems(psd).filter(it=>rarityRank(it.grade)>=3).sort((a,b)=>rarityRank(b.grade)-rarityRank(a.grade)); }
 function lootDiff(prevPsd,curPsd){ const prev=new Set((prevPsd.itemSaveDatas||[]).map(it=>String(it.UniqueId))); return ownedItems(curPsd).filter(it=>!prev.has(it.uid)); }
 function runes(psd){ const a=psd.RuneSaveData||[]; return {total:a.length,leveled:a.filter(r=>(r.Level||0)>0).length}; }
-function aggregates(psd){ const a=psd.aggregateSaveDatas||[]; return { lifetimeGold:pick(a,2,0), totalKills:pick(a,0,0), perDifficultyCompletions:[0,1,2,3].map(d=>pick(a,16,d)) }; }
-function summary(psd){ const c=psd.commonSaveData||{}; return {version:c.version,playTimeHours:c.playTime?+(c.playTime/3600).toFixed(1):null,maxCompletedStage:c.maxCompletedStage,currentStage:c.currentStageKey,currentWave:c.currentStageWave,arrangedParty:(c.arrangedHeroKey||[]).map(heroClass),activePet:c.ArrangedPetKey,lastSaved:netTicksToDate(c.lastSavedTime)}; }
+// Surfaces ONLY calibrated lifetime aggregates: Type 2/Sub0 = lifetime gold (its delta matched a gold gain
+// exactly), Type 0/Sub0 = total kills (its per-MonsterKey sub-counters sum exactly to this). aggregate Type 16
+// is deliberately NOT exposed: read as per-difficulty completions it is DISPROVEN by the save (Normal-only,
+// maxCompletedStage in Act 2) yet would claim Nightmare/Hell/Torment progress → omitted (golden rule).
+function aggregates(psd){ const a=psd.aggregateSaveDatas||[]; return { lifetimeGold:pick(a,2,0), totalKills:pick(a,0,0) }; }
+// Stage display (P2): NEVER show the raw stageKey. Decode act=floor(k/100)-10, stage=k%100 (VERIFIED:
+// 1208 -> "Act 2-8" (Sacred Tomb); 1101 -> "Act 1-1" (Pasture)). Append the real StageName_<key> where the
+// game ships one (DB.stages, 30 names baked from localization), else just "Act X-Y". Out-of-range keys
+// (act<1 / stage<1) return the raw key rather than a wrong guess. '' for null/empty.
+function stageLabel(stageKey){
+  if(stageKey==null||stageKey==='') return '';
+  const k=Number(stageKey); if(!isFinite(k)) return String(stageKey);
+  const act=Math.floor(k/100)-10, stg=k%100;
+  if(act<1||stg<1) return String(stageKey);
+  const label='Act '+act+'-'+stg;
+  const nm=DB&&DB.stages&&(DB.stages[k]||DB.stages[String(k)]);
+  return nm?(label+' · '+nm):label;
+}
+function summary(psd){ const c=psd.commonSaveData||{}; return {version:c.version,playTimeHours:c.playTime?+(c.playTime/3600).toFixed(1):null,maxCompletedStage:c.maxCompletedStage,maxStageLabel:stageLabel(c.maxCompletedStage),currentStage:c.currentStageKey,currentStageLabel:stageLabel(c.currentStageKey),currentWave:c.currentStageWave,arrangedParty:(c.arrangedHeroKey||[]).map(heroClass),activePet:c.ArrangedPetKey,lastSaved:netTicksToDate(c.lastSavedTime)}; }
 function snapshotFromPsd(psd){ return {capturedAt:new Date().toISOString(),summary:summary(psd),gold:gold(psd),heroes:heroes(psd),inventory:inventory(psd),byRarity:byRarity(psd),trophies:trophies(psd),runes:runes(psd),aggregates:aggregates(psd)}; }
 function snapshot(buffer){ return snapshotFromPsd(loadSave(buffer)); }
 function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev.summary.lastSaved); const h=ms/3600000; const d=(a,b)=>(a==null||b==null)?null:b-a; const ph=v=>(v==null||!h)?null:Math.round(v/h); const dg=d(prev.gold,cur.gold),dk=d(prev.aggregates.totalKills,cur.aggregates.totalKills); return {spanMinutes:+(ms/60000).toFixed(1),goldDelta:dg,goldPerHour:ph(dg),killsDelta:dk,killsPerHour:ph(dk)}; }
@@ -111,4 +128,4 @@ function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev
 function trendPoint(psd){ const c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[]; const goldRow=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); const d=netTicksToDate(c.lastSavedTime); return {t:d?+d:null,gold:goldRow?goldRow.Quantity:0,lifeGold:pick(a,2,0),kills:pick(a,0,0),playH:c.playTime?+(c.playTime/3600).toFixed(2):null,maxStage:c.maxCompletedStage,items:(psd.itemSaveDatas||[]).length,runes:(psd.RuneSaveData||[]).filter(r=>(r.Level||0)>0).length}; }
 function buildTrends(points){ const seen={},pts=[]; (points||[]).filter(p=>p&&p.t).sort((a,b)=>a.t-b.t).forEach(p=>{const k=p.t+'/'+p.lifeGold; if(seen[k])return; seen[k]=1; pts.push(p);}); for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i]; const dPlay=(b.playH!=null&&a.playH!=null)?b.playH-a.playH:null; const dWall=(b.t-a.t)/3600000; const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; const dLife=(b.lifeGold!=null&&a.lifeGold!=null)?b.lifeGold-a.lifeGold:null; const dKills=(b.kills!=null&&a.kills!=null)?b.kills-a.kills:null; b.goldPerHr=(dLife!=null&&h>0.01)?Math.round(dLife/h):null; b.killsPerHr=(dKills!=null&&h>0.01)?Math.round(dKills/h):null; } return pts; }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

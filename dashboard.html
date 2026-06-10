@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBH HUD — Task Bar Hero companion</title>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.1"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.2"></script>
 <style>
   :root{
     --bg:#080a13; --bg2:#0b0e1a; --surface:#121728; --surface2:#171d33; --surface3:#1f2742;
@@ -93,6 +93,9 @@
   h3.sec:first-child{margin-top:6px}
   h3.sec .tag{font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:500}
   h3.sec::before{content:"";width:3px;height:13px;border-radius:3px;background:linear-gradient(var(--blue),var(--purple))}
+  /* plain-language explainer that sits just under a section header (P3/P5 clarity) */
+  .hint{color:var(--muted);font-size:12.5px;line-height:1.5;margin:-8px 0 14px;max-width:780px}
+  .hint b{color:var(--text);font-weight:600}
 
   .grid{display:grid;gap:14px}
   .cards{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
@@ -441,7 +444,6 @@
    ========================================================================== */
 var PASSWORD='emuMqG3bLYJ938ZDCfieWJ', GOLD_KEY=100001, NET=62135596800000;
 var RARITY=['COMMON','UNCOMMON','RARE','LEGENDARY','IMMORTAL','ARCANA','BEYOND','CELESTIAL','DIVINE','COSMIC'];
-var DIFF=['Normal','Nightmare','Hell','Torment'];
 var DB=window.TBH_DB||{items:{},heroes:{}};
 var SPRITE='src/assets/sprites/Item_', HERO='src/assets/heroes/Hero_';
 
@@ -451,6 +453,17 @@ function el(html){var t=document.createElement('template');t.innerHTML=html.trim
 // string contains multiple top-level elements (el() would silently drop all but the first).
 function frag(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content;}
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
+// Stage display (P2): NEVER show the raw stageKey. Decode act=floor(k/100)-10, stage=k%100 (VERIFIED:
+// 1208 -> "Act 2-8" Sacred Tomb; 1101 -> "Act 1-1" Pasture) and append the real StageName_<key> (DB.stages,
+// 30 names from the game's localization) where present, else just "Act X-Y". Mirror of saveEngine.stageLabel.
+function stageActLabel(stageKey){ // just "Act X-Y" (for compact / big-number slots) — never the raw key
+  if(stageKey==null||stageKey==='')return '—';
+  var k=Number(stageKey);if(!isFinite(k))return String(stageKey);
+  var act=Math.floor(k/100)-10, stg=k%100;
+  return (act<1||stg<1)?String(stageKey):('Act '+act+'-'+stg);
+}
+function stageName(stageKey){ var k=Number(stageKey); var nm=DB.stages&&(DB.stages[k]||DB.stages[String(k)]); return nm||''; }
+function stageLabel(stageKey){ var a=stageActLabel(stageKey), nm=stageName(stageKey); return (nm&&a!=='—')?(a+' · '+nm):a; }
 // compact duration: "2h 14m", "14m 03s", "0m 09s" (for idle/offline countdowns)
 function fmtDur(sec){sec=Math.max(0,Math.floor(sec));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
   if(h>0)return h+'h '+(m<10?'0':'')+m+'m'; if(m>0)return m+'m '+(s<10?'0':'')+s+'s'; return s+'s';}
@@ -618,7 +631,10 @@ function analyze(psd){
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd), killsByMonster:killsByMonster(psd),
     ownedSkills:ownedSkills,
-    kills:pick(0,0), lifeGold:pick(2,0), perDiff:[0,1,2,3].map(function(d){return pick(16,d);})
+    kills:pick(0,0), lifeGold:pick(2,0)
+    // NOTE: aggregate Type 16 ([Normal-band counts]) is NOT surfaced. It is uncalibrated and, read as
+    // per-difficulty completions, is DISPROVEN by this save (Normal-only at Act 2-10 yet would claim
+    // Nightmare/Hell/Torment). Per the golden rule, omitted until a known-value calibration confirms its meaning.
   };
 }
 
@@ -913,7 +929,8 @@ function renderOverview(d){
     (d.playHours?(' · '+d.playHours+'h played'):'')+'</span></h3>'));
   p.appendChild(el('<div class="grid cards">'+[
     card('Gold',fmt(d.gold),'gold',(d.lifeGold!=null?('lifetime '+fmt(d.lifeGold)):''),'🪙'),
-    card('Stage',(d.stage!=null?d.stage:'—')+(d.wave?(' · w'+d.wave):''),'','max cleared '+fmt(d.maxStage),'🗺️'),
+    card('Current stage',stageActLabel(d.stage)+(d.wave?(' <span style="font-size:15px;color:var(--dim);font-weight:600">· wave '+d.wave+'</span>'):''),'',
+      (stageName(d.stage)?(stageName(d.stage)+' · '):'')+'max cleared '+stageActLabel(d.maxStage),'🗺️'),
     card('Total kills',fmt(d.kills),'blue','','💀'),
     card('Runes',d.runes.leveled+'<span style="font-size:16px;color:var(--dim)"> / '+d.runes.total+'</span>','','leveled nodes','🔮')
   ].join('')+'</div>'));
@@ -944,8 +961,9 @@ function renderOverview(d){
       (pet.desc?('<div class="petd">'+pet.desc+'</div>'):'')+'</div></div>'));
   }
 
-  // Who's carrying — HONEST gear-strength proxy: total equipped item level + top rarity (factual sums of
-  // real data). This is NOT live DPS (that needs the memory lane we deliberately don't read). Labeled as such.
+  // Who's carrying — HONEST gear-strength proxy: total equipped item level + top rarity (factual sums of real
+  // data). NOT live DPS (needs the memory lane we deliberately don't read). P3: plain words, no Σ/abbreviations;
+  // the bar's meaning is spelled out in a hint line and every bar/value has a descriptive tooltip.
   var ranked=d.heroes.filter(function(h){return h.equipped&&h.equipped.length;}).map(function(h){
     return {cls:h.cls,deployed:h.deployed,n:h.equipped.length,
       lvlSum:h.equipped.reduce(function(a,e){return a+(e.lvl||0);},0),
@@ -953,12 +971,15 @@ function renderOverview(d){
   }).sort(function(a,b){return b.lvlSum-a.lvlSum;});
   if(ranked.length){
     var maxSum=Math.max.apply(null,ranked.map(function(r){return r.lvlSum;}))||1;
-    p.appendChild(el('<h3 class="sec">Who\'s carrying <span class="tag">by equipped gear — total item level + rarity, not live DPS</span></h3>'));
+    p.appendChild(el('<h3 class="sec">Who\'s carrying? <span class="tag">gear strength by hero — not live combat damage</span></h3>'));
+    p.appendChild(el('<div class="hint">Each bar shows a hero\'s <b>total equipped gear level</b> — the item levels of everything they have equipped, added together — drawn relative to your strongest hero. It reflects the gear they\'re wearing, not live damage.</div>'));
     var bars=ranked.map(function(r){
-      var pct=Math.round(r.lvlSum/maxSum*100), topName=r.top>=0?RARITY[r.top]:'';
-      return '<div class="bar"><div class="top"><span class="nm">'+r.cls+(r.deployed?' <span style="color:var(--green);font-size:10px">●</span>':'')+'</span>'+
-        '<span class="nv">'+r.lvlSum+' <span style="color:var(--dim);font-weight:400">Σlvl · '+r.n+' gear'+(topName?(' · '+cap(topName)):'')+'</span></span></div>'+
-        '<div class="track"><div class="fill" style="width:'+pct+'%"'+(topName?(' title="top '+cap(topName)+'"'):'')+'></div></div></div>';
+      var pct=Math.round(r.lvlSum/maxSum*100), topName=r.top>=0?cap(RARITY[r.top]):'';
+      var items=r.n+' item'+(r.n===1?'':'s');
+      var tip=esc('Total equipped gear level '+r.lvlSum+' across '+items+(topName?(' · best rarity '+topName):'')+' · bar is relative to your strongest hero');
+      return '<div class="bar"><div class="top"><span class="nm">'+r.cls+(r.deployed?' <span style="color:var(--green);font-size:10px" title="in your active party">●</span>':'')+'</span>'+
+        '<span class="nv" title="'+tip+'">Total gear level '+r.lvlSum+' <span style="color:var(--dim);font-weight:400">· '+items+(topName?(' · best '+topName):'')+'</span></span></div>'+
+        '<div class="track"><div class="fill" style="width:'+pct+'%" title="'+tip+'"></div></div></div>';
     }).join('');
     p.appendChild(el('<div class="panel"><div class="bars">'+bars+'</div></div>'));
   }
@@ -1149,29 +1170,21 @@ function renderLifetime(d){
   p.appendChild(el('<div class="grid cards">'+[
     card('Total kills',fmt(d.kills),'blue','','💀'),
     card('Gold earned',fmt(d.lifeGold),'gold','all time','🪙'),
-    card('Max stage',fmt(d.maxStage),'','cleared','🏁'),
+    card('Max stage',stageActLabel(d.maxStage),'',stageName(d.maxStage)||'highest cleared','🏁'),
     card('Play time',d.playHours!=null?(d.playHours+' h'):'—','','','⏱️')
   ].join('')+'</div>'));
 
-  var maxD=Math.max(1,d.perDiff[0]||0,d.perDiff[1]||0,d.perDiff[2]||0,d.perDiff[3]||0);
-  var diffBars=d.perDiff.map(function(v,i){
-    var pct=Math.round((v||0)/maxD*100);
-    return '<div class="bar"><div class="top"><span class="nm">'+DIFF[i]+'</span><span class="nv">'+fmt(v)+'</span></div>'+
-      '<div class="track"><div class="fill" style="width:'+pct+'%"></div></div></div>';
-  }).join('');
-
-  // rarity distribution
+  // Owned by rarity (full width). The old "Difficulty completions" panel was REMOVED: it read aggregate
+  // Type 16 as Normal/Nightmare/Hell/Torment, but that mapping is uncalibrated and is disproven by the save
+  // (Normal-only at Act 2-10). Showing it would claim progress the save doesn't support → omitted (golden rule).
   var total=d.owned.length||1;
   var rs=RARITY.filter(function(r){return d.byRarity[r];});
   var rbar=rs.map(function(r){return '<span style="flex:'+d.byRarity[r]+';background:'+rvar(r)+'"></span>';}).join('');
   var rleg=rs.map(function(r){return '<span><i style="background:'+rvar(r)+'"></i>'+r.charAt(0)+r.slice(1).toLowerCase()+' '+d.byRarity[r]+'</span>';}).join('');
 
-  p.appendChild(el('<div class="two">'+
-    '<div><h3 class="sec">Difficulty completions</h3><div class="panel"><div class="bars">'+diffBars+'</div></div></div>'+
-    '<div><h3 class="sec">Owned by rarity <span class="tag">'+total+' items</span></h3>'+
-      '<div class="panel"><div class="raritybar">'+(rbar||'<span style="flex:1;background:var(--surface3)"></span>')+'</div>'+
-      '<div class="rlegend">'+(rleg||'<span style="color:var(--dim)">no graded items</span>')+'</div></div></div>'+
-  '</div>'));
+  p.appendChild(el('<h3 class="sec">Owned by rarity <span class="tag">'+total+' items</span></h3>'+
+    '<div class="panel"><div class="raritybar">'+(rbar||'<span style="flex:1;background:var(--surface3)"></span>')+'</div>'+
+    '<div class="rlegend">'+(rleg||'<span style="color:var(--dim)">no graded items</span>')+'</div></div>'));
 
   // Kills by monster — calibrated: aggregate Type-0 sub-counters = per-MonsterKey kills (sum == total kills)
   var km=d.killsByMonster||[];
@@ -1189,8 +1202,10 @@ function renderLifetime(d){
 
   p.appendChild(el('<h3 class="sec">Notes</h3>'));
   p.appendChild(el('<div class="panel" style="color:var(--muted);font-size:13px">'+
-    'Live combat DPS, clear-time and gold/hr <i>per act</i> come from the live-telemetry reader (Phase 4, not built — needs game memory, ban-risk). '+
-    'Lifetime gold/kills, per-difficulty completions and the kills-by-monster breakdown above are read straight from the save\'s aggregate counters (calibrated: the per-monster counts sum exactly to total kills).</div>'));
+    'Lifetime gold, total kills and the kills-by-monster breakdown above are read straight from the save\'s aggregate counters '+
+    '(calibrated: the per-monster counts sum exactly to total kills). '+
+    'Other lifetime counters in the save are <b>not</b> shown because we haven\'t confirmed what they mean — for example a "per-difficulty completions" reading is omitted because it would claim Nightmare / Hell / Torment progress this Normal-only save doesn\'t support. '+
+    'Live combat DPS, clear-time and gold/hr <i>per act</i> need a live-telemetry reader (not built — reading game memory is a ban risk).</div>'));
 }
 
 function fmtDay(ms){var d=new Date(ms);function z(n){return (n<10?'0':'')+n;}
@@ -1230,13 +1245,13 @@ function renderTrends(d){
   '</div>'));
   p.appendChild(el('<div class="two">'+
     chartBlock('Gold / hr by interval','earned per hour played', miniBars(rated.map(function(x){return x.goldPerHr;}),{color:'var(--green)'}))+
-    chartBlock('Max stage','progression · now '+fmt(last.maxStage), miniLine(pts.map(function(x){return x.maxStage||0;}),{color:'var(--purple)',id:'ms'}))+
+    chartBlock('Max stage','progression · now '+stageLabel(last.maxStage), miniLine(pts.map(function(x){return x.maxStage||0;}),{color:'var(--purple)',id:'ms'}))+
   '</div>'));
 
   var rows=pts.slice().reverse().map(function(x){
     return '<tr><td class="loot-time">'+fmtDay(x.t)+'</td><td class="r">'+fmt(x.gold)+'</td><td class="r">'+fmt(x.lifeGold)+'</td>'+
       '<td class="r">'+(x.goldPerHr!=null?('<b style="color:var(--green)">'+fmt(x.goldPerHr)+'</b>'):'—')+'</td>'+
-      '<td class="r">'+fmt(x.kills)+'</td><td class="r">'+fmt(x.maxStage)+'</td><td class="r">'+(x.playH!=null?(x.playH+'h'):'—')+'</td></tr>';
+      '<td class="r">'+fmt(x.kills)+'</td><td class="r">'+stageActLabel(x.maxStage)+'</td><td class="r">'+(x.playH!=null?(x.playH+'h'):'—')+'</td></tr>';
   }).join('');
   p.appendChild(el('<h3 class="sec">Snapshots <span class="tag">newest first · '+pts.length+'</span></h3>'));
   p.appendChild(el('<div class="panel"><table><thead><tr><th>Saved</th><th class="r">Gold</th><th class="r">Lifetime</th><th class="r">Gold/hr</th><th class="r">Kills</th><th class="r">Stage</th><th class="r">Played</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
@@ -1613,7 +1628,7 @@ function loadDemo(){
     runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
     account:demoAccount,
     killsByMonster:[{name:'Orc',kills:7683},{name:'Slime',kills:7532},{name:'Orc Warrior',kills:7230},{name:'Skeleton',kills:5740},{name:'Scorpion',kills:5685},{name:'Bat',kills:5449},{name:'Giant Fly',kills:5023}],
-    kills:72091,lifeGold:1574858,perDiff:[200,127,72,1]});
+    kills:72091,lifeGold:1574858});
   $('dot').className='dot live';$('statusText').textContent='sample data';
 }
 $('demoBtn').addEventListener('click',loadDemo);
