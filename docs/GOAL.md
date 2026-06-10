@@ -1,52 +1,45 @@
-# TBH HUD — GOAL (Session 6).  `/goal` reads this. CONTINUE; do NOT redo shipped work.
+# TBH HUD — GOAL (Session 7: HONESTY + UX).  `/goal` reads this. CONTINUE; do NOT redo shipped work.
 Read CLAUDE.md + docs/PRD.md + improvement.log + docs/PROGRESS.md FIRST. Read-only, calibrated, verify vs the LIVE save,
-commit + push each step. Golden rule: a helper, never bannable; never fabricate — every label from the game's own tables.
+commit + push each step. The user found these by REAL use; the #1 rule: people see ONLY what is TRUE in their own save.
 
-## SHIPPED (do NOT rebuild) — v1.0.1
-Phases 2/3/5/6/A/B/7 + who's-carrying + loot/lifetime + rune panel + real XP-to-next + full responsiveness + NSIS installer
-+ GitHub Pages (live) + electron-updater. 8 tabs, audit 100% over 6177 catalog entries. All committed + pushed.
+## P1 — DATA HONESTY (CRITICAL — a shipped fabrication; fix first)
+- REMOVE the "per-difficulty completions" (Normal/Nightmare/Hell/Torment) on Lifetime. It is an UNCALIBRATED GUESS,
+  DISPROVEN by the live save: the account has only played NORMAL up to Act 2 (maxCompletedStage 1210, currentStageKey 1208),
+  yet aggregate Type 16 = [259,176,82,1] would claim Nightmare 176 / Hell 82 / Torment 1. aggregate Types 16/4/5/7 are NOT
+  confirmed to be per-difficulty. Per the golden rule (unconfirmed counters shown only if calibrated, else omitted), OMIT them.
+- AUDIT every tab (Lifetime especially) for ANY stat shown without calibration; omit or label honestly "unconfirmed".
+- KEEP only validated aggregates: Type 2/Sub0 = lifetime gold (calibrated); Type 0 = total kills + per-monster kills
+  (validated: sub-counters sum exactly to total). Everything else: omit until a KNOWN-VALUE calibration confirms its meaning.
+- verify_save.js / audit: assert nothing on Lifetime claims progress the save does not support (e.g. higher-difficulty
+  completions for a Normal-only account).
 
-## FOCUS — two workstreams; alternate so the app stays shippable:
+## P2 — STAGE DISPLAY (truth, not raw keys)
+- Never show the raw stageKey. Decode: act = floor(stageKey/100)-10, stage = stageKey%100 (VERIFIED: 1208 = "Act 2-8"
+  per tbh-meter; StageName_1101 = "Pasture" = Act 1-1). So 1210 -> "Act 2-10". Show "Act X-Y" + the real stage name from
+  StageName_<key> (30 names in localization.min.json) where present. Fix EVERYWHERE stage appears (Trends, Overview, etc.).
 
-### 1. INSTALLER SIGNING — the NO-MONEY path (do NOT buy a cert)
-Reality (verified): a self-signed cert does NOT remove SmartScreen (untrusted -> still warns). Every TRUSTED cert costs money
-EXCEPT free open-source programs (SignPath Foundation / SSL.com OSS / OSSign), and even a free OV signature only earns
-SmartScreen trust as download reputation builds (only paid EV is instant). So:
-- Make the BROWSER version (GitHub Pages link) the PRIMARY "give this to friends" path in README + the app's about/help —
-  it has NO SmartScreen at all.
-- Keep the installer UNSIGNED but document the one-time "More info -> Run anyway" clearly (README + short FAQ), like tbh-meter.
-  Unsigned != unsafe.
-- Wire the signing PIPELINE so it is drop-in once a free OSS cert is obtained: env-var cert path
-  (WIN_CSC_LINK/WIN_CSC_KEY_PASSWORD, re-enable win.signAndEditExecutable + verifyUpdateCodeSignature only when a cert is
-  present). Write docs/SIGNING.md: the free routes (SignPath Foundation etc.) + the honest reputation caveat. DO NOT claim it
-  is signed until a real cert actually signs it; never commit a cert.
-AC: README + about lead with the browser link; installer "Run anyway" documented; docs/SIGNING.md written; signing config in
-place behind env vars; build still produces the unsigned installer cleanly; nothing fabricated.
+## P3 — OVERVIEW CLARITY (no jargon)
+- The party summary "90 Σlvl · 6 gear · Legendary" + an unlabeled bar are cryptic. Replace with plain words a new user
+  understands (e.g. "Total level 90 · 6 gear equipped · best Legendary") and LABEL the bar (what it measures) + a tooltip.
+  No Σ / abbreviations / unexplained bars anywhere.
 
-### 2. CODEX DEPTH (calibrated from the game's own tables; read-only)
-- Crafting recipes — REAL: CraftingRecipeInfoData (56 rows: CraftingRecipeKey, ItemCraftingType, RecipeTier, Material,
-  MaterialIndex, DropKey). Show "crafted from [materials]" + the result (the DropKey, which resolves through the drop chain).
-- Synthesis recipes — REAL: SynthesisRecipeInfoData (533 rows: MinMaterialTier, MinResultLevel, ItemSynthesisType, GRADE,
-  MaterialAmount, LevelWeight1-4). Show "synthesize N x [tier] -> [grade] result".
-- Drop RATES — calibrate, do NOT over-claim. DropInfoData (6212 rows, 245 DropKeys) has a `Weight` column; within a DropKey
-  the weights form a clean distribution that sums to ~100% (VERIFIED on a sample DropKey). BUT most reward entries are item
-  GROUPS (REWARDTYPE ITEMGROUP), not single items, and ItemGroupInfoData has NO per-item weight; some entries are hero-only
-  (HeroKeyCondition) and DropType varies (EachDropOneWeight / _DLCVariant / SelectOneByClass). So: show the GROUP/reward-level
-  drop % (Weight/sum, summing ~100% per DropKey); flag per-hero drops; show DropType. Do NOT fabricate a precise per-individual
-  -item % where within-group has no weights — show the group % (and "items equally likely" only if confirmed) or omit it.
-- SET BONUSES: NONE exist (VERIFIED: no "set" column in any table, no set-bonus/effect string in localization, no Korean 세트
-  anywhere). DO NOT build set bonuses — it would be fabrication. Note the absence and omit.
-Bake recipe + drop-weight maps into scripts/build_gamedata.py (DB.recipes, DB.dropRates); rebuild; mirror in saveEngine.js +
-inline engine; surface in the Codex modal. Extend scripts/audit_catalog.js to assert recipes resolve + group weights sum ~100%.
-AC: Codex modal shows recipes + GROUP-level drop % (sum ~100%/DropKey) + per-hero/DropType flags; NO fabricated per-item % or
-sets; audit passes; 0 console errors live + demo across all 8 tabs.
+## P4 — CONNECT FOLDER: baby-simple + DISCONNECT
+- Make connecting effortless: clear on-screen step-by-step (exact folder path, "pick the TaskbarHero folder", what to click),
+  understandable by a non-technical user. Keep the existing privacy note (all local, read-only).
+- Add a "Disconnect / Change folder" control (logout): clears the loaded save + handle and returns to the connect screen,
+  so a user (esp. on the hosted site) can disconnect or switch to a different save.
+
+## P5 — UI POLISH (the hosted / Vercel-facing experience)
+- General polish toward a cleaner, friendlier look for first-time visitors on the web version; keep it responsive + fast.
 
 ## DEFERRED (note, never guess)
-Live DPS / combat memory (ban risk); per-act gold/hr & clear-time; Steam Market value (throttled/empty); 12-min blue-chest
-(no 720s); Korean ItemGroup names; precise per-individual-item drop % (no within-group weights); item SETS (do not exist).
+Live DPS/combat memory; per-act gold/hr; Steam Market value (throttled/empty); 12-min blue-chest; Korean ItemGroup names;
+per-individual-item drop % (no within-group weights); item sets (don't exist); the meaning of aggregate Types 16/4/5/7/9/10/15
+(omit until calibrated). The earlier Session-6 Codex depth (recipes + group-level drop rates) is still open AFTER P1-P5.
 
 ## LOOP & DONE
-After each sub-task -> verify vs LIVE save (node scripts/verify_save.js + headless, all 8 tabs, 0 errors) -> commit -> push ->
+After each fix -> verify vs LIVE save (node scripts/verify_save.js + headless, all 8 tabs, 0 errors) -> commit -> push ->
 update CLAUDE.md + docs/PROGRESS.md + improvement.log. Full regression ~45min.
-DONE = both workstreams shipped (signing pipeline + docs + browser-first; Codex recipes + honest group-level drop-rates, no
-fabricated per-item % or sets); all calibrated + verified + pushed; docs current; end summary (shipped, evidence, confidence 1-10, next).
+DONE = P1-P5 shipped; NOTHING on any tab claims progress the save doesn't support; stages show "Act X-Y" + names; Overview
+labels are plain + the bar is labeled; connect flow is idiot-proof with a disconnect button; UI polished; all pushed; docs
+current; end summary (shipped, calibration evidence, confidence 1-10, next step).
