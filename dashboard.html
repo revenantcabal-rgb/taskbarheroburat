@@ -106,6 +106,9 @@
     border:1px solid var(--line2);color:var(--text);cursor:pointer;transition:.15s}
   .copybtn:hover{border-color:var(--blue);color:var(--blue2)}
   .copybtn.ok{color:var(--green);border-color:var(--green)}
+  .gate .browsernote{background:rgba(249,168,38,.08);border:1px solid rgba(249,168,38,.28);border-radius:10px;
+    padding:9px 13px;color:var(--muted);max-width:480px;margin-left:auto;margin-right:auto}
+  .gate .browsernote b{color:var(--text)}
 
   h3.sec{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);
     margin:30px 0 14px;font-weight:700;display:flex;align-items:center;gap:10px}
@@ -458,6 +461,7 @@
     <p class="fine"><b>Just one file?</b> <span class="kbd">Connect&nbsp;file</span> loads only <code>SaveFile_Live.es3</code> — quick, but no history charts (the folder option also reads the game's backups to chart your progress over time).</p>
     <p class="fine">🔒 <b>Private &amp; safe.</b> Everything is decrypted and read on your own computer — nothing is uploaded, and the game is never modified. Chrome / Edge keep it live; other browsers load once (re&#8209;pick to refresh).</p>
     <p class="fine">👥 <b>No account, no sign&#8209;in.</b> This is just a web page — anyone can open it and connect their own save the same way. Your data never leaves your device, and no one else can see it.</p>
+    <p class="fine browsernote hidden" id="browserNote">🧭 <b>On Firefox or Safari?</b> The one&#8209;click <b>folder</b> option needs Chrome or Edge. You can still use <span class="kbd">Connect&nbsp;file</span> below to load <code>SaveFile_Live.es3</code> — or open this page in Chrome / Edge for live updates &amp; history.</p>
     <p class="fine">No save handy? <a href="#" id="demoLink">Preview with sample data →</a>
       &nbsp;·&nbsp; <a href="#" id="codexLink">Browse the full item catalog →</a></p>
   </div>
@@ -1659,7 +1663,12 @@ async function scanFolder(full){
 }
 if(window.showDirectoryPicker){
   $('connectFolderBtn').addEventListener('click',async function(){try{await connectFolder();}catch(e){if(e.name!=='AbortError')console.error(e);}});
-}else{$('connectFolderBtn').classList.add('hidden');}
+}else{
+  // No File System Access API (Firefox / Safari): hide the folder button and explain the Chrome/Edge path so the
+  // connect screen's "click Connect folder" steps don't point at a missing button.
+  $('connectFolderBtn').classList.add('hidden');
+  var bn=$('browserNote'); if(bn) bn.classList.remove('hidden');
+}
 $('connectBtn').addEventListener('click',async function(){
   if(window.showOpenFilePicker){try{await connectFS();}catch(e){if(e.name!=='AbortError')console.error(e);}}
   else $('fileInput').click();

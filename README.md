@@ -53,7 +53,26 @@ it at vercel.com for a one-click second deployment.
 ### 2. Desktop app / installer (Windows)
 Download the latest **`TBH-HUD-Setup-<version>.exe`** from the
 [Releases page](https://github.com/revenantcabal-rgb/taskbarheroburat/releases) and run it. It auto-finds the save,
-watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases.
+watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
+release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and
+applies it on next quit even if you don't click). The installer is the standard wizard: it makes Start-Menu / desktop
+shortcuts and **registers in Windows "Add or remove programs," so you can uninstall it cleanly any time.**
+
+## FAQ
+
+**Can other people use it too, or just me?** Anyone can. It's just a web page (or a small desktop app) that reads
+*your* save on *your* own device — there's **no account, no sign-in, and no server** that stores anything. You and a
+friend can each open the same link and connect your own saves completely independently; neither of you can see the
+other's data. (Hosting it on GitHub Pages or Vercel only decides *where the page lives* — end users never "log in" to
+anything.)
+
+**Does the installer come with an uninstaller?** Yes. It shows up in Windows **Settings → Apps → "Add or remove
+programs"** as *TBH HUD* — click **Uninstall** like any other app. (It installs per-user and never touches the game.)
+
+**Will it auto-update when you ship changes?** Yes, two ways: the **browser version is always current** (it's served
+from the host, so a refresh gets the latest), and the **desktop app auto-updates** — on launch it checks GitHub
+releases, downloads any newer version in the background, and offers a one-click **Restart to update** (or applies it on
+next quit). Publishing a new release is all it takes to push an update to everyone.
 
 ## Develop & test locally
 Requires [Node.js](https://nodejs.org) (LTS) and (to rebuild the game DB) Python + UnityPy + Pillow.

@@ -1,9 +1,28 @@
 # TBH HUD — improvement.log
-Updated 2026-06-10 (cowork, session 7). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
+Updated 2026-06-10 (cowork, session 8). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~37 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 8 tabs render vs the live save with 0 console errors.
+~39 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 8 tabs render vs the live save with 0 console errors.
+- Session 8 — UX + the owner's 3 questions answered concretely (multi-user / uninstall / auto-update):
+  • MULTI-USER (it already is — made it obvious + robust): the app is a STATIC CLIENT-SIDE reader. Each visitor
+    connects their OWN local save in their OWN browser via the File System Access API — nothing uploaded, no account,
+    no shared backend → anyone can use it independently and no one can see anyone else's data. Hosting (Pages/Vercel)
+    only decides where the page lives; end users never "log in." Added a "👥 No account, no sign-in — anyone can open
+    it and connect their own save; your data never leaves your device" line to the connect screen. ROBUSTNESS: Disconnect
+    now resets the loot tracking (lastUids + lootLog + clears persisted tbh_loot + logData) so switching to a DIFFERENT
+    save on the same browser is a clean slate (was: diffed against the old save → false-flood the timeline). Normal page
+    reloads don't disconnect, so the timeline still survives reloads of the SAME save. Verified headless (2→0, storage removed).
+  • AUTO-UPDATE — now VISIBLE (it worked, but silently): main.js wires electron-updater events
+    (update-available/download-progress/update-downloaded/error) → renderer; preload exposes onUpdate + restartToUpdate;
+    a friendly bottom banner shows "Downloading update… N%" then "Update ready · vX — restart to apply" + a Restart button
+    (quitAndInstall). autoInstallOnAppQuit=true also applies on next quit without a click. Web never fires these (the hosted
+    page is always current on load). Verified the banner states headless (downloading/ready/dismiss). When we publish a new
+    release, installed apps auto-download + offer restart.
+  • UNINSTALL — confirmed + polished: NSIS oneClick:false already builds an uninstaller (builder-debug.yml shows
+    WriteUninstaller + uninstaller.nsh) + an Add/Remove Programs entry. Added uninstallDisplayName "TBH HUD", desktop +
+    Start-Menu shortcuts, runAfterFinish, deleteAppDataOnUninstall:false. Rebuilt the 1.0.2 installer (valid; new latest.yml).
+  • README: added a 3-question FAQ (multi-user / uninstaller / auto-update) in plain language.
 - Session 7 — DATA HONESTY + UX (owner found these by REAL use; #1 rule: show ONLY what is TRUE in a user's own save):
   • P1 REMOVED A SHIPPED FABRICATION — the Lifetime "Difficulty completions" panel read aggregate Type 16 as
     Normal/Nightmare/Hell/Torment. That mapping is UNCALIBRATED and DISPROVEN by the live save: the account is

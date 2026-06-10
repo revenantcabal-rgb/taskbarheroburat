@@ -156,6 +156,21 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Session 8 — UX + answering the owner's 3 questions (multi-user / uninstall / auto-update), v1.0.2:**
+  • **Multi-user (confirmed + made obvious):** the app is a STATIC CLIENT-SIDE reader — each visitor connects their OWN
+    local save in their OWN browser (File System Access API), nothing uploaded, no account, no shared backend. So anyone
+    can use it independently and no one can see anyone else's data; hosting (Pages/Vercel) only decides WHERE the page
+    lives, end users never "log in." Added a "👥 No account, no sign-in" line to the connect screen. ROBUSTNESS: `disconnect()`
+    now resets the loot tracking (`lastUids`/`lootLog` + removes persisted `tbh_loot` + `logData`) so switching to a different
+    save on the same browser is a clean slate (was: diffed vs the old save → false-flooded the timeline). Reloads still keep it.
+  • **Auto-update made VISIBLE:** `main.js` wires electron-updater events → renderer; `preload.js` exposes `onUpdate` +
+    `restartToUpdate`; an in-app bottom banner shows "Downloading… N%" then "Update ready · vX — restart to apply" + a
+    Restart button (`quitAndInstall`). `autoInstallOnAppQuit=true` applies on next quit even without a click. Web never
+    fires these. Publishing a new GitHub release pushes the update to all desktop installs.
+  • **Uninstall (confirmed + polished):** NSIS `oneClick:false` builds an uninstaller (builder-debug: `WriteUninstaller`
+    + `uninstaller.nsh`) + a Windows Add/Remove Programs entry. Added `uninstallDisplayName` "TBH HUD", desktop + Start-Menu
+    shortcuts, `runAfterFinish`, `deleteAppDataOnUninstall:false`. Rebuilt the 1.0.2 installer (valid; fresh latest.yml).
+  • README FAQ added (multi-user / uninstaller / auto-update, plain language). No DB change → `?v=1.0.2` unchanged.
 - **Session 7 — DATA HONESTY + UX (v1.0.2)** (owner found these by REAL use; #1 rule: show ONLY what is TRUE in a user's own save):
   • **P1 — removed a SHIPPED FABRICATION:** the Lifetime "Difficulty completions" panel read aggregate Type 16 as
     Normal/Nightmare/Hell/Torment. That mapping is UNCALIBRATED and DISPROVEN by the live save (Normal-only,
