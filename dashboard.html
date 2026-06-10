@@ -1518,7 +1518,7 @@ $('fileInput').addEventListener('change',function(e){if(e.target.files[0]){var f
 if(window.tbhNative&&window.tbhNative.onSave){
   $('connectBtn').classList.add('hidden');
   $('connectFolderBtn').classList.add('hidden');
-  window.tbhNative.onSave(function(buf){onBytes(buf);});
+  window.tbhNative.onSave(function(buf,mtimeMs){if(mtimeMs)lastSaveFileMs=mtimeMs;onBytes(buf);});
   if(window.tbhNative.onBackups)window.tbhNative.onBackups(function(list){
     setTrendsFromBuffers((list||[]).map(function(x){return {name:x.name,buf:x.buf};}));
   });

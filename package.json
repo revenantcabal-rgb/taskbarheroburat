@@ -1,6 +1,6 @@
 {
   "name": "tbh-hud",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Read-only companion HUD for TBH: Task Bar Hero",
   "main": "src/main.js",
   "scripts": {
@@ -11,14 +11,34 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^31.7.6",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "electron-updater": "^6.8.9"
   },
   "build": {
     "appId": "com.revenantcabal.tbhhud",
     "productName": "TBH HUD",
-    "directories": { "output": "dist" },
-    "files": ["src/**/*", "dashboard.html", "package.json"],
-    "win": { "target": ["nsis"] },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "dashboard.html",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "revenantcabal-rgb",
+        "repo": "taskbarheroburat"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,

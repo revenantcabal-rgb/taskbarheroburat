@@ -4,6 +4,11 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Auto-update from GitHub releases (electron-updater). READ-ONLY w.r.t. the game — only updates THIS app.
+// Wrapped in try/catch so `npm start` works in dev before the dependency/installed-app context exists.
+let autoUpdater = null;
+try { autoUpdater = require('electron-updater').autoUpdater; autoUpdater.autoDownload = true; } catch (e) { /* dev: not installed */ }
+
 const SAVE_DIR = path.join(process.env.USERPROFILE || os.homedir(), 'AppData', 'LocalLow', 'TesseractStudio', 'TaskbarHero');
 const SAVE_FILE = path.join(SAVE_DIR, 'SaveFile_Live.es3');
 let win = null;
@@ -25,7 +30,10 @@ function createWindow() {
 function sendSave() {
   fs.readFile(SAVE_FILE, (err, data) => {
     if (err || !win || win.isDestroyed()) return;
-    win.webContents.send('save-bytes', data);
+    // include the file's true UTC mtime so the offline-rewards timer anchors on it (the .es3
+    // lastSavedTime field is LOCAL .NET ticks; mtime is the authoritative last-save instant).
+    let mtimeMs = null; try { mtimeMs = fs.statSync(SAVE_FILE).mtimeMs; } catch (e) { /* keep null */ }
+    win.webContents.send('save-bytes', data, mtimeMs);
   });
 }
 
@@ -68,6 +76,8 @@ app.whenReady().then(() => {
     });
   } catch (e) { /* directory may not exist until the game runs */ }
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  // check GitHub releases for a newer HUD and notify (no-op in dev / if offline)
+  if (autoUpdater) { try { autoUpdater.checkForUpdatesAndNotify(); } catch (e) { /* ignore */ } }
 });
 
 ipcMain.on('request-save', sendSave);
