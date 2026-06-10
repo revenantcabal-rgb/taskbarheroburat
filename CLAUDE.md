@@ -151,6 +151,20 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Session 5 — verify + responsive + real XP-to-next + Vercel-ready (v1.0.1):**
+  • **Responsive:** measured real mobile overflow (page was 549px @375 — the non-wrapping header) and fixed it. Header
+    wraps (status+buttons in `.actions`; ≤680px the header is static + the tab bar sticks to top); wide tables scroll
+    in-panel via `.panel:has(> table){overflow-x:auto}`; mobile breakpoints (2-up cards, 1-up <380px, 66vh Codex).
+    0 horizontal overflow at 375/768/1280; Codex cols 2/4/7.
+  • **Real hero XP-to-next (killed a placeholder):** the hero bar was `level/20*100` (fake). Calibrated
+    `LevelInfoData(Level,ExpForLevelUp)` vs the live save — HeroExp is per-level progress (all 6 heroes have
+    HeroExp < ExpForLevelUp[L]) → `xpToNext = ExpForLevelUp[L] − HeroExp`. Real bar + "% → L<n+1> · <rem> XP" label +
+    roster "XP to next" column. `DB.levels` baked; `xpToNext()` in saveEngine + inline; verify_save prints it.
+  • **Distribution:** version → 1.0.1; rebuilt installer; **Release v1.0.1 published** (auto-update chain v1.0.0→v1.0.1).
+    `gamedata.min.js?v=1.0.1` cache-busts the catalog so browsers never serve a stale DB after a rebuild (bump with version).
+  • **Vercel-ready (2nd free host):** `vercel.json` (static/cleanUrls/cache headers) + root `index.html` (bare URL →
+    dashboard, query/hash preserved — also fixes Pages bare URL). NOT auto-deployed (Vercel MCP only returns CLI/git
+    instructions; only the Fusion Data Company team is available — repo is on personal GitHub). Owner: 1-click import.
 - **Phase 7 — real run + packaging + distribution (SHIPPED):** (1) `npm start` smoke-tested — Electron launches clean
   (main + 4 procs, 0 stderr); electron-updater loads + no-ops correctly in dev. main.js now sends the save file's true
   UTC mtime (preload + dashboard `onSave` use it) so the offline timer is authoritative in Electron too. (2) NSIS
@@ -211,7 +225,8 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Full "who's carrying" source breakdown (#2):** per deployed hero on Party, factual stat contributions by source —
   Base (HeroInfoData innate) / Gear (inherent+enchants) / Tree (leveled passives + active skills) + an account-wide
   panel (runes + active pet). New DB maps: heroes(+base), attributes(132), passives(108), pets(8). Labeled gear/build
-  power, NOT live DPS; no fabricated composite %. Mirrored in saveEngine. (XP-to-next NOT shown — no level curve in tables.)
+  power, NOT live DPS; no fabricated composite %. Mirrored in saveEngine. (XP-to-next IS shown as of session 5 — the
+  `LevelInfoData` curve was found + calibrated; the earlier "no level curve" note was wrong. Time-ETA still needs the memory lane.)
 - **Loot & lifetime depth (#3):** active-pet card (PetInfoData → Dragon etc.); rare-drop alerts (Legendary+ ★ + opt-in
   silent Notification, OFF by default); **calibrated kills-by-monster** on Lifetime — aggregate Type-0 sub-counters are
   per-MonsterKey kills, VALIDATED to sum exactly to total kills (26 types, 0 unnamed). New DB.monsters (61). Other
@@ -239,9 +254,12 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   `CreateSteamItem returned OK but items is empty`), so live market value isn't reliably available.
 - **Stat %% interpretation:** exact meaning of MULTIPLICATIVE/ADDITIVE values not asserted; shown raw + modtype tag.
 
-## Build / run
-- Browser (no install): **https://revenantcabal-rgb.github.io/taskbarheroburat/dashboard.html** (GitHub Pages, HTTPS) ->
-  Connect folder. Or open `dashboard.html` locally in Chrome/Edge. `?codex` browses the full catalog with no save; `?demo` loads sample data.
+## Build / run  (app v1.0.1 · fully responsive: phone/tablet/desktop)
+- Browser (no install): **https://revenantcabal-rgb.github.io/taskbarheroburat/** (GitHub Pages, HTTPS; bare URL works via
+  index.html) -> Connect folder. Or open `dashboard.html` locally in Chrome/Edge. `?codex` browses the full catalog with no
+  save; `?demo` loads sample data. NOTE: bump `?v=` on the `gamedata.min.js` script tag when the DB changes (cache-bust).
+- Browser (Vercel, 2nd free host): repo is Vercel-ready (`vercel.json` + `index.html`) — import the GitHub repo at
+  vercel.com for a one-click deploy. (Not auto-deployed: no interactive Vercel auth here; only the Fusion Data Company team is available.)
 - Desktop: `npm install` then `npm start` (Electron; auto-finds the save, watches it, auto-updates from GitHub releases).
 - Installer: `npm run dist` -> `dist/TBH-HUD-Setup-<ver>.exe`. **winCodeSign note:** building on a non-admin box without
   Developer Mode hits a symlink-extract error; `package.json` sets `win.signAndEditExecutable=false` +

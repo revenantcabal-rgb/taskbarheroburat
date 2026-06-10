@@ -86,6 +86,16 @@ Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & 
 
 ## DONE ✅ (session 4 — A + B + 7 all shipped)
 Codex covers the full 6177-entry catalog + audit reports 100% name+icon; offline timer calibrated (no assumed cap);
-real `npm start` verified; installer `TBH-HUD-Setup-1.0.0.exe` produced; GitHub Pages live (HTTPS); electron-updater
-wired + Release v1.0.0 published; all committed + pushed; CLAUDE.md + PROGRESS.md + improvement.log current.
-Optional follow-ups: sign the installer (drop SmartScreen prompt); hero XP-to-next via the newly-found LevelInfoData curve.
+real `npm start` verified; installer produced; GitHub Pages live (HTTPS); electron-updater wired + Release published.
+
+## DONE ✅ (session 5 — verify + polish, v1.0.1)
+Verified prior work is real (no fabricated placeholders). FULLY RESPONSIVE (phone/tablet/desktop, 0 horizontal overflow —
+header wraps, tables scroll in-panel, breakpoints). REAL hero XP-to-next (killed the fake `level/20` bar) — `LevelInfoData`
+curve calibrated vs the live save. Cache-bust `gamedata.min.js?v=1.0.1`. VERCEL-READY (vercel.json + root index.html; works
+on Pages too). Rebuilt installer + published Release **v1.0.1** (auto-update chain). All pushed; docs current.
+
+## NEXT (optional, for the next session)
+1. Vercel deploy (owner 1-click import — repo is ready; I lacked interactive Vercel auth; only the work team available).
+2. Sign the installer (cert) to remove the SmartScreen prompt.
+3. Deepen the Codex: synthesis/crafting recipes, set bonuses, per-source drop rates.
+4. (deferred/caution) live DPS / xp-hr / per-act gold/hr / clear-time — memory lane, ban-risk; don't build unless provably safe.

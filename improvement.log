@@ -1,9 +1,29 @@
 # TBH HUD — improvement.log
-Updated 2026-06-10 (cowork, session 4). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-10 (cowork, session 5). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.1.
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~31 commits. Read-only, calibrated, SHIPPED. All 8 tabs render vs the live save with 0 console errors.
+~35 commits. Read-only, calibrated, SHIPPED (v1.0.1). All 8 tabs render vs the live save with 0 console errors.
+- Session 5 — verify + polish + responsiveness + uniqueness:
+  • VERIFIED prior work is real (git clean/synced, audit 100%, live save parses, NO fabricated placeholders — the
+    only grep hits are a real search-input placeholder attr + the 404 icon-fallback comment + the honest "type-15
+    placeholders" game data).
+  • RESPONSIVE: measured real mobile overflow (page was 549px wide @375 due to the non-wrapping header) and fixed it —
+    header wraps (status+buttons in .actions; ≤680px the header is static and the tab bar sticks to top); wide tables
+    scroll INSIDE their panel via `.panel:has(> table){overflow-x:auto}`; mobile breakpoints (2-up cards, 1-up <380px,
+    66vh Codex). Verified 0 horizontal overflow on all 8 tabs at 375/768/1280; Codex cols 2/4/7.
+  • REAL hero XP-to-next (killed a placeholder): the hero progress bar was `level/20*100` (fake — L22→110% capped).
+    Calibrated LevelInfoData(Level,ExpForLevelUp) vs the live save — HeroExp is per-level progress (all 6 heroes have
+    HeroExp < ExpForLevelUp[L]); so xpToNext = ExpForLevelUp[L] - HeroExp. Real bar + "<pct>% → L<n+1> · <rem> XP" label
+    + roster "XP to next" column. DB.levels baked (100); mirrored in saveEngine + inline; verify_save prints it.
+    Calibration: Knight L1 → 30 XP to L2 (==ExpForLevelUp[1]); Ranger L12 58%; live bars 15/77/92% (not fake 100%).
+  • DISTRIBUTION: bumped to 1.0.1, rebuilt installer (winCodeSign fix held), PUBLISHED Release v1.0.1 (installer +
+    latest.yml + blockmap) → auto-update chain v1.0.0→v1.0.1 live. Cache-bust `gamedata.min.js?v=1.0.1` so browsers
+    never serve a stale catalog. Pages verified live with the new DB (levels) + ?v=1.0.1.
+  • VERCEL-READY (2nd free host): added vercel.json (static, cleanUrls, cache headers) + root index.html (bare URL ->
+    dashboard, query/hash preserved) — now the short URL works on Pages too. NOT auto-deployed: the Vercel MCP only
+    returns CLI/git-integration instructions, and the only Vercel team is "Fusion Data Company" (work account; repo is
+    on personal GitHub). Owner: 1-click import the repo on Vercel to deploy. Browser access is already LIVE via Pages.
 - Phase 7 DONE — real run + packaging + distribution:
   • Real `npm start` smoke-tested: Electron launches clean (main + 4 procs, 0 stderr); electron-updater loads and
     correctly no-ops in dev. Electron now sends the save file's true UTC mtime so the offline timer is authoritative there too.
@@ -49,12 +69,15 @@ Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md,
 - Read-only re-audited: zero writes/injection to game/save/memory. verify_save.js passes (0 unresolved names, 100% icons).
 
 ## NEXT GOAL (owner's full per-phase roadmap is docs/GOAL.md)
-A + B + 7 are SHIPPED. Remaining/optional:
-1. Owner action: pin a Pages link for friends + (optionally) sign the installer with a real cert to remove the
-   SmartScreen "unknown publisher" prompt (currently unsigned by design — no cert on the box).
-2. (possible bonus) LevelInfoData(Level,ExpForLevelUp) was found in the tables — the hero XP-to-next-level curve may now
-   be feasible (was deferred as "no curve"). Verify it applies to heroes before building; ETA still needs xp/hr (memory).
-3. (deferred/caution) per-act gold/hr + live DPS need the memory lane — don't build unless provably ban-safe.
+A + B + 7 SHIPPED; session 5 added responsiveness + real XP-to-next + Vercel-ready + v1.0.1. Remaining/optional:
+1. VERCEL DEPLOY (owner, 1 click): import revenantcabal-rgb/taskbarheroburat at vercel.com (repo is Vercel-ready:
+   vercel.json + index.html). I could not auto-deploy (no interactive Vercel auth; only the Fusion Data Company team is
+   available). Browser access is already live via GitHub Pages — Vercel is an additive second host.
+2. Sign the installer with a real cert (WIN_CSC_LINK + re-enable win.signAndEditExecutable/verifyUpdateCodeSignature,
+   build with Dev-Mode/elevation) to remove the SmartScreen "unknown publisher" prompt. Currently unsigned by design.
+3. Deepen the Codex (synthesis/crafting recipes via SynthesisRecipeInfoData/CraftingRecipeInfoData, set bonuses,
+   per-source drop rates) — optional uniqueness.
+4. (deferred/caution) per-act gold/hr + live DPS / clear-time need the memory lane — don't build unless provably ban-safe.
 
 ## DEFERRED — golden rule, leave a note not a guess
 Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & clear-time (need memory); Steam Market
@@ -68,9 +91,10 @@ label calibrated from the game's own tables/localization; honest fallback or omi
 (Node + headless browser, all 7 tabs, 0 console errors). QoL only.
 
 ## CONFIDENCE 9/10
-All A+B+7 shipped & verified: Codex owned-markers reconcile exactly; drop chain resolves 5554/5554; audit 100% name+icon
-over 6177; offline last-reward +739g/93s reproduced exactly; TZ offset caught + fixed via file mtime; Electron `npm start`
-runs clean; installer is a valid PE; Pages serves dashboard+DB+sprites HTTP 200 with correct MIME; release v1.0.0 published.
-Deduction (-1): the installer .exe and electron-updater auto-download were not run through a full INSTALL→update cycle on a
-clean machine (built + validated + published, not end-user-installed here); the native Connect-folder dialog + Electron file
-watch were exercised by code + a real-save fixture, not a hand-driven native session; installer is unsigned (SmartScreen prompt).
+A+B+7 + session-5 polish shipped & verified: Codex owned-markers reconcile exactly; drop chain 5554/5554; audit 100% over
+6177; offline +739g/93s reproduced; XP-to-next calibrated vs all 6 live heroes (Knight L1 → 30 == ExpForLevelUp[1]);
+responsiveness measured (0 overflow @375/768/1280); v1.0.1 installer is a valid PE; Release v1.0.1 published (auto-update
+chain); Pages live with the new DB (levels) + ?v=1.0.1 cache-bust. Deduction (-1): the installer + electron-updater were
+built/validated/published but not run through a clean-machine INSTALL→update cycle here; the native Connect-folder dialog was
+exercised by code + a real-save fixture, not a hand-driven session; installer unsigned (SmartScreen); Vercel is repo-ready but
+not deployed (no interactive Vercel auth; only the work team available) — Pages already provides verified browser access.
