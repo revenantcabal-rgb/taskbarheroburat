@@ -594,6 +594,25 @@ function renderOverview(d){
   (dep.length?dep:d.heroes.slice(0,3)).forEach(function(h){party.appendChild(heroCard(h));});
   p.appendChild(party);
 
+  // Who's carrying — HONEST gear-strength proxy: total equipped item level + top rarity (factual sums of
+  // real data). This is NOT live DPS (that needs the memory lane we deliberately don't read). Labeled as such.
+  var ranked=d.heroes.filter(function(h){return h.equipped&&h.equipped.length;}).map(function(h){
+    return {cls:h.cls,deployed:h.deployed,n:h.equipped.length,
+      lvlSum:h.equipped.reduce(function(a,e){return a+(e.lvl||0);},0),
+      top:h.equipped.reduce(function(a,e){return Math.max(a,rrank(e.grade));},-1)};
+  }).sort(function(a,b){return b.lvlSum-a.lvlSum;});
+  if(ranked.length){
+    var maxSum=Math.max.apply(null,ranked.map(function(r){return r.lvlSum;}))||1;
+    p.appendChild(el('<h3 class="sec">Who\'s carrying <span class="tag">by equipped gear — total item level + rarity, not live DPS</span></h3>'));
+    var bars=ranked.map(function(r){
+      var pct=Math.round(r.lvlSum/maxSum*100), topName=r.top>=0?RARITY[r.top]:'';
+      return '<div class="bar"><div class="top"><span class="nm">'+r.cls+(r.deployed?' <span style="color:var(--green);font-size:10px">●</span>':'')+'</span>'+
+        '<span class="nv">'+r.lvlSum+' <span style="color:var(--dim);font-weight:400">Σlvl · '+r.n+' gear'+(topName?(' · '+cap(topName)):'')+'</span></span></div>'+
+        '<div class="track"><div class="fill" style="width:'+pct+'%"'+(topName?(' title="top '+cap(topName)+'"'):'')+'></div></div></div>';
+    }).join('');
+    p.appendChild(el('<div class="panel"><div class="bars">'+bars+'</div></div>'));
+  }
+
   // trophies strip
   if(d.trophies.length){
     p.appendChild(el('<h3 class="sec">Trophies <span class="tag">Legendary and above · '+d.trophies.length+'</span></h3>'));
