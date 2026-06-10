@@ -174,7 +174,9 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **Publish the v1.0.3 desktop release** (owner's call): `gh release create v1.0.3 dist/TBH-HUD-Setup-1.0.3.exe dist/latest.yml dist/TBH-HUD-Setup-1.0.3.exe.blockmap` → existing v1.0.1 installs auto-update. (Web is already current on every push.)
+1. **v1.0.3 desktop release is PUBLISHED** (the Latest release; installer + latest.yml + blockmap) → existing v1.0.0/v1.0.1
+   installs auto-update; direct download linked in the README. Web is current on every push. To ship the NEXT version:
+   bump `package.json` + the `?v=` cache-bust, `npm run dist`, then `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml dist/*.blockmap --latest`.
 2. **Optional:** Vercel deploy (repo is ready — owner 1-click import at vercel.com); sign the installer (cert) to remove the SmartScreen prompt; deepen the Codex (synthesis/crafting recipes, set bonuses, per-source drop rates).
 
 ### Deferred / deliberately NOT built (golden rule — ban-safe / uncalibrated)

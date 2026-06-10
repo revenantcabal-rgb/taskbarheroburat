@@ -26,8 +26,8 @@ _Last updated: 2026-06-11, after session 12 (v1.0.3) — gold-by-source (calibra
 | 13 | Animated hero portraits | ✅ | 6 GIFs. |
 | 14 | Private friends leaderboard (optional) | ⛔ | Phase 8, optional. Not started. |
 | 15 | Premium UI that beats both competitors | ✅ | 9 tabs (incl. Codex + Tips), polished navy theme, **fully responsive** (phone/tablet/desktop). |
-| 16 | One-click installer + hosted browser version | ✅ | **NSIS `TBH-HUD-Setup-1.0.1.exe`** + **GitHub Pages live** (HTTPS): https://revenantcabal-rgb.github.io/taskbarheroburat/ · **Vercel-ready** (vercel.json + index.html; owner 1-click import). |
-| 17 | Auto-update (electron-updater) | ✅ | Wired (publish=github) + **Releases v1.0.0 & v1.0.1 published** (installer + latest.yml) → auto-update chain live. |
+| 16 | One-click installer + hosted browser version | ✅ | **NSIS `TBH-HUD-Setup-1.0.3.exe` published** (Latest release; direct download in README) + **GitHub Pages live** (HTTPS): https://revenantcabal-rgb.github.io/taskbarheroburat/ · **Vercel-ready** (vercel.json + index.html). |
+| 17 | Auto-update (electron-updater) | ✅ | Wired (publish=github) + **Releases v1.0.0 / v1.0.1 / v1.0.3 published** (installer + latest.yml + blockmap) → auto-update chain live; visible in-app "Update ready" banner. |
 | 18 | Patch resilience (graceful fallback, fast fixes) | 🟡 | Save-only is the mode; rebuild pipeline handles data patches; decrypt errors handled. |
 | 19 | Read-only (never write game/save/memory) | ✅ | Re-audited session 2 — zero writes/injection. |
 | 20 | No fabricated data | ✅ | Every label calibrated; honest fallbacks; deferrals over guesses. |
@@ -76,12 +76,12 @@ _Last updated: 2026-06-11, after session 12 (v1.0.3) — gold-by-source (calibra
 - **Multi-user / privacy:** static client-side reader — every visitor connects their OWN local save in their OWN browser (File System Access API); no account, no server, nothing uploaded → unlimited independent users, zero shared state. Disconnect resets loot tracking so switching saves is a clean slate.
 - **Auto-update:** desktop app checks GitHub releases on launch, auto-downloads a newer version, and shows an in-app "Update ready — Restart" banner (applies on next quit regardless). Publishing a release pushes it to everyone. Web is always current on load.
 - **Uninstall:** the NSIS installer registers in Windows Add/Remove Programs as "TBH HUD" (confirmed via builder-debug: WriteUninstaller + uninstaller.nsh); per-user, never touches the game.
-- **Distribution:** WEB is current on push — Pages serves the new build + DB at `?v=1.0.3`. The **v1.0.3 desktop installer is rebuilt + ready in `dist/`** (gold-by-source, per-hero ETA, Tips, Flex, connection fixes, blank-paint fix) **but NOT yet published as a release** (owner's choice; existing Electron installs stay on v1.0.1 until a release is published). **Electron app smoke-tested this session** (`npm start` clean: 4 procs, 0 stderr). Vercel-ready (not yet deployed). The 1.0.2 line was built but never published; next release = v1.0.3.
-- **Confidence: 9/10.** Deduction: the v1.0.3 desktop release isn't published yet (web is current on push); the native folder picker / refresh-reconnect / drag-drop are logic-+-demo-verified, not driven on real hardware here (need owner/friend to confirm); installer unsigned (SmartScreen).
+- **Distribution:** WEB current on every push (Pages, DB at `?v=1.0.3`). **DESKTOP v1.0.3 is PUBLISHED** — the Latest GitHub release (installer + latest.yml + blockmap); existing v1.0.0/v1.0.1 installs auto-update; **direct download linked in the README**. Electron app smoke-tested (`npm start` clean: 4 procs, 0 stderr). Vercel-ready (not yet deployed). (The 1.0.2 line was built but never published; 1.0.3 supersedes it.)
+- **Confidence: 9/10.** Deduction: the native folder picker / refresh-reconnect / drag-drop are logic-+-demo-verified, not driven on real hardware here (need owner/friend to confirm in the wild); the installer is unsigned (SmartScreen prompt) and wasn't run through a clean-machine install→update cycle here.
 
 ## Next step
-**Everything shipped to the web (Pages) on push.** Follow-ups (highest value first):
-- **Publish the v1.0.3 desktop release** so existing installs auto-update: `gh release create v1.0.3 dist/TBH-HUD-Setup-1.0.3.exe dist/latest.yml dist/TBH-HUD-Setup-1.0.3.exe.blockmap`.
+**Shipped — web (Pages) on every push + desktop v1.0.3 published (Latest release, auto-update live).** Optional follow-ups:
 - **Vercel (owner, 1 click):** import `revenantcabal-rgb/taskbarheroburat` at vercel.com — repo is Vercel-ready. (Pages is already live.)
 - **Sign the installer** (cert) to drop the SmartScreen prompt. **Deepen the Codex:** synthesis/crafting recipes, set bonuses, per-source drop rates.
+- To ship the NEXT version: bump `package.json` + `?v=` cache-bust, `npm run dist`, then `gh release create v<ver> … --latest`.
 See [improvement.log](../improvement.log) · CLAUDE.md.

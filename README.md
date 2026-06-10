@@ -61,8 +61,8 @@ No save handy? Click **Preview sample** for a demo, or **Browse the full item ca
 it at vercel.com for a one-click second deployment.
 
 ### 2. Desktop app / installer (Windows)
-Download the latest **`TBH-HUD-Setup-<version>.exe`** from the
-[Releases page](https://github.com/revenantcabal-rgb/taskbarheroburat/releases) and run it. It auto-finds the save,
+**⬇ [Download TBH-HUD-Setup-1.0.3.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.3/TBH-HUD-Setup-1.0.3.exe)** (direct, ~79 MB) — or grab whatever's newest from the
+**[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and
 applies it on next quit even if you don't click). The installer is the standard wizard: it makes Start-Menu / desktop
