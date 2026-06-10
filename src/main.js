@@ -7,7 +7,21 @@ const path = require('path');
 // Auto-update from GitHub releases (electron-updater). READ-ONLY w.r.t. the game — only updates THIS app.
 // Wrapped in try/catch so `npm start` works in dev before the dependency/installed-app context exists.
 let autoUpdater = null;
-try { autoUpdater = require('electron-updater').autoUpdater; autoUpdater.autoDownload = true; } catch (e) { /* dev: not installed */ }
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+  autoUpdater.autoDownload = true;            // pull a newer release in the background as soon as it's found
+  autoUpdater.autoInstallOnAppQuit = true;    // and apply it the next time the app quits, even without a click
+} catch (e) { /* dev: not installed */ }
+// Relay updater progress to the renderer so the UI can show a friendly "update ready — restart" banner.
+function sendUpdate(payload) { if (win && !win.isDestroyed()) win.webContents.send('update-status', payload); }
+function wireUpdater() {
+  if (!autoUpdater) return;
+  autoUpdater.on('update-available', (i) => sendUpdate({ state: 'available', version: i && i.version }));
+  autoUpdater.on('download-progress', (p) => sendUpdate({ state: 'downloading', percent: Math.round(p && p.percent || 0) }));
+  autoUpdater.on('update-downloaded', (i) => sendUpdate({ state: 'downloaded', version: i && i.version }));
+  autoUpdater.on('error', () => sendUpdate({ state: 'error' }));
+  try { autoUpdater.checkForUpdates(); } catch (e) { /* offline / dev */ }
+}
 
 const SAVE_DIR = path.join(process.env.USERPROFILE || os.homedir(), 'AppData', 'LocalLow', 'TesseractStudio', 'TaskbarHero');
 const SAVE_FILE = path.join(SAVE_DIR, 'SaveFile_Live.es3');
@@ -76,11 +90,13 @@ app.whenReady().then(() => {
     });
   } catch (e) { /* directory may not exist until the game runs */ }
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-  // check GitHub releases for a newer HUD and notify (no-op in dev / if offline)
-  if (autoUpdater) { try { autoUpdater.checkForUpdatesAndNotify(); } catch (e) { /* ignore */ } }
+  // check GitHub releases for a newer HUD; events drive the in-app banner (no-op in dev / if offline)
+  wireUpdater();
 });
 
 ipcMain.on('request-save', sendSave);
 ipcMain.on('request-backups', sendBackups);
 ipcMain.on('request-log', sendLog);
+// User clicked "Restart now" on the update banner → install the downloaded update and relaunch.
+ipcMain.on('quit-and-install', () => { if (autoUpdater) { try { autoUpdater.quitAndInstall(); } catch (e) { /* ignore */ } } });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

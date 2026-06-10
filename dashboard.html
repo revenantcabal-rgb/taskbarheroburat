@@ -246,6 +246,17 @@
   #tip .tuniq{margin-top:8px;border-top:1px solid var(--line);padding-top:7px;color:var(--purple);font-size:11.5px;line-height:1.45}
   #tip .tuniq::before{content:"★ ";opacity:.9}
 
+  /* ---------- auto-update banner (desktop app) ---------- */
+  .updatebar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:120;display:flex;align-items:center;
+    gap:12px;background:linear-gradient(145deg,var(--surface2),var(--surface));border:1px solid var(--line2);
+    border-radius:14px;padding:10px 12px 10px 16px;box-shadow:var(--shadow);max-width:calc(100vw - 28px);
+    animation:rise .3s ease both}
+  .updatebar .ub-msg{font-size:13px;color:var(--text)}
+  .updatebar .ub-msg b{color:var(--green);font-weight:700}
+  .updatebar button.primary{padding:7px 14px;font-size:13px}
+  .updatebar .ub-x{background:transparent;border:none;color:var(--dim);padding:4px 8px;font-size:14px;line-height:1;cursor:pointer}
+  .updatebar .ub-x:hover{color:var(--text)}
+
   /* ---------- bars / tables ---------- */
   .panel{background:linear-gradient(160deg,var(--surface),var(--bg2));border:1px solid var(--line);
     border-radius:16px;padding:18px 20px}
@@ -446,6 +457,7 @@
     </ol>
     <p class="fine"><b>Just one file?</b> <span class="kbd">Connect&nbsp;file</span> loads only <code>SaveFile_Live.es3</code> — quick, but no history charts (the folder option also reads the game's backups to chart your progress over time).</p>
     <p class="fine">🔒 <b>Private &amp; safe.</b> Everything is decrypted and read on your own computer — nothing is uploaded, and the game is never modified. Chrome / Edge keep it live; other browsers load once (re&#8209;pick to refresh).</p>
+    <p class="fine">👥 <b>No account, no sign&#8209;in.</b> This is just a web page — anyone can open it and connect their own save the same way. Your data never leaves your device, and no one else can see it.</p>
     <p class="fine">No save handy? <a href="#" id="demoLink">Preview with sample data →</a>
       &nbsp;·&nbsp; <a href="#" id="codexLink">Browse the full item catalog →</a></p>
   </div>
@@ -461,6 +473,13 @@
 </main>
 
 <div id="tip"></div>
+
+<!-- auto-update banner (desktop app only; driven by electron-updater events via IPC) -->
+<div id="updateBar" class="updatebar hidden">
+  <span class="ub-msg" id="updateMsg">A new version is ready.</span>
+  <button class="primary hidden" id="updateRestartBtn">Restart to update</button>
+  <button class="ub-x" id="updateDismissBtn" title="Dismiss">✕</button>
+</div>
 
 <footer>
   <b>TBH HUD</b> · unofficial fan tool, not affiliated with Tesseract Studio / Nugem Studio · read-only,
@@ -1569,6 +1588,11 @@ function disconnect(){
   if(dirTimer){clearInterval(dirTimer);dirTimer=null;}
   handle=null;dirHandle=null;lastMod=0;liveMod=0;scanTick=0;lastSaveFileMs=null;
   current=null;session=null;trends=[];
+  // Change-folder = clean slate: reset loot tracking so a DIFFERENT save isn't diffed against the old one
+  // (which would flood the timeline with false "drops") and no stale timeline bleeds across saves. Normal page
+  // reloads don't call this, so the persisted loot timeline still survives reloads of the SAME save.
+  lastUids=null;lootLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
+  logData={offline:[],boxes:{}};
   TABS.forEach(function(t){var pg=$('tab-'+t);pg.innerHTML='';pg.classList.add('hidden');});
   $('tabs').classList.add('hidden');
   $('gate').classList.remove('hidden');
@@ -1651,10 +1675,22 @@ if(window.tbhNative&&window.tbhNative.onSave){
     setTrendsFromBuffers((list||[]).map(function(x){return {name:x.name,buf:x.buf};}));
   });
   if(window.tbhNative.onLog)window.tbhNative.onLog(function(texts){setLog(texts);});
+  if(window.tbhNative.onUpdate)window.tbhNative.onUpdate(showUpdateBanner);
   if(window.tbhNative.requestSave)window.tbhNative.requestSave();
   if(window.tbhNative.requestBackups)window.tbhNative.requestBackups();
   if(window.tbhNative.requestLog)window.tbhNative.requestLog();
 }
+// Auto-update banner (desktop app): electron-updater downloads a newer release in the background, then this
+// shows a friendly "Update ready — Restart to update" bar. Clicking Restart installs it and relaunches. (Web
+// never fires these events; the hosted page is always current on load.)
+function showUpdateBanner(p){
+  if(!p)return; var bar=$('updateBar'), msg=$('updateMsg'), btn=$('updateRestartBtn');
+  if(p.state==='downloading'){bar.classList.remove('hidden');msg.textContent='Downloading update… '+(p.percent||0)+'%';btn.classList.add('hidden');}
+  else if(p.state==='downloaded'){bar.classList.remove('hidden');msg.innerHTML='<b>Update ready</b>'+(p.version?(' · v'+esc(p.version)):'')+' — restart to apply.';btn.classList.remove('hidden');}
+  // 'available' just means a download started; 'error' is silent (we don't nag on a failed check).
+}
+$('updateRestartBtn').addEventListener('click',function(){if(window.tbhNative&&window.tbhNative.restartToUpdate)window.tbhNative.restartToUpdate();});
+$('updateDismissBtn').addEventListener('click',function(){$('updateBar').classList.add('hidden');});
 Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
   b.addEventListener('click',function(){setTab(b.dataset.tab);});
 });

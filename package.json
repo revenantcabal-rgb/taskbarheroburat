@@ -43,7 +43,13 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "TBH-HUD-Setup-${version}.${ext}"
+      "artifactName": "TBH-HUD-Setup-${version}.${ext}",
+      "uninstallDisplayName": "TBH HUD",
+      "shortcutName": "TBH HUD",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
     }
   }
 }
