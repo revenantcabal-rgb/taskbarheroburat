@@ -24,11 +24,15 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   New gear is shown whether it dropped or was crafted/synthesized in the Cube — the game records no origin, so the
   tool honestly doesn't guess which.
 - **Runes** — the 197-node rune tree with real names/effects, leveled status, and cheapest-next-upgrade recommendations.
-- **Advisor** — provable, save-derived build advice. **Gear upgrades you already own:** for every equipped item it
-  finds an *unequipped* item of the *same gear type* that is strictly better (higher rarity, or same rarity at a higher
-  level) — sidegrades and judgement calls are never suggested. **Rune plan:** a cheapest-first upgrade path priced from
-  the game's own per-level cost tables against your current gold (plus a "save for" target). **Open enchant slots:**
-  every equipped item on your deployed party with free enchant headroom (it shows the slots, never predicts RNG outcomes).
+- **Advisor** — provable, save-derived build advice. **Gear upgrades you can equip right now:** for every equipped
+  item it finds an *unequipped* item of the *same gear type* that is strictly better (higher rarity, or same rarity at
+  a higher level) **and that the hero's level allows** — sidegrades and judgement calls are never suggested, and
+  better gear above the hero's level is shown separately as a **level-locked notice** (🔒 needs Lv X) so you know
+  it's waiting. **Rune plan:** a cheapest-first upgrade path priced from
+  the game's own per-level cost tables against your current gold (plus a "save for" target). **Enchanting workshop:**
+  every open enchant slot on your deployed party, compact per hero — plus **the enchanting stones you own**, each with
+  the game's own per-slot-category effects (Weapon / Armor / Accessory) and "✓ ready to use" matches where the
+  category is verified. The stat a stone gives is the game's fixed table; only the tier/value roll is RNG.
 - **Lifetime** — total kills, gold earned, max stage (as "Act X-Y"), a **gold-by-source split** (sum-validated:
   *from combat* vs *other — offline, Cube, misc*), owned-by-rarity, a calibrated **kills-by-monster** breakdown
   with each monster's **base gold/XP per kill** (the per-monster counts sum exactly to total kills), and your
@@ -76,7 +80,7 @@ No save handy? Click **Preview sample** for a demo, or **Browse the full item ca
 it at vercel.com for a one-click second deployment.
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.6.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.6/TBH-HUD-Setup-1.0.6.exe)** (direct, ~79 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.7.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.7/TBH-HUD-Setup-1.0.7.exe)** (direct, ~79 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and

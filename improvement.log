@@ -10,6 +10,22 @@ Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S14 (v1.0.7) — owner's 4 asks.** (1) **Advisor equip-gating:** an item's Level reads as its equip requirement
+  (calibrated: 43/43 equipped instances across both real saves satisfy lvl<=heroLevel, zero counterexamples) —
+  upgrades the hero can't wear yet moved to a "Better gear waiting (level-locked)" notice (🔒 needs Lv X · now Lv Y),
+  never advised; the tab badge counts equip-ready only. The old bad call (War Axe L20 advised to a L15 Slayer) is now
+  the showcase locked notice. (2) Removed the obsolete "Stages read as Act X-Y" game tip. (3) **Best gold/hr + best
+  XP/hr surfaced as suggestions:** trendPoint gained `xp` (every hero's cumulative XP summed via the calibrated level
+  curve; delta = XP actually gained) → per-stage **XP/hr** alongside gold/hr + kills/hr (Trends bars, Lifetime,
+  Overview one-liner), a **session XP/hr card**, and Tips suggestions ("switch to X for better gold/hr" only when the
+  best measured stage differs from the current one; best-XP/hr informational). (4) **Enchanting workshop revamp:**
+  compact per-hero open-slot rows (item minis with open-count badges) + **"Your enchanting stones"** — the gem
+  materials you own with the game's own per-category effects (Weapon/Armor/Accessory/Any gear) and "✓ ready to use"
+  matches where the slot category is calibrated (weapon types from the game's hero table; helmet/armor observed in
+  the save's own EnchantData — every applied enchant's MaterialKey resolved to a stone and the rolled stat equaled
+  that stone's category effect, 4/4 across both saves). Honest empty state + Codex pointer when no stones owned.
+  Verified: verify_save PASS (new level-rule + xp invariants); browser == Node on the real save; ?demo shows
+  ready+locked+stones; 11 tabs, 0 console errors, 0 overflow @375.
 - **S13c (v1.0.6) — auto-update was NEVER working in any shipped build; found and fixed.** Root cause (proved by
   attaching an inspector to the INSTALLED app's main process): `require('electron-updater')` throws **Cannot find
   module** — electron-updater lived in devDependencies since day one (commit 7d1ba64) and electron-builder packs only

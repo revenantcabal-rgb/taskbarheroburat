@@ -107,6 +107,9 @@ const tp = eng.trendPoint(psd);
 if (tp.t == null) problems.push('trendPoint.t is null (no lastSavedTime)');
 if (tp.combat != null && tp.lifeGold != null && tp.combat > tp.lifeGold) problems.push('trendPoint.combat > lifeGold (partition broken)');
 if (String(tp.cur) !== String(snap.summary.currentStage)) problems.push('trendPoint.cur != currentStageKey');
+// xp = sum of every hero's cumulative XP (calibrated level curve) — must match a manual re-sum exactly
+const manualXp = (psd.heroSaveDatas || []).reduce((s, h) => s + eng.cumXp(h.HeroLevel, h.HeroExp), 0);
+if (tp.xp !== manualXp) problems.push('trendPoint.xp ' + tp.xp + ' != manual hero-XP sum ' + manualXp);
 console.log('trendPoint    ', JSON.stringify(tp));
 
 // perStageRates: combat-gold deltas over CLEAN intervals from backups (sibling backups/ dir, or the save\'s own folder).
@@ -123,12 +126,22 @@ psr.forEach(r => {
   // r.hours is display-rounded to 2dp; the engine divides by the exact hours -> compare with 1% tolerance.
   if (r.hours > 0.01 && Math.abs(r.goldPerHr - r.combatGold / r.hours) > Math.max(1, r.goldPerHr * 0.01)) problems.push('perStageRates ' + r.stage + ': goldPerHr inconsistent with combatGold/hours');
   if (!(r.intervals > 0)) problems.push('perStageRates ' + r.stage + ': no intervals');
+  if (r.xpPerHr != null && r.xpPerHr < 0) problems.push('perStageRates ' + r.stage + ': negative xpPerHr');
 });
 console.log('perStageRates ', psr.length + ' stage(s) measured over ' + (tpoints.length - 1) + ' backup(s):');
-psr.forEach(r => console.log('   ', String(r.label || r.stage).padEnd(32), (r.goldPerHr != null ? r.goldPerHr.toLocaleString() : '—') + ' gold/hr,', (r.killsPerHr != null ? r.killsPerHr.toLocaleString() : '—') + ' kills/hr', '(' + r.hours + 'h, ' + r.intervals + ' clean interval(s))'));
+psr.forEach(r => console.log('   ', String(r.label || r.stage).padEnd(32), (r.goldPerHr != null ? r.goldPerHr.toLocaleString() : '—') + ' gold/hr,', (r.killsPerHr != null ? r.killsPerHr.toLocaleString() : '—') + ' kills/hr,', (r.xpPerHr != null ? r.xpPerHr.toLocaleString() : '—') + ' xp/hr', '(' + r.hours + 'h, ' + r.intervals + ' clean interval(s))'));
 
 // gearGaps: every suggestion must be PROVABLE — same GEARTYPE, strictly better, the upgrade not equipped by
-// anyone, and each spare offered at most once (greedy 1:1).
+// anyone, each spare offered at most once (greedy 1:1) — and (v1.0.7) EQUIP-GATED: advised (!locked) upgrades
+// must satisfy the level requirement (item.lvl <= hero level); locked notices must exceed it.
+// Calibration printout: count equipped instances vs the level rule (43/43 held across both real saves).
+let lvlTotal = 0, lvlOk = 0;
+{ const byUidL = {}; owned.forEach(o => byUidL[o.uid] = o);
+  (psd.heroSaveDatas || []).forEach(h => (h.equippedItemIds || []).forEach(u => {
+    if (!u || u === 0 || u === '0') return; const o = byUidL[String(u)]; if (!o || o.lvl == null) return;
+    lvlTotal++; if (o.lvl <= h.HeroLevel) lvlOk++; })); }
+console.log('level rule    ', 'equipped items satisfying lvl<=heroLevel: ' + lvlOk + '/' + lvlTotal + (lvlOk === lvlTotal ? ' ✓ (equip-requirement reading holds)' : ' — COUNTEREXAMPLE, re-examine the equip rule!'));
+if (lvlOk !== lvlTotal) problems.push('level-requirement reading contradicted by the save (' + lvlOk + '/' + lvlTotal + ')');
 const gg = eng.gearGaps(psd);
 const eqUidSet = {};
 (psd.heroSaveDatas || []).forEach(h => (h.equippedItemIds || []).forEach(u => { if (u && u !== 0 && u !== '0') eqUidSet[String(u)] = 1; }));
@@ -141,9 +154,15 @@ gg.forEach(g => {
   upSeen[g.up.uid] = 1;
   const better = rr(g.up.grade) > rr(g.cur.grade) || (rr(g.up.grade) === rr(g.cur.grade) && (g.up.lvl || 0) > (g.cur.lvl || 0));
   if (!better) problems.push('gearGaps: ' + g.up.name + ' is not strictly better than ' + g.cur.name);
+  if (!g.locked && (g.up.lvl || 0) > (g.heroLevel || 0)) problems.push('gearGaps: advised ' + g.up.name + ' L' + g.up.lvl + ' exceeds ' + g.hero + ' level ' + g.heroLevel);
+  if (g.locked && (g.up.lvl || 0) <= (g.heroLevel || 0)) problems.push('gearGaps: ' + g.up.name + ' marked locked but is equippable');
 });
-console.log('gearGaps      ', gg.length + ' provable upgrade(s)' + (gg.length ? ':' : ''));
-gg.forEach(g => console.log('   ', g.hero.padEnd(9), (g.deployed ? 'DEPLOYED' : 'bench').padEnd(8), g.cur.name + ' (' + g.cur.grade + ' L' + g.cur.lvl + ') -> ' + g.up.name + ' (' + g.up.grade + ' L' + g.up.lvl + ') [' + g.reason + ']'));
+const adv = gg.filter(g => !g.locked), lock = gg.filter(g => g.locked);
+console.log('gearGaps      ', adv.length + ' equippable upgrade(s), ' + lock.length + ' level-locked notice(s)' + (gg.length ? ':' : ''));
+gg.forEach(g => console.log('   ', (g.locked ? '🔒' : '✓ ') + ' ' + g.hero.padEnd(9), (g.deployed ? 'DEPLOYED' : 'bench').padEnd(8), g.cur.name + ' (' + g.cur.grade + ' L' + g.cur.lvl + ') -> ' + g.up.name + ' (' + g.up.grade + ' L' + g.up.lvl + ')' + (g.locked ? (' [needs Lv ' + g.needLevel + ', is Lv ' + g.heroLevel + ']') : (' [' + g.reason + ']'))));
+// enchantStones: every stone must be an owned fx-bearing material (the calibrated enchant ingredients)
+const stones = eng.enchantStones(psd);
+console.log('enchantStones ', stones.length + ' kind(s) owned' + (stones.length ? (': ' + stones.map(s => s.name + (s.count > 1 ? (' ×' + s.count) : '')).join(', ')) : ' (none — honest empty state in the UI)'));
 
 // runePlan: steps must price from the rune cost table, never exceed the budget, and sum exactly to spent.
 const rp = eng.runePlan(psd, snap.gold);

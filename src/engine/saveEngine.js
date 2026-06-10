@@ -17,7 +17,7 @@ const nz=v=>v&&v!==0&&v!=='0';
 
 // gearStats(gk): authoritative inherent stats + unique-mod text for a GearKey (DB.gear from GearInfoData/UniqueModInfoData). No fabrication.
 function gearStats(gk){ return (gk&&DB&&DB.gear)?(DB.gear[gk]||DB.gear[String(gk)]||null):null; }
-function itemInfo(key){ const i=DB&&DB.items&&(DB.items[key]||DB.items[String(key)]); return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:!!i.mat,gk:i.gk,base:gearStats(i.gk)}:{name:'#'+key,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false,gk:null,base:null}; }
+function itemInfo(key){ const i=DB&&DB.items&&(DB.items[key]||DB.items[String(key)]); return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:!!i.mat,mt:i.mt||null,fx:i.fx||null,gk:i.gk,base:gearStats(i.gk)}:{name:'#'+key,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false,mt:null,fx:null,gk:null,base:null}; }
 // enchant stat-mod -> authoritative display name (DB.stats from the game's StatModInfoData). No fabrication.
 function statName(modKey){ const s=DB&&DB.stats&&DB.stats[String(modKey)]; return s?s.sn:('Stat #'+modKey); }
 function resolveMods(ench){ return (ench||[]).filter(m=>m&&m.StatModKey).map(m=>{ const s=DB&&DB.stats&&DB.stats[String(m.StatModKey)]; return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null,stat:s?s.s:null}; }); }
@@ -132,7 +132,12 @@ function snapshotFromPsd(psd){ return {capturedAt:new Date().toISOString(),summa
 function snapshot(buffer){ return snapshotFromPsd(loadSave(buffer)); }
 function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev.summary.lastSaved); const h=ms/3600000; const d=(a,b)=>(a==null||b==null)?null:b-a; const ph=v=>(v==null||!h)?null:Math.round(v/h); const dg=d(prev.gold,cur.gold),dk=d(prev.aggregates.totalKills,cur.aggregates.totalKills); return {spanMinutes:+(ms/60000).toFixed(1),goldDelta:dg,goldPerHour:ph(dg),killsDelta:dk,killsPerHour:ph(dk)}; }
 // History/trends — mirror of the inline engine. Lean scalar snapshot + per-interval rates from backups.
-function trendPoint(psd){ const c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[]; const goldRow=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); const d=netTicksToDate(c.lastSavedTime); return {t:d?+d:null,gold:goldRow?goldRow.Quantity:0,lifeGold:pick(a,2,0),combat:pick(a,2,1),kills:pick(a,0,0),cur:c.currentStageKey,playH:c.playTime?+(c.playTime/3600).toFixed(2):null,maxStage:c.maxCompletedStage,items:(psd.itemSaveDatas||[]).length,runes:(psd.RuneSaveData||[]).filter(r=>(r.Level||0)>0).length}; }
+// cumulative XP for one hero = the full level-curve below the current level + current progress (calibrated:
+// HeroExp is per-level progress vs DB.levels[L]=ExpForLevelUp). Summed over all heroes it is the account's
+// total XP state — its delta between snapshots = XP actually gained (powers per-stage XP/hr, v1.0.7).
+function cumXp(level,exp){ let t=Math.max(0,Math.round(exp||0)); for(let l=1;l<(level||1);l++){ const e=DB&&DB.levels&&(DB.levels[l]||DB.levels[String(l)]); if(e)t+=e; } return t; }
+function accountXp(psd){ return (psd.heroSaveDatas||[]).reduce((s,h)=>s+cumXp(h.HeroLevel,h.HeroExp),0); }
+function trendPoint(psd){ const c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[]; const goldRow=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); const d=netTicksToDate(c.lastSavedTime); return {t:d?+d:null,gold:goldRow?goldRow.Quantity:0,lifeGold:pick(a,2,0),combat:pick(a,2,1),kills:pick(a,0,0),xp:accountXp(psd),cur:c.currentStageKey,playH:c.playTime?+(c.playTime/3600).toFixed(2):null,maxStage:c.maxCompletedStage,items:(psd.itemSaveDatas||[]).length,runes:(psd.RuneSaveData||[]).filter(r=>(r.Level||0)>0).length}; }
 function buildTrends(points){ const seen={},pts=[]; (points||[]).filter(p=>p&&p.t).sort((a,b)=>a.t-b.t).forEach(p=>{const k=p.t+'/'+p.lifeGold; if(seen[k])return; seen[k]=1; pts.push(p);}); for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i]; const dPlay=(b.playH!=null&&a.playH!=null)?b.playH-a.playH:null; const dWall=(b.t-a.t)/3600000; const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; const dLife=(b.lifeGold!=null&&a.lifeGold!=null)?b.lifeGold-a.lifeGold:null; const dKills=(b.kills!=null&&a.kills!=null)?b.kills-a.kills:null; b.goldPerHr=(dLife!=null&&h>0.01)?Math.round(dLife/h):null; b.killsPerHr=(dKills!=null&&h>0.01)?Math.round(dKills/h):null; } return pts; }
 
 // ============================================================================
@@ -152,15 +157,18 @@ function perStageRates(points){
     const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; if(!(h>0.01)) continue;
     const dC=(b.combat!=null&&a.combat!=null)?(b.combat-a.combat):null;
     const dK=(b.kills!=null&&a.kills!=null)?(b.kills-a.kills):null;
+    const dX=(b.xp!=null&&a.xp!=null)?(b.xp-a.xp):null;                      // older stored points may lack xp -> null
     if(dC==null||dC<0) continue;                                            // need calibrated combat-gold, monotonic
-    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,hours:0,intervals:0};
+    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,xp:0,xpHours:0,hours:0,intervals:0};
     by[stg].combat+=dC; by[stg].kills+=(dK>0?dK:0); by[stg].hours+=h; by[stg].intervals++;
+    if(dX!=null&&dX>=0){ by[stg].xp+=dX; by[stg].xpHours+=h; }               // xp rate only over xp-bearing intervals
   }
   const out=Object.keys(by).map(k=>{ const s=by[k];
     return {stage:s.stage,label:stageLabel(s.stage),
       goldPerHr:s.hours>0.01?Math.round(s.combat/s.hours):null,
       killsPerHr:s.hours>0.01?Math.round(s.kills/s.hours):null,
-      hours:+s.hours.toFixed(2),combatGold:s.combat,kills:s.kills,intervals:s.intervals}; });
+      xpPerHr:s.xpHours>0.01?Math.round(s.xp/s.xpHours):null,
+      hours:+s.hours.toFixed(2),combatGold:s.combat,kills:s.kills,xp:s.xp,intervals:s.intervals}; });
   out.sort((x,y)=>(y.goldPerHr||0)-(x.goldPerHr||0));
   return out;
 }
@@ -172,6 +180,9 @@ function perStageRates(points){
 // of the SAME GEARTYPE that is strictly better — higher rarity, or equal rarity & higher item level. ONLY provable
 // upgrades are flagged (equal rarity+level is a sidegrade, never claimed better). Matching by gt keeps every
 // suggestion class-valid. Greedy one-to-one assignment so a single spare item is offered only once.
+// v1.0.7 — EQUIP GATING: an item's Level reads as its equip requirement (calibrated: every equipped instance in
+// both real saves satisfies item.lvl <= hero level, 43/43, zero counterexamples). A strictly-better spare the hero
+// can't wear YET is returned as a LOCKED notice ({locked:true, needLevel}) — informative, never advised as an equip.
 function gearGaps(psd){
   const owned=ownedItems(psd), byUid={}; owned.forEach(o=>byUid[o.uid]=o);
   const party=((psd.commonSaveData||{}).arrangedHeroKey||[]).map(String);
@@ -184,16 +195,50 @@ function gearGaps(psd){
   Object.keys(freeByGt).forEach(gt=>freeByGt[gt].sort((a,b)=>(rarityRank(b.grade)-rarityRank(a.grade))||((b.lvl||0)-(a.lvl||0))));
   const cand=[];
   heroes_.forEach(h=>h.eq.forEach(e=>{ const pool=freeByGt[e.gt]||[]; const er=rarityRank(e.grade), el=e.lvl||0;
+    let bestEquip=null, bestLocked=null;
     for(let i=0;i<pool.length;i++){ const c=pool[i], cr=rarityRank(c.grade), cl=c.lvl||0;
-      if(cr>er||(cr===er&&cl>el)){ cand.push({hero:h.cls,heroKey:h.key,deployed:h.deployed,gt:e.gt,
-        cur:{name:e.name,grade:e.grade,lvl:e.lvl,icon:e.icon,uid:e.uid},
-        up:{name:c.name,grade:c.grade,lvl:c.lvl,icon:c.icon,uid:c.uid},
-        reason:(cr>er?'higher rarity':'higher level'),jump:(cr-er)*1000+(cl-el)}); break; } } }));
-  cand.sort((a,b)=>(b.deployed-a.deployed)||(b.jump-a.jump));
+      if(!(cr>er||(cr===er&&cl>el))) continue;                       // not strictly better
+      if(cl<=(h.level||0)){ if(!bestEquip){ bestEquip={c,cr,cl}; break; } }   // pool is best-first: first equippable wins
+      else if(!bestLocked) bestLocked={c,cr,cl};                      // best locked seen before the first equippable
+    }
+    const mk=(b,locked)=>({hero:h.cls,heroKey:h.key,heroLevel:h.level,deployed:h.deployed,gt:e.gt,locked:locked,
+      needLevel:locked?(b.cl||0):null,
+      cur:{name:e.name,grade:e.grade,lvl:e.lvl,icon:e.icon,uid:e.uid},
+      up:{name:b.c.name,grade:b.c.grade,lvl:b.c.lvl,icon:b.c.icon,uid:b.c.uid},
+      reason:(b.cr>er?'higher rarity':'higher level'),jump:(b.cr-er)*1000+(b.cl-el)});
+    if(bestEquip) cand.push(mk(bestEquip,false));
+    if(bestLocked&&(!bestEquip||bestLocked.cr>bestEquip.cr||(bestLocked.cr===bestEquip.cr&&bestLocked.cl>bestEquip.cl)))
+      cand.push(mk(bestLocked,true));                                 // notify only if it beats what we can advise
+  }));
+  cand.sort((a,b)=>(a.locked-b.locked)||(b.deployed-a.deployed)||(b.jump-a.jump));   // equippable advice claims spares first
   const usedUp={}, usedSlot={}, out=[];
-  cand.forEach(g=>{ if(usedUp[g.up.uid]) return; const sk=g.heroKey+'|'+g.cur.uid; if(usedSlot[sk]) return;
+  cand.forEach(g=>{ if(usedUp[g.up.uid]) return; const sk=g.heroKey+'|'+g.cur.uid+'|'+(g.locked?'L':'E'); if(usedSlot[sk]) return;
     usedUp[g.up.uid]=1; usedSlot[sk]=1; out.push(g); });
   return out;
+}
+
+// enchantStones: socketable enchant materials the player OWNS. CALIBRATED end-to-end from the save's own
+// EnchantData rows: every applied enchant's MaterialKey resolves to one of these fx-bearing materials, and the
+// rolled stat equals that material's fx entry for the item's slot category (4/4 across both real saves) — so the
+// per-category stat shown here is the game's own deterministic table, not a guess. (Tier/value roll is game RNG.)
+function enchantStones(psd){
+  const byKey={};
+  (psd.itemSaveDatas||[]).forEach(it=>{ const i=DB&&DB.items&&DB.items[String(it.ItemKey)];
+    if(!i||!i.mat||!i.fx||!i.fx.length) return;
+    const k=String(it.ItemKey);
+    if(!byKey[k]) byKey[k]={key:k,name:i.n,grade:i.g||null,icon:i.ic||iconId(k),mt:i.mt||null,fx:i.fx,count:0};
+    byKey[k].count++; });
+  return Object.values(byKey).sort((a,b)=>(rarityRank(b.grade)-rarityRank(a.grade))||(b.count-a.count));
+}
+// slot-category for a GEARTYPE — ONLY where calibrated: the game's own hero table defines main-weapon types
+// (HeroInfoData MainWeapon -> WEAPON group, observed for STAFF + CROSSBOW in applied enchants), and HELMET/ARMOR
+// were observed rolling the ARMOR-group effect. Everything else returns null (shown without a category claim).
+function gtGroup(gt){
+  if(!gt) return null;
+  const mw={}; const H=(DB&&DB.heroes)||{}; Object.keys(H).forEach(k=>{ if(H[k].mw) mw[H[k].mw]=1; });
+  if(mw[gt]) return 'WEAPON';
+  if(gt==='HELMET'||gt==='ARMOR') return 'ARMOR';
+  return null;
 }
 
 // runePlan: greedy cheapest-first rune-upgrade path within a gold budget. Rune level costs are GOLD (verified:
@@ -231,4 +276,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,gearGaps,runePlan,enchantStatus,statTotals,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

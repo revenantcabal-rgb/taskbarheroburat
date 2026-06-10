@@ -63,6 +63,14 @@ the keyring but is NOT active — don't switch to it. Live distribution: Release
 - **`equippedItemIds` are item UniqueIds, NOT ItemKeys** (verified: every equipped uid resolves to an owned instance).
   **Slot map (verified on the live save):** 0 weapon, 1 offhand, 2 helmet, 3 armor, 4 gloves, 5 boots, 8 ring,
   6/7/9 accessory. Gear matching must use **GEARTYPE (`gt`)**, never the slot index (the weapon type is class-specific).
+- **Item Level = equip requirement (v1.0.7):** hero must be at least the item's Level. Calibrated: 43/43 equipped
+  instances across BOTH real saves satisfy lvl<=heroLevel (zero counterexamples); verify_save.js asserts it stays true.
+- **Enchant system (v1.0.7, calibrated from the save's own EnchantData):** enchanting consumes an fx-bearing
+  material ("stone" — DECORATION/ENGRAVING/INSCRIPTION mts with `fx`), and the resulting STAT is deterministic =
+  the stone's fx entry for the item's slot category (WEAPON/ARMOR/ACCESSORY/COMMON, from StatModGroupInfoData).
+  Verified 4/4 applied enchants in both saves (MaterialKey→stone, rolled stat == category effect). Tier/value roll is
+  RNG. gt→category mapping is calibrated ONLY for: weapon types (= the hero table's MainWeapon values → WEAPON;
+  observed STAFF+CROSSBOW) and HELMET/ARMOR (observed → ARMOR); other gts get no category claim (golden rule).
 - **Per-stage farming rates are derivable SAVE-ONLY (v1.0.4; no memory lane):** delta the calibrated combat-gold
   sub-counter (Type 2/Sub 1) between snapshots and attribute it to `currentStageKey`, counting only CLEAN intervals
   (cur unchanged across the pair). Offline gold is excluded by construction (it lands in Sub 2/3). Verified vs
@@ -175,6 +183,12 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S14 (v1.0.7)** — Advisor **equip-gating** (item Level = equip requirement, calibrated 43/43; unwearable upgrades
+  become 🔒 level-locked notices, never advice); obsolete "Stages read as Act X-Y" tip removed; **per-stage XP/hr**
+  (trendPoint.xp = summed cumulative hero XP; delta over clean intervals) + session XP/hr card + best-gold/hr &
+  best-XP/hr suggestions on Tips/Overview/Trends/Lifetime; **Enchanting workshop** (compact per-hero open slots +
+  owned stones with the game's own per-category effects + calibrated "ready to use" matches). All mirrored in both
+  engines; verify_save asserts the new invariants.
 - **S13c (v1.0.6) — AUTO-UPDATE WAS NEVER WORKING IN ANY SHIPPED BUILD; fixed.** Proof: attached --inspect to the
   INSTALLED app's main process → `require('electron-updater')` throws Cannot find module (the try/catch made it a
   silent no-op: no check, no error, ever). Cause: electron-updater sat in devDependencies since day one, and

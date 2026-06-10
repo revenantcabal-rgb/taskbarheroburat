@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBH HUD — Task Bar Hero companion</title>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.6"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.7"></script>
 <style>
   :root{
     --bg:#080a13; --bg2:#0b0e1a; --surface:#121728; --surface2:#171d33; --surface3:#1f2742;
@@ -758,19 +758,54 @@ function gearGapsD(owned,heroes){
   var freeByGt={};
   (owned||[]).forEach(function(o){ if(equippedUids[o.uid]||!o.gt||o.mat) return; (freeByGt[o.gt]=freeByGt[o.gt]||[]).push(o); });
   Object.keys(freeByGt).forEach(function(gt){freeByGt[gt].sort(function(a,b){return (rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));});});
+  // v1.0.7 — EQUIP GATING (mirror of saveEngine): an item's Level reads as its equip requirement (calibrated:
+  // every equipped instance in both real saves satisfies item.lvl <= hero level, 43/43). A strictly-better spare
+  // the hero can't wear YET becomes a LOCKED notice — informative, never advised as an equip.
   var cand=[];
   (heroes||[]).forEach(function(h){(h.equipped||[]).forEach(function(e){
     var pool=freeByGt[e.gt]||[], er=rrank(e.grade), el=e.lvl||0;
+    var bestEquip=null, bestLocked=null;
     for(var i=0;i<pool.length;i++){ var c=pool[i], cr=rrank(c.grade), cl=c.lvl||0;
-      if(cr>er||(cr===er&&cl>el)){ cand.push({hero:h.cls,heroKey:h.key,deployed:h.deployed,gt:e.gt,
-        cur:{name:e.name,grade:e.grade,lvl:e.lvl,icon:e.icon,uid:e.uid},
-        up:{name:c.name,grade:c.grade,lvl:c.lvl,icon:c.icon,uid:c.uid},
-        reason:(cr>er?'higher rarity':'higher level'),jump:(cr-er)*1000+(cl-el)}); break; } } });});
-  cand.sort(function(a,b){return (b.deployed-a.deployed)||(b.jump-a.jump);});
+      if(!(cr>er||(cr===er&&cl>el))) continue;
+      if(cl<=(h.level||0)){ if(!bestEquip){ bestEquip={c:c,cr:cr,cl:cl}; break; } }
+      else if(!bestLocked) bestLocked={c:c,cr:cr,cl:cl};
+    }
+    function mk(b,locked){ return {hero:h.cls,heroKey:h.key,heroLevel:h.level,deployed:h.deployed,gt:e.gt,locked:locked,
+      needLevel:locked?(b.cl||0):null,
+      cur:{name:e.name,grade:e.grade,lvl:e.lvl,icon:e.icon,uid:e.uid},
+      up:{name:b.c.name,grade:b.c.grade,lvl:b.c.lvl,icon:b.c.icon,uid:b.c.uid},
+      reason:(b.cr>er?'higher rarity':'higher level'),jump:(b.cr-er)*1000+(b.cl-el)}; }
+    if(bestEquip) cand.push(mk(bestEquip,false));
+    if(bestLocked&&(!bestEquip||bestLocked.cr>bestEquip.cr||(bestLocked.cr===bestEquip.cr&&bestLocked.cl>bestEquip.cl)))
+      cand.push(mk(bestLocked,true));
+  });});
+  cand.sort(function(a,b){return (a.locked-b.locked)||(b.deployed-a.deployed)||(b.jump-a.jump);});
   var usedUp={},usedSlot={},out=[];
-  cand.forEach(function(g){ if(usedUp[g.up.uid]) return; var sk=g.heroKey+'|'+g.cur.uid; if(usedSlot[sk]) return;
+  cand.forEach(function(g){ if(usedUp[g.up.uid]) return; var sk=g.heroKey+'|'+g.cur.uid+'|'+(g.locked?'L':'E'); if(usedSlot[sk]) return;
     usedUp[g.up.uid]=1; usedSlot[sk]=1; out.push(g); });
   return out;
+}
+// enchantStones (mirror of saveEngine): socketable enchant materials the player OWNS. CALIBRATED end-to-end
+// from the save's own EnchantData rows — every applied enchant's MaterialKey is one of these fx-bearing
+// materials, and the rolled stat equals the material's fx entry for the item's slot category (4/4 across both
+// real saves). The per-category stat shown is the game's own deterministic table; tier/value roll is game RNG.
+function enchantStonesD(owned){
+  var byKey={};
+  (owned||[]).forEach(function(o){ if(!o.mat||!o.fx||!o.fx.length) return;
+    if(!byKey[o.key]) byKey[o.key]={key:o.key,name:o.name,grade:o.grade,icon:o.icon,mt:o.mt,fx:o.fx,count:0};
+    byKey[o.key].count++; });
+  return Object.keys(byKey).map(function(k){return byKey[k];})
+    .sort(function(a,b){return (rrank(b.grade)-rrank(a.grade))||(b.count-a.count);});
+}
+// slot-category for a GEARTYPE — ONLY where calibrated: the game's own hero table defines main-weapon types
+// (HeroInfoData MainWeapon -> WEAPON group; observed in applied enchants for STAFF + CROSSBOW), and
+// HELMET/ARMOR were observed rolling the ARMOR-group effect. Everything else: null (no category claim).
+function gtGroupD(gt){
+  if(!gt) return null;
+  var H=DB.heroes||{}, k;
+  for(k in H){ if(H[k].mw===gt) return 'WEAPON'; }
+  if(gt==='HELMET'||gt==='ARMOR') return 'ARMOR';
+  return null;
 }
 // runePlan: greedy cheapest-first rune-upgrade path within a gold budget. Rune level costs are GOLD (verified:
 // all 663 rune-level costs use the Gold currency). Walks the per-level cost table so multi-step paths price
@@ -891,7 +926,7 @@ function analyze(psd){
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd), killsByMonster:killsByMonster(psd),
     ownedSkills:ownedSkills,
-    gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes),
+    gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes), stones:enchantStonesD(owned),
     kills:pick(0,0), lifeGold:pick(2,0), goldBySource:goldBySourceInline(a)
     // NOTE: aggregate Type 16 ([Normal-band counts]) is NOT surfaced. It is uncalibrated and, read as
     // per-difficulty completions, is DISPROVEN by this save (Normal-only at Act 2-10 yet would claim
@@ -911,9 +946,11 @@ function trendPoint(psd){
   var goldRow=(psd.currenySaveDatas||[]).find(function(x){return x.Key===GOLD_KEY;});
   var d=ticksToDate(c.lastSavedTime);
   // cur (active stage) + combat (the CALIBRATED combat-gold sub-counter, Type 2/Sub 1) power the per-stage
-  // farming rates — mirror of saveEngine.trendPoint.
+  // farming rates; xp = every hero's cumulative XP summed (calibrated level curve) — its delta between
+  // snapshots = XP actually gained (per-stage XP/hr, v1.0.7). Mirror of saveEngine.trendPoint.
+  var xp=(psd.heroSaveDatas||[]).reduce(function(s,h){return s+heroCumXp(h.HeroLevel,h.HeroExp);},0);
   return {t:d?+d:null, gold:goldRow?goldRow.Quantity:0, lifeGold:pick(2,0), combat:pick(2,1), kills:pick(0,0),
-    cur:c.currentStageKey, playH:c.playTime?+(c.playTime/3600).toFixed(2):null, maxStage:c.maxCompletedStage,
+    xp:xp, cur:c.currentStageKey, playH:c.playTime?+(c.playTime/3600).toFixed(2):null, maxStage:c.maxCompletedStage,
     items:(psd.itemSaveDatas||[]).length, runes:(psd.RuneSaveData||[]).filter(function(r){return (r.Level||0)>0;}).length};
 }
 function buildTrends(points){
@@ -1006,15 +1043,18 @@ function perStageRates(points){
     var h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; if(!(h>0.01)) continue;
     var dC=(b.combat!=null&&a.combat!=null)?(b.combat-a.combat):null;
     var dK=(b.kills!=null&&a.kills!=null)?(b.kills-a.kills):null;
+    var dX=(b.xp!=null&&a.xp!=null)?(b.xp-a.xp):null;          // older stored points may lack xp -> null
     if(dC==null||dC<0) continue;
-    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,hours:0,intervals:0};
+    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,xp:0,xpHours:0,hours:0,intervals:0};
     by[stg].combat+=dC; by[stg].kills+=(dK>0?dK:0); by[stg].hours+=h; by[stg].intervals++;
+    if(dX!=null&&dX>=0){ by[stg].xp+=dX; by[stg].xpHours+=h; }
   }
   var out=Object.keys(by).map(function(k){ var s=by[k];
     return {stage:s.stage,label:stageLabel(s.stage),
       goldPerHr:s.hours>0.01?Math.round(s.combat/s.hours):null,
       killsPerHr:s.hours>0.01?Math.round(s.kills/s.hours):null,
-      hours:+s.hours.toFixed(2),combatGold:s.combat,kills:s.kills,intervals:s.intervals}; });
+      xpPerHr:s.xpHours>0.01?Math.round(s.xp/s.xpHours):null,
+      hours:+s.hours.toFixed(2),combatGold:s.combat,kills:s.kills,xp:s.xp,intervals:s.intervals}; });
   out.sort(function(x,y){return (y.goldPerHr||0)-(x.goldPerHr||0);});
   return out;
 }
@@ -1306,6 +1346,11 @@ function renderOverview(d){
   var measuring=hrs<0.0167; // hold rates for the first ~minute to avoid wild extrapolation
   var gph=measuring?null:Math.round((earnedNow-session.earned0)/hrs);
   var kph=(measuring||d.kills==null)?null:Math.round((d.kills-session.kills0)/hrs);
+  // session XP/hr (v1.0.7): total XP your heroes actually gained since connect ÷ hours — same measured
+  // baseline that powers the per-hero level ETAs (session.heroXp0), summed across the roster
+  var xpNow=0, xp0=0, haveXp0=!!(session&&session.heroXp0);
+  if(haveXp0){ (d.heroes||[]).forEach(function(h){ xpNow+=heroCumXp(h.level,h.exp); var b=session.heroXp0[h.key]; if(b!=null)xp0+=b; else haveXp0=false; }); }
+  var xph=(measuring||!haveXp0)?null:Math.round((xpNow-xp0)/hrs);
 
   p.appendChild(el('<h3 class="sec">Overview <span class="tag">'+(d.version?('v'+d.version):'')+
     (d.playHours?(' · '+d.playHours+'h played'):'')+'</span></h3>'));
@@ -1334,7 +1379,9 @@ function renderOverview(d){
   // best MEASURED farming stage — from the save-history per-stage rates (combat gold only; see Trends)
   var psrOv=perStageData();
   if(psrOv.length&&psrOv[0].goldPerHr!=null){
-    var bestLine=el('<div class="hint" style="margin:12px 0 0;cursor:pointer" title="See the full per-stage ranking on Trends">💰 <b>Best measured farming stage:</b> '+esc(psrOv[0].label)+' at ~'+fmt(psrOv[0].goldPerHr)+' gold/hr — measured from your own save history (combat gold only). Full ranking on the Trends tab →</div>');
+    var withXpOv=psrOv.filter(function(r){return r.xpPerHr!=null;}).sort(function(a,b){return b.xpPerHr-a.xpPerHr;});
+    var xpBit=withXpOv.length?(' · <b>Best XP/hr:</b> '+esc(withXpOv[0].label)+' at ~'+fmt(withXpOv[0].xpPerHr)+' XP/hr'):'';
+    var bestLine=el('<div class="hint" style="margin:12px 0 0;cursor:pointer" title="See the full per-stage ranking on Trends">💰 <b>Best gold/hr:</b> '+esc(psrOv[0].label)+' at ~'+fmt(psrOv[0].goldPerHr)+' gold/hr'+xpBit+' — measured from your own save history. Full ranking on Trends →</div>');
     bestLine.addEventListener('click',function(){setTab('trends');});
     p.appendChild(bestLine);
   }
@@ -1343,6 +1390,7 @@ function renderOverview(d){
   p.appendChild(el('<div class="grid cards">'+[
     card('Gold / hr',gph==null?'measuring…':fmt(gph),'green',measuring?'watching…':('<b>+'+fmt(earnedNow-session.earned0)+'</b> earned'),'📈'),
     card('Kills / hr',kph==null?'measuring…':fmt(kph),'green',measuring?'watching…':('<b>+'+fmt(d.kills-session.kills0)+'</b> kills'),'⚔️'),
+    card('XP / hr',xph==null?'measuring…':fmt(xph),'blue',measuring?'watching…':('all heroes · <b>+'+fmt(Math.max(0,xpNow-xp0))+'</b> XP'),'⚡'),
     card('Session length',hrs<0.017?'just started':(hrs.toFixed(2)+' h'),'','since you connected','⏱️'),
     card('Inventory',fmt(d.inv.owned),'',d.inv.stash+' in stash'+(d.inv.trade?(' · '+d.inv.trade+' trading'):''),'🎒')
   ].join('')+'</div>'));
@@ -1622,7 +1670,28 @@ function computeSuggestions(d){
   heroes.filter(function(h){return !h.deployed&&h.level>0&&(maxLvl-h.level)>=8;}).forEach(function(h){ out.push({pri:6,ic:'🧭',
     t:cap(h.cls)+' (Lv '+h.level+') is well behind your Lv '+maxLvl+' mains',
     b:'If you want a deeper or swappable roster, bring '+cap(h.cls)+' into your active party to level it up.'}); });
-  // 6) stagnation — only from real trend snapshots (folder mode); no fabrication if absent
+  // 6) best MEASURED farming rates (v1.0.7) — from the save-history per-stage rates; suggest a switch only
+  //    when the best stage differs from where the player is farming right now (both measured, no guessing)
+  var psrS=perStageData();
+  if(psrS.length){
+    var bestG=psrS[0];                                   // already sorted by gold/hr desc
+    if(bestG.goldPerHr!=null){
+      var curRow=null; psrS.forEach(function(r){ if(String(r.stage)===String(d.stage)) curRow=r; });
+      if(curRow&&String(bestG.stage)!==String(d.stage)&&bestG.goldPerHr>(curRow.goldPerHr||0)){
+        out.push({pri:4,ic:'💰',t:'Best gold/hr: switch to '+bestG.label,
+          b:'Measured from your own history: '+bestG.label+' earns ~'+fmt(bestG.goldPerHr)+' gold/hr vs ~'+fmt(curRow.goldPerHr)+' where you are now ('+stageLabel(d.stage)+'). Combat gold only; includes idle time.'});
+      } else {
+        out.push({pri:8,ic:'💰',t:'Your best measured gold/hr: '+bestG.label,
+          b:'~'+fmt(bestG.goldPerHr)+' gold/hr over '+bestG.hours+'h of your history'+(String(bestG.stage)===String(d.stage)?' — you’re farming it right now.':'.')+' Full ranking on Trends.'});
+      }
+    }
+    var withXp=psrS.filter(function(r){return r.xpPerHr!=null;}).sort(function(a,b){return b.xpPerHr-a.xpPerHr;});
+    if(withXp.length){ var bestX=withXp[0];
+      out.push({pri:8,ic:'⚡',t:'Best XP/hr (measured): '+bestX.label,
+        b:'~'+fmt(bestX.xpPerHr)+' XP/hr — total XP your heroes actually gained per hour farming there, from your save history. Kills/hr leader: '+(psrS.slice().sort(function(a,b){return (b.killsPerHr||0)-(a.killsPerHr||0);})[0].label)+'.'});
+    }
+  }
+  // 7) stagnation — only from real trend snapshots (folder mode); no fabrication if absent
   var pts=(typeof trends!=='undefined'&&trends)?trends:[];
   if(pts.length>=3){ var last=pts.slice(-3);
     if(last.every(function(p){return p.maxStage===last[0].maxStage;})) out.push({pri:7,ic:'📈',
@@ -1642,8 +1711,7 @@ var GAME_TIPS=[
   {ic:'💎',t:'Materials show their tier in the name',b:'e.g. “Soulstone - Normal” or “Minor Ruby”. Higher-tier materials unlock better enchant and synthesis results — hold onto the good ones.'},
   {ic:'🧬',t:'Each item holds up to 3 enchants',b:'The colored pips on an item are its enchant slots. Higher enchant tiers give bigger stat bonuses. (Verified — from the item’s enchant data.)'},
   {ic:'😴',t:'Offline rewards scale with your stage',b:'While away you bank gold and XP based on the stage you’re farming. Hop back in to collect — the Overview shows your idle time and last collection rate.'},
-  {ic:'🧱',t:'Fill all 10 gear slots',b:'Every hero has 10 equipment slots plus an ability tree. An empty slot is wasted power — even a low-level item beats nothing.'},
-  {ic:'🗺️',t:'Stages read as “Act X-Y”',b:'A stage key like 1208 means Act 2-8. Your “max stage” is how far you’ve pushed on your current difficulty.'}
+  {ic:'🧱',t:'Fill all 10 gear slots',b:'Every hero has 10 equipment slots plus an ability tree. An empty slot is wasted power — even a low-level item beats nothing.'}
 ];
 var _tipIdx=0;
 function renderTips(d){
@@ -1763,7 +1831,7 @@ function renderTrends(d){
     p.appendChild(el('<div class="hint">Each snapshot records your <b>active stage</b> and the save’s calibrated <b>combat-gold counter</b>. Over intervals where you stayed on one stage, the combat-gold delta ÷ hours = that stage’s real gold/hr. Offline rewards are excluded by construction (they land in a different counter), stage-transition intervals are skipped as ambiguous, and idle time counts — so this is your honest average, and it sharpens as more snapshots accumulate.</div>'));
     var sbars=psr.map(function(r,i){
       var pct=Math.round((r.goldPerHr||0)/maxRate*100);
-      var meta=(r.killsPerHr!=null?(fmt(r.killsPerHr)+' kills/hr · '):'')+r.hours+'h over '+r.intervals+' interval'+(r.intervals>1?'s':'');
+      var meta=(r.killsPerHr!=null?(fmt(r.killsPerHr)+' kills/hr · '):'')+(r.xpPerHr!=null?(fmt(r.xpPerHr)+' xp/hr · '):'')+r.hours+'h over '+r.intervals+' interval'+(r.intervals>1?'s':'');
       return '<div class="bar"><div class="top"><span class="nm">'+(i===0?'🥇 ':'')+esc(r.label)+' <span style="color:var(--dim);font-weight:400">· '+meta+'</span></span>'+
         '<span class="nv" style="color:var(--green)">'+(r.goldPerHr!=null?(fmt(r.goldPerHr)+' gold/hr'):'—')+'</span></div>'+
         '<div class="track"><div class="fill" style="width:'+pct+'%;background:linear-gradient(90deg,var(--green),var(--blue))"></div></div></div>';
@@ -1820,14 +1888,14 @@ function advItem(it){
 }
 function renderAdvisor(d){
   var p=$('tab-advisor');p.innerHTML='';
-  var gaps=d.gearGaps||[];
-  p.appendChild(el('<h3 class="sec">Gear upgrades you already own <span class="tag">provable only — same gear type, strictly better</span></h3>'));
-  p.appendChild(el('<div class="hint">For each equipped item, the advisor looks for an <b>unequipped item you already own</b> of the <b>same gear type</b> that is strictly better — <b>higher rarity</b>, or same rarity at a <b>higher item level</b>. Sidegrades, cross-type swaps and stat judgement calls are never suggested (provable upgrades only), and each spare item is offered once.</div>'));
-  if(!gaps.length){
-    p.appendChild(el('<div class="empty">No provable upgrades sitting unused — everything better that you own is already equipped. 🎉<br><span style="font-size:11.5px">Checked every equipped item on every hero against your unequipped stash, matched by gear type.</span></div>'));
+  var gaps=d.gearGaps||[], ready=gaps.filter(function(g){return !g.locked;}), locked=gaps.filter(function(g){return g.locked;});
+  p.appendChild(el('<h3 class="sec">Gear upgrades you can equip right now <span class="tag">provable only — same gear type, strictly better, level requirement met</span></h3>'));
+  p.appendChild(el('<div class="hint">For each equipped item, the advisor looks for an <b>unequipped item you already own</b> of the <b>same gear type</b> that is strictly better — <b>higher rarity</b>, or same rarity at a <b>higher item level</b> — and that the hero\'s <b>level allows</b> (an item\'s level is its requirement; every equipped item in your save follows this rule). Sidegrades, cross-type swaps and stat judgement calls are never suggested, and each spare item is offered once.</div>'));
+  if(!ready.length){
+    p.appendChild(el('<div class="empty">No equip-ready upgrades sitting unused — everything better that you own (and can wear) is already equipped. 🎉<br><span style="font-size:11.5px">Checked every equipped item on every hero against your unequipped stash, matched by gear type and level requirement.</span></div>'));
   } else {
     var panel=el('<div class="panel"></div>');
-    gaps.forEach(function(g){
+    ready.forEach(function(g){
       var row=el('<div class="advrow"></div>');
       row.appendChild(el('<div class="advhero">'+esc(g.hero)+'<small class="'+(g.deployed?'dep':'')+'">'+(g.deployed?'DEPLOYED':'BENCH')+' · '+esc(cap(g.gt))+'</small></div>'));
       row.appendChild(advItem(g.cur));
@@ -1836,8 +1904,24 @@ function renderAdvisor(d){
       row.appendChild(el('<span class="advwhy">'+esc(g.reason)+'</span>'));
       panel.appendChild(row);
     });
-    panel.appendChild(el('<div class="advtotal"><span><b>'+gaps.length+'</b> free upgrade'+(gaps.length>1?'s':'')+' — equip them in the game (this tool is read-only and never changes anything).</span></div>'));
+    panel.appendChild(el('<div class="advtotal"><span><b>'+ready.length+'</b> free upgrade'+(ready.length>1?'s':'')+' — equip them in the game (this tool is read-only and never changes anything).</span></div>'));
     p.appendChild(panel);
+  }
+  // better gear that exists but is level-locked — notify, never advise (v1.0.7)
+  if(locked.length){
+    p.appendChild(el('<h3 class="sec">Better gear waiting in your stash <span class="tag">level-locked — keep leveling to unlock</span></h3>'));
+    var lpanel=el('<div class="panel"></div>');
+    locked.forEach(function(g){
+      var row=el('<div class="advrow" style="opacity:.85"></div>');
+      row.appendChild(el('<div class="advhero">'+esc(g.hero)+'<small class="'+(g.deployed?'dep':'')+'">'+(g.deployed?'DEPLOYED':'BENCH')+' · '+esc(cap(g.gt))+'</small></div>'));
+      row.appendChild(advItem(g.cur));
+      row.appendChild(el('<span class="advarrow" style="color:var(--amber)">⇢</span>'));
+      row.appendChild(advItem(g.up));
+      row.appendChild(el('<span class="advwhy" style="color:var(--amber);background:rgba(249,168,38,.12);border-color:rgba(249,168,38,.35)">🔒 needs Lv '+g.needLevel+' · now Lv '+g.heroLevel+'</span>'));
+      lpanel.appendChild(row);
+    });
+    lpanel.appendChild(el('<div class="advtotal"><span>These are <b>better than what\'s equipped</b> but above the hero\'s level — they\'ll appear under upgrades the moment the level requirement is met.</span></div>'));
+    p.appendChild(lpanel);
   }
 
   // ---- Rune plan: greedy cheapest-first within current gold (all costs are GOLD, from the game's tables) ----
@@ -1858,23 +1942,64 @@ function renderAdvisor(d){
     p.appendChild(el('<div class="empty">'+(plan.cheapestNext?('No rune upgrade is affordable right now. Cheapest next: <b>'+esc(plan.cheapestNext.name)+'</b> Lv '+(plan.cheapestNext.level+1)+' for <b>'+fmt(plan.cheapestNext.cost)+'</b> gold — you have '+fmt(plan.gold)+'.'):'All runes are maxed — nothing left to buy. 👑')+'</div>'));
   }
 
-  // ---- Enchant ROI: open enchant slots on the deployed party (fill state only; outcomes are game RNG) ----
-  var es=d.enchants||[];
-  p.appendChild(el('<h3 class="sec">Open enchant slots <span class="tag">deployed party · each item holds up to 3 enchants</span></h3>'));
-  p.appendChild(el('<div class="hint">Items your <b>active party</b> is wearing that still have <b>empty enchant slots</b> — free stat headroom you\'ve already earned. Emptiest first. What a reroll gives is the game\'s RNG; this tool only shows the slots (it never predicts outcomes).</div>'));
+  // ---- Enchanting workshop (v1.0.7): open slots, compact per hero + the stones you own to fill them ----
+  var es=d.enchants||[], stones=d.stones||[];
+  var openTotal=es.reduce(function(s,e2){return s+e2.open;},0);
+  var stoneTotal=stones.reduce(function(s,x){return s+x.count;},0);
+  p.appendChild(el('<h3 class="sec">Enchanting workshop <span class="tag">'+openTotal+' open slot'+(openTotal===1?'':'s')+' on your deployed party · '+stoneTotal+' socketable stone'+(stoneTotal===1?'':'s')+' owned</span></h3>'));
+  p.appendChild(el('<div class="hint">Each equipped item holds up to <b>3 enchants</b>; enchanting consumes a <b>stone</b> (gem-type material), and the stat it gives is <b>fixed by the stone and the slot category</b> — Weapon, Armor or Accessory (read from the game\'s own tables and verified against every enchant in your save). The tier/value roll is the game\'s RNG.</div>'));
   if(!es.length){
     p.appendChild(el('<div class="empty">Every equipped item on your deployed party is fully enchanted (3/3). ✨</div>'));
   } else {
+    // compact: one row per hero, items as minis with an open-slot count badge
+    var byHero={};
+    es.forEach(function(e2){ (byHero[e2.hero]=byHero[e2.hero]||[]).push(e2); });
     var epanel=el('<div class="panel"></div>');
-    es.forEach(function(e2){
+    Object.keys(byHero).forEach(function(hn){
+      var list=byHero[hn], open=list.reduce(function(s,e2){return s+e2.open;},0);
       var row=el('<div class="advrow"></div>');
-      row.appendChild(el('<div class="advhero">'+esc(e2.hero)+'<small class="dep">DEPLOYED</small></div>'));
-      row.appendChild(advItem(e2));
-      var pips=''; for(var i=0;i<3;i++) pips+='<i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:'+(i<e2.used?'var(--amber)':'var(--surface3)')+';border:1px solid var(--line2)"></i>';
-      row.appendChild(el('<span style="margin-left:auto;font-size:12px;color:var(--muted)">'+pips+' '+e2.used+'/3 used · <b style="color:var(--green)">'+e2.open+' open</b></span>'));
+      row.appendChild(el('<div class="advhero">'+esc(hn)+'<small class="dep">'+open+' OPEN SLOT'+(open===1?'':'S')+'</small></div>'));
+      var icons=el('<div class="gearrow" style="margin:0;flex:1"></div>');
+      list.forEach(function(e2){
+        var wrap=el('<div style="position:relative"></div>');
+        var m=el('<div class="mini" style="border-color:'+rvar(e2.grade)+'" title="'+esc(e2.name+' ('+(e2.grade||'')+(e2.lvl?(' L'+e2.lvl):'')+') — '+e2.used+'/3 enchants used, '+e2.open+' open')+'"></div>');
+        m.appendChild(iconImg(e2.icon)); wrap.appendChild(m);
+        wrap.appendChild(el('<span style="position:absolute;right:-4px;top:-4px;background:var(--surface3);border:1px solid var(--line2);color:var(--green);font-size:9px;font-weight:800;border-radius:7px;padding:0 4px">'+e2.open+'</span>'));
+        icons.appendChild(wrap);
+      });
+      row.appendChild(icons);
       epanel.appendChild(row);
     });
     p.appendChild(epanel);
+  }
+  // the stones you own — calibrated ingredient list with the game's own per-category effects
+  p.appendChild(el('<h3 class="sec">Your enchanting stones <span class="tag">what each gives, straight from the game\'s tables</span></h3>'));
+  if(!stones.length){
+    p.appendChild(el('<div class="empty">No socketable stones in your stash right now.<br><span style="font-size:11.5px">Stones are gem-type materials (Ruby, Sapphire, Topaz, …) that drop from stage boxes — open the <b>Codex</b>, filter Materials, and click any gem to see exactly which boxes drop it.</span></div>'));
+  } else {
+    var GLBL={WEAPON:'Weapon',ARMOR:'Armor',ACCESSORY:'Accessory',COMMON:'Any gear'};
+    // which open-slot items can each stone serve, where the slot category is CALIBRATED (weapon types from the
+    // game's hero table; helmet/armor observed) — never guessed for other gear types.
+    var openByGroup={};
+    es.forEach(function(e2){ var g=gtGroupD(e2.gt); if(g) (openByGroup[g]=openByGroup[g]||[]).push(e2); });
+    var spanel=el('<div class="panel"></div>');
+    stones.forEach(function(st){
+      var row=el('<div class="advrow"></div>');
+      var m=el('<div class="mini" style="border-color:'+rvar(st.grade)+'"></div>'); m.appendChild(iconImg(st.icon));
+      var head=el('<div class="advitem"></div>'); head.appendChild(m);
+      head.appendChild(el('<div class="advn"><b>'+esc(st.name)+(st.count>1?(' <span style="color:var(--gold)">×'+st.count+'</span>'):'')+'</b><span style="color:'+rvar(st.grade)+'">'+cap(st.grade||'')+'</span></div>'));
+      row.appendChild(head);
+      var chips='';
+      (st.fx||[]).forEach(function(f){ chips+='<span class="chip">'+esc(GLBL[f.g]||cap(f.g))+': <b>'+esc(f.sn)+'</b>'+(f.t?(' <span class="mt">T'+f.t+'</span>'):'')+'</span>'; });
+      row.appendChild(el('<span class="crewchips">'+chips+'</span>'));
+      // ✓ ready-to-use matches, only for calibrated slot categories
+      var matches=[];
+      (st.fx||[]).forEach(function(f){ (openByGroup[f.g]||[]).slice(0,3).forEach(function(e2){ matches.push(esc(f.sn)+' on '+esc(e2.hero)+'’s '+esc(e2.name)); }); });
+      if(matches.length) row.appendChild(el('<span class="crewach" style="color:var(--green)">✓ ready to use: '+matches.slice(0,3).join(' · ')+(matches.length>3?(' · +'+(matches.length-3)+' more'):'')+'</span>'));
+      spanel.appendChild(row);
+    });
+    p.appendChild(spanel);
+    p.appendChild(el('<div class="crewnote" style="margin-top:8px">“Ready to use” lines are shown only where the slot category is verified (weapon types from the game\'s own hero table; helmet &amp; body armor observed in your save\'s enchants). Other gear types still take stones — the category labels above tell you what each would give.</div>'));
   }
 }
 
@@ -1885,7 +2010,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.6';
+var APP_VERSION='1.0.7';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 var crewCfg={optin:false,code:'',name:'',id:'',rankBy:'maxStage'};
 try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','name','id','rankBy'].forEach(function(k){if(cc[k]!=null)crewCfg[k]=cc[k];});}catch(e){}
@@ -2322,7 +2447,7 @@ function render(d){
   $('tabRuneCount').textContent=(d.runes&&d.runes.leveled)?(d.runes.leveled+'/'+d.runes.total):'';
   $('tabCodexCount').textContent=fmt(catalogTotalCount());
   var nSugg=computeSuggestions(d).length; $('tabTipCount').textContent=nSugg||'';
-  $('tabAdvisorCount').textContent=(d.gearGaps&&d.gearGaps.length)||'';   // actionable free upgrades
+  $('tabAdvisorCount').textContent=(d.gearGaps&&d.gearGaps.filter(function(g){return !g.locked;}).length)||'';   // equip-ready upgrades only
   $('tabCrewCount').textContent=(crewCfg.optin&&crewCodeOk(crewCfg.code))?'●':'';
   $('lastSaved').textContent=d.lastSaved?(' · save updated '+d.lastSaved.toLocaleString()):'';
   setConnectedUI(true);
@@ -2533,7 +2658,8 @@ Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),functi
 /* ---------- demo / sample ---------- */
 // demo items are real keys resolved through the authoritative DB (real names/icons/grades/levels).
 function demoItem(key,mods){var k=String(key);var i=DB.items[k]||{};return {uid:'d'+k,key:k,icon:i.ic||iconId(k),
-  grade:i.g,gt:i.gt,type:i.t||'GEAR',lvl:i.lvl,ench:mods?mods.length:0,mods:mods||[],name:i.n||('#'+k),mat:!!i.mat,base:gearStats(i.gk)};}
+  grade:i.g,gt:i.gt,type:i.t||'GEAR',lvl:i.lvl,ench:mods?mods.length:0,mods:mods||[],name:i.n||('#'+k),mat:!!i.mat,
+  mt:i.mt||null,fx:i.fx||null,desc:i.desc||null,base:gearStats(i.gk)};}
 function loadDemo(){
   session=null;
   var owned=[
@@ -2545,8 +2671,11 @@ function loadDemo(){
     demoItem(310003),demoItem(520003),
     demoItem(190001),demoItem(140002),demoItem(110001),
     // unequipped spares that are STRICTLY better than equipped pieces -> showcase the Advisor's gear-gap finder
-    demoItem(343041),   // Complete Crossbow LEGENDARY L15 — beats the Hunter's RARE L15 (higher rarity)
-    demoItem(322051)    // Azure Staff RARE L20 — beats the Sorcerer's Witch Staff RARE L15 (same rarity, higher level)
+    demoItem(343041),   // Complete Crossbow LEGENDARY L15 — beats the Hunter's RARE L15 (higher rarity, equippable)
+    demoItem(322051),   // Azure Staff RARE L20 — beats the Sorcerer's Witch Staff RARE L15 (higher level, equippable)
+    demoItem(343061),   // Reinforced Crossbow LEGENDARY L25 — better still, but ABOVE the Hunter's level -> locked notice
+    // socketable enchanting stones -> showcase the enchanting workshop (real gems with real per-category effects)
+    demoItem(110001),demoItem(110005)
   ];
   var byR={};owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
   var dsk=function(keys){return keys.map(function(k){var d=DB.skills&&(DB.skills[k]||DB.skills[String(k)]);return d?d.n:null;}).filter(Boolean);};
@@ -2573,11 +2702,11 @@ function loadDemo(){
   // demoMode keeps this fully separate from any real history and disables crew sharing)
   demoMode=true;
   demoTrendPts=(function(){
-    var pts=[], t=Date.now()-9*7*3600000, playH=22, combat=900000, kills=40000;
-    var legs=[{cur:1106,maxStage:1109,rate:34000,kr:1900,n:3},{cur:1206,maxStage:1209,rate:56000,kr:1750,n:3},{cur:1208,maxStage:1210,rate:82000,kr:1700,n:3}];
+    var pts=[], t=Date.now()-9*7*3600000, playH=22, combat=900000, kills=40000, xp=20000000;
+    var legs=[{cur:1106,maxStage:1109,rate:34000,kr:1900,xr:160000,n:3},{cur:1206,maxStage:1209,rate:56000,kr:1750,xr:700000,n:3},{cur:1208,maxStage:1210,rate:82000,kr:1700,xr:2400000,n:3}];
     legs.forEach(function(L){ for(var i=0;i<L.n;i++){
-      t+=7*3600000; playH+=4; combat+=L.rate*4; kills+=L.kr*4;
-      pts.push({t:t,gold:30000+Math.round(combat/40),lifeGold:combat+7858,combat:combat,kills:kills,
+      t+=7*3600000; playH+=4; combat+=L.rate*4; kills+=L.kr*4; xp+=L.xr*4;
+      pts.push({t:t,gold:30000+Math.round(combat/40),lifeGold:combat+7858,combat:combat,kills:kills,xp:xp,
         cur:L.cur,playH:+playH.toFixed(2),maxStage:L.maxStage,items:30+pts.length,runes:40+pts.length});
     }});
     return pts;
@@ -2590,7 +2719,7 @@ function loadDemo(){
     runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
     account:demoAccount,
     killsByMonster:[{name:'Orc',kills:7683,g:14,x:14},{name:'Slime',kills:7532,g:10,x:10},{name:'Orc Warrior',kills:7230,g:17,x:17},{name:'Skeleton',kills:5740,g:12,x:12},{name:'Scorpion',kills:5685,g:13,x:13},{name:'Bat',kills:5449,g:11,x:11},{name:'Giant Fly',kills:5023,g:15,x:15}],
-    gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes),
+    gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes), stones:enchantStonesD(owned),
     kills:72091,lifeGold:1574858,goldBySource:{total:1574858,combat:1567000,other:7858,validated:true}});
   $('dot').className='dot demo';$('statusText').textContent='SAMPLE — not your data';
 }
