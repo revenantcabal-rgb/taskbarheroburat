@@ -58,6 +58,11 @@ _Last updated: 2026-06-10, after session 3 — shipped #2 (full who's-carrying b
 - **Confidence: 9/10.** Deduction: the Electron app and the browser `Connect folder` *native dialog* were verified by code-reading + a mock directory handle, not a real end-to-end run; no installer/Pages yet; screenshot tool times out on the animated UI (tooling, not app).
 
 ## Next step
-**#2 + #3 are shipped.** Highest-leverage next move: **real-run verification + Phase 7 packaging** — launch the Electron app
-(`npm start`) and the browser `Connect folder` flow for real, fix anything live, then build the NSIS installer
-(winCodeSign fix) + deploy GitHub Pages so friends can use it. See [SESSION-GOAL.md](SESSION-GOAL.md) / [improvement.log](../improvement.log).
+**#2 + #3 are shipped** (maps to [GOAL.md](GOAL.md) Phase C ✓). The owner's broader roadmap ([GOAL.md](GOAL.md)) still has:
+- **Phase A — full-catalog Codex** (owner's stated #1 ask): a browsable grid of the ENTIRE catalog (all 5944 items + runes/
+  skills/materials) with real name/icon/rarity/effects, independent of ownership; mark owned vs not; + a full-catalog render audit.
+- **Phase B — offline-cap timer**: dump `OfflineRewardInfoData`, show time-until-cap from save `lastSavedTime` (calibrate the
+  real cap vs the Player.log `[OfflineReward]` deltas — do NOT assume 8h).
+- **Real-run verification + Phase 7 packaging**: launch Electron (`npm start`) + the real `Connect folder` flow, fix anything
+  live, then NSIS installer (winCodeSign fix) + GitHub Pages so friends can use it.
+See [SESSION-GOAL.md](SESSION-GOAL.md) · [improvement.log](../improvement.log) · [GOAL.md](GOAL.md).

@@ -2,6 +2,10 @@
 Read CLAUDE.md + docs/PRD.md + improvement.log FIRST. Read-only, calibrated, verify vs the LIVE save, commit+push each step.
 Golden rule: a helper, never game-breaking, never bannable; never fabricate — every label from the game's own tables/localization.
 
+> **STATUS (2026-06-10): PHASE C ✓ DONE** (rune panel shipped earlier; "who's carrying" full source breakdown shipped this
+> session — see improvement.log / docs/PROGRESS.md). **PHASE A (full-catalog Codex)** and **PHASE B (offline-cap timer)**
+> are still PENDING and remain the owner's top asks. Also pending: real-run verification + Phase 7 packaging (NSIS + Pages).
+
 ## COVERAGE REALITY (calibrated vs gamedata.min.json — built from the game's OWN master tables, NOT from what the owner has collected)
 - items 5944: **name 100%, icon 100%, grade 100% of gear** (125 materials are g:null by design). So EVERY endgame item the
   owner has never seen is ALREADY in the DB with name+icon+rarity+effects. The low-level live save only verifies the ~40 OWNED.
@@ -35,13 +39,13 @@ AC: Codex shows every item correctly; audit reports 100% name+icon across 5944; 
    not a fixed clock — DO NOT invent a reset time. "Best time to go offline" = anytime; just return before the cap.
 AC: timer matches the game's offline accrual exactly.
 
-## PHASE C — RUNE PANEL + "WHO'S CARRYING" full breakdown (save-only, safe)
-1. Rune-tree panel: real names + icons + per-node current level + cheapest-next-upgrade + category (RuneInfoData/RuneLevelInfoData
-   JOIN save RuneSaveData).
-2. "Who's carrying" full source breakdown per deployed hero: base HeroInfoData / gear (DB.gear inherent + enchants) / tree
-   (AttributeInfoData JOIN attributeSaveDatas + unlockedAttributeGroupKeys) / passives (PassiveSkillInfoData) / runes / pet
-   (PetInfoData via ArrangedPetKey). LABEL gear/build power, NOT live DPS. No XP-to-next/ETA (no level curve in tables).
-AC: both render save-only, calibrated, 0 console errors.
+## PHASE C — RUNE PANEL + "WHO'S CARRYING" full breakdown (save-only, safe) — ✓ DONE
+1. ✓ Rune-tree panel: real names + icons + per-node current level + cheapest-next-upgrade (RuneInfoData/RuneLevelInfoData
+   JOIN save RuneSaveData). Shipped (Runes tab).
+2. ✓ "Who's carrying" full source breakdown per deployed hero: base HeroInfoData / gear (DB.gear inherent + enchants) / tree
+   (AttributeInfoData JOIN attributeSaveDatas) + active skills / account-wide runes + pet (PetInfoData via ArrangedPetKey).
+   Labeled gear/build power, NOT live DPS; no XP-to-next (no level curve). Shipped on Party + account-wide panel.
+AC met: both render save-only, calibrated (Node+browser parity), 0 console errors.
 
 ## DEFERRED (golden rule — note, never guess)
 Live DPS/combat memory reading; per-act gold/hr (needs memory); Steam Market value (Inventory Service throttled/empty this build);

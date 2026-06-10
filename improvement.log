@@ -22,12 +22,16 @@ Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md,
   EXACTLY to total kills, 26 types e.g. Orc 7683 / Slime 7532, 0 unnamed).
 - Read-only re-audited: zero writes/injection to game/save/memory. verify_save.js passes (0 unresolved names, 100% icons).
 
-## NEXT GOAL (priority order)
-1. Real-run verification + Phase 7 packaging: actually launch the Electron app (npm start) and the browser
-   Connect-folder flow (both verified so far only by code + a mock dir handle); fix anything live; then build the NSIS
-   installer (winCodeSign fix) + deploy GitHub Pages so friends can use it. This is the blocker to real-world use.
-2. Per-act gold/hr (PRD #2) — only honestly doable if attributable without the memory lane; otherwise leave deferred.
-3. Decode remaining aggregate Types (2.1-3, 4/5/7, 10, 15) — ONLY if calibratable vs a known delta; else leave as-is.
+## NEXT GOAL (owner's full per-phase roadmap is docs/GOAL.md)
+1. Phase A — full-catalog CODEX (owner's stated #1 ask): browsable grid of the ENTIRE catalog (all 5944 items + runes +
+   skills + materials) with real name/icon/rarity/effects, independent of ownership; mark owned vs not; + a full-catalog
+   render audit (extend scripts/verify_save.js to assert 100% name+icon across all 5944, not just owned).
+2. Phase B — offline-cap timer: dump OfflineRewardInfoData; show time-until-cap from save lastSavedTime, calibrated vs the
+   Player.log [OfflineReward] deltas (do NOT assume 8h).
+3. Real-run verification + Phase 7 packaging: launch the Electron app (npm start) + the real browser Connect-folder flow
+   (both verified so far only by code + a mock dir handle); fix anything live; then NSIS installer (winCodeSign fix) +
+   GitHub Pages. Blocker to real-world use.
+4. (deferred/caution) per-act gold/hr + live DPS need the memory lane — don't build unless provably ban-safe.
 
 ## DEFERRED — golden rule, leave a note not a guess
 Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & clear-time (need memory); Steam Market
