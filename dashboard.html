@@ -175,6 +175,11 @@
   #tip .tmods{margin-top:8px;border-top:1px solid var(--line);padding-top:7px;display:flex;flex-direction:column;gap:3px}
   #tip .tmod{display:flex;justify-content:space-between;gap:14px;color:var(--muted)}
   #tip .tmod b{color:var(--amber);font-weight:600}
+  #tip .tcap{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:3px;font-weight:700}
+  #tip .tmods.inh .tmod b{color:var(--blue2)}
+  #tip .tmod .mt{opacity:.5;font-size:10px;font-weight:500;margin-left:4px}
+  #tip .tuniq{margin-top:8px;border-top:1px solid var(--line);padding-top:7px;color:var(--purple);font-size:11.5px;line-height:1.45}
+  #tip .tuniq::before{content:"★ ";opacity:.9}
 
   /* ---------- bars / tables ---------- */
   .panel{background:linear-gradient(160deg,var(--surface),var(--bg2));border:1px solid var(--line);
@@ -278,7 +283,8 @@ function rrank(g){return RARITY.indexOf(g);}
 function rvar(g){return g?('var(--r-'+g+')'):'var(--line)';}
 function nz(v){return v&&v!==0&&v!=='0';}
 function ticksToDate(t){var n=typeof t==='string'?Number(t):t;return n?new Date(n/10000-NET):null;}
-function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:i.mat,desc:i.desc,fx:i.fx,mt:i.mt}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false,desc:null,fx:null,mt:null};}
+function gearStats(gk){return (gk&&DB.gear)?(DB.gear[gk]||DB.gear[String(gk)]||null):null;}
+function itemInfo(k){var i=DB.items[k]||DB.items[String(k)];return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:i.mat,desc:i.desc,fx:i.fx,mt:i.mt,gk:i.gk,base:gearStats(i.gk)}:{name:'#'+k,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false,desc:null,fx:null,mt:null,gk:null,base:null};}
 function statMod(modKey){return DB.stats&&DB.stats[String(modKey)];}
 function runeDetail(save){
   var lvlOf={};save.forEach(function(r){lvlOf[String(r.RuneKey)]=r.Level||0;});
@@ -318,7 +324,7 @@ function analyze(psd){
     return {uid:String(it.UniqueId),key:String(it.ItemKey),icon:info.ic||iconId(it.ItemKey),
       ench:(it.EnchantCount||[]).reduce(function(x,y){return x+y;},0),mods:mods,
       name:info.name,grade:info.grade,type:info.type,gt:info.gt,lvl:info.lvl,mat:info.mat,
-      desc:info.desc,fx:info.fx,mt:info.mt};
+      desc:info.desc,fx:info.fx,mt:info.mt,base:info.base};
   });
   var byUid={}; owned.forEach(function(o){byUid[o.uid]=o;});
   var byR={}; owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
@@ -367,18 +373,28 @@ function iconImg(icon,cls){
 var tip=$('tip');
 function cap(s){return s?(s.charAt(0)+s.slice(1).toLowerCase()):s;}
 function showTip(e,it){
-  // mods are pre-resolved {name,value,tier,mod} from the game's StatModInfoData (authoritative).
+  // Inherent (base) gear stats — authoritative STATTYPE/MODTYPE/Value from the game's GearInfoData.
+  // The numeric value is shown RAW (the game's own number) with a modtype tag; we do NOT assert an
+  // exact % interpretation of MULTIPLICATIVE/ADDITIVE (pending live-UI calibration). Never fabricated.
+  var inh=(it.base&&it.base.i||[]).map(function(s){
+    var tag=(s.m&&s.m!=='FLAT'&&s.m!=='PERCENT')?(' <span class="mt">'+s.m.toLowerCase().slice(0,4)+'</span>'):'';
+    return '<div class="tmod"><span>'+s.sn+tag+'</span><b>'+fmt(s.v)+(s.m==='PERCENT'?'%':'')+'</b></div>';}).join('');
+  // player-applied enchant mods — pre-resolved {name,value,tier,mod} from StatModInfoData (authoritative).
   var mods=(it.mods||[]).map(function(m){var pct=(m.mod==='PERCENT'||/Percent$/.test(m.name))?'%':'';
     return '<div class="tmod"><span>'+m.name+'</span><b>+'+fmt(m.value)+pct+(m.tier?(' · T'+m.tier):'')+'</b></div>';}).join('');
   // material contextual effects (per socket type) from StatModGroupInfoData
   var fx=(it.fx||[]).map(function(f){return '<div class="tmod"><span>'+cap(f.g)+'</span><b>'+f.sn+(f.t?(' · T'+f.t):'')+'</b></div>';}).join('');
+  // unique mod — authoritative effect text from UniqueModInfoData -> localization
+  var um=(it.base&&it.base.u)?('<div class="tuniq">'+it.base.u+'</div>'):'';
   var meta=[it.mat?(it.mt?(cap(it.mt)+' material'):'Material'):(it.gt||it.type), it.lvl?('Lvl '+it.lvl):null].filter(Boolean).join(' · ');
   tip.innerHTML='<div class="tn">'+it.name+'</div>'+
     (it.grade?'<div class="tr" style="color:'+rvar(it.grade)+'">'+it.grade+'</div>':'')+
     (meta?'<div class="tmeta">'+meta+'</div>':'')+
     (it.desc?'<div class="tdesc">'+it.desc+'</div>':'')+
-    (mods?('<div class="tmods">'+mods+'</div>'):'')+
-    (fx?('<div class="tmods">'+(it.mods&&it.mods.length?'':'')+fx+'</div>'):'');
+    (inh?('<div class="tmods inh"><div class="tcap">Inherent stats</div>'+inh+'</div>'):'')+
+    (mods?('<div class="tmods"><div class="tcap">Enchants</div>'+mods+'</div>'):'')+
+    (fx?('<div class="tmods"><div class="tcap">Socket effects</div>'+fx+'</div>'):'')+
+    um;
   tip.classList.add('show');moveTip(e);
 }
 function moveTip(e){
@@ -668,7 +684,7 @@ Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),functi
 /* ---------- demo / sample ---------- */
 // demo items are real keys resolved through the authoritative DB (real names/icons/grades/levels).
 function demoItem(key,mods){var k=String(key);var i=DB.items[k]||{};return {uid:'d'+k,key:k,icon:i.ic||iconId(k),
-  grade:i.g,gt:i.gt,type:i.t||'GEAR',lvl:i.lvl,ench:mods?mods.length:0,mods:mods||[],name:i.n||('#'+k),mat:!!i.mat};}
+  grade:i.g,gt:i.gt,type:i.t||'GEAR',lvl:i.lvl,ench:mods?mods.length:0,mods:mods||[],name:i.n||('#'+k),mat:!!i.mat,base:gearStats(i.gk)};}
 function loadDemo(){
   session=null;
   var owned=[

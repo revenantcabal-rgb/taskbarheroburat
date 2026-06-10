@@ -15,7 +15,9 @@ const netTicksToDate=t=>{const n=typeof t==='string'?Number(t):t;return n?new Da
 const pick=(a,t,s)=>{const r=(a||[]).find(x=>x.Type===t&&x.SubKey===s);return r?r.Value:null;};
 const nz=v=>v&&v!==0&&v!=='0';
 
-function itemInfo(key){ const i=DB&&DB.items&&(DB.items[key]||DB.items[String(key)]); return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:!!i.mat}:{name:'#'+key,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false}; }
+// gearStats(gk): authoritative inherent stats + unique-mod text for a GearKey (DB.gear from GearInfoData/UniqueModInfoData). No fabrication.
+function gearStats(gk){ return (gk&&DB&&DB.gear)?(DB.gear[gk]||DB.gear[String(gk)]||null):null; }
+function itemInfo(key){ const i=DB&&DB.items&&(DB.items[key]||DB.items[String(key)]); return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:!!i.mat,gk:i.gk,base:gearStats(i.gk)}:{name:'#'+key,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false,gk:null,base:null}; }
 // enchant stat-mod -> authoritative display name (DB.stats from the game's StatModInfoData). No fabrication.
 function statName(modKey){ const s=DB&&DB.stats&&DB.stats[String(modKey)]; return s?s.sn:('Stat #'+modKey); }
 function resolveMods(ench){ return (ench||[]).filter(m=>m&&m.StatModKey).map(m=>{ const s=DB&&DB.stats&&DB.stats[String(m.StatModKey)]; return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null,stat:s?s.s:null}; }); }
@@ -44,4 +46,4 @@ function snapshotFromPsd(psd){ return {capturedAt:new Date().toISOString(),summa
 function snapshot(buffer){ return snapshotFromPsd(loadSave(buffer)); }
 function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev.summary.lastSaved); const h=ms/3600000; const d=(a,b)=>(a==null||b==null)?null:b-a; const ph=v=>(v==null||!h)?null:Math.round(v/h); const dg=d(prev.gold,cur.gold),dk=d(prev.aggregates.totalKills,cur.aggregates.totalKills); return {spanMinutes:+(ms/60000).toFixed(1),goldDelta:dg,goldPerHour:ph(dg),killsDelta:dk,killsPerHour:ph(dk)}; }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,netTicksToDate,itemInfo,heroClass,iconId,statName,resolveMods,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,netTicksToDate,itemInfo,gearStats,heroClass,iconId,statName,resolveMods,GOLD_KEY};

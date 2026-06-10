@@ -68,6 +68,42 @@ def main():
     for r in rows("MaterialInfoData.txt"):
         materials[r["ItemKey"]] = {"mt": r["MATERIALTYPE"], "grp": r.get("StatModGroupKey") or None}
 
+    # ---- unique mods: UniqueModKey -> authoritative effect text (localized) ----
+    uniquemods = {}
+    for r in rows("UniqueModInfoData.txt"):
+        nm = r["UniqueMod"]
+        uniquemods[r["UniqueModKey"]] = loc.get("UniqueMod_" + nm) or prettify(nm)
+
+    # ---- gear stats: GearKey -> {inherent stats (labeled), unique-mod text} ----
+    # ONLY the authoritatively-labeled fields. GearInfoData also has BaseStat1/2_Value, but the game
+    # ships no GearTypeInfoData mapping those columns to a stat type, so we DO NOT display or guess them
+    # (golden rule: never fabricate a label). Inherent stats carry their own STATTYPE/MODTYPE -> real.
+    gear = {}
+    gear_inh = gear_um = 0
+    for r in rows("GearInfoData.txt"):
+        inh = []
+        for i in (1, 2, 3):
+            st = r.get("InherentStat%d_STATTYPE" % i)
+            if st and st != "NONE":
+                raw = r.get("InherentStat%d_Value" % i) or "0"
+                try:
+                    v = float(raw)
+                    v = int(v) if v.is_integer() else v
+                except ValueError:
+                    v = raw
+                inh.append({"sn": loc.get("StatName_" + st) or prettify(st), "st": st,
+                            "m": r.get("InherentStat%d_MODTYPE" % i), "v": v})
+        e = {}
+        if inh:
+            e["i"] = inh
+            gear_inh += 1
+        umk = (r.get("UniqueModKey") or "").strip()
+        if umk and umk in uniquemods:
+            e["u"] = uniquemods[umk]
+            gear_um += 1
+        if e:  # store only gear that has labeled inherent stats and/or a unique mod
+            gear[r["GearKey"]] = e
+
     # ---- rune per-level effects: LevelKey -> [{level, cost, value, stat}] ----
     rune_levels = {}
     for r in rows("RuneLevelInfoData.txt"):
@@ -149,14 +185,18 @@ def main():
         "heroes": old.get("heroes"),
         "items": items,
         "stats": stats,
+        "gear": gear,
         "runes": runes,
         "_calibrated": {
-            "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
+            "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/GearInfoData/UniqueModInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
             "rarityFrom": "itemKey 3rd digit == GRADE column, validated 5760/5760 gear rows",
             "namesAuthoritative": name_resolved + name_literal,
             "namesFallback": name_fallback,
             "descriptions": desc_count,
             "materialEffects": mat_fx,
+            "gearInherentStats": gear_inh,
+            "gearUniqueMods": gear_um,
+            "gearBaseStatsShown": "no - GearTypeInfoData absent, BaseStat1/2 columns unlabeled, not guessed",
             "gameVersion": GAME_VERSION,
         },
     }
@@ -170,6 +210,7 @@ def main():
 
     print(f"items {len(items)} | names auth {name_resolved+name_literal}, fallback {name_fallback} | desc {desc_count} | mat-effects {mat_fx}")
     print(f"stats {len(stats)} | runes {len(runes)} (with per-level effects)")
+    print(f"gear {len(gear)} | inherent-stat sets {gear_inh} | unique mods {gear_um}")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 
