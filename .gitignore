@@ -4,4 +4,7 @@ dist/
 
 # never commit player saves or extraction intermediates
 *.es3
+*.es3.bak
+*.bak
+test/
 scripts/_gamedata_raw/
