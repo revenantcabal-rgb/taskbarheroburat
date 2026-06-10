@@ -7,9 +7,10 @@ It **never writes to, modifies, or injects into the game** — it only reads fil
 Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 
 ## What it shows (8 tabs)
-- **Overview** — gold, current/max stage, total kills, runes, session gold/hr & kills/hr, an **offline-rewards card**
-  (live idle timer + last collection rate + cap learned from your own logs), deployed party, active pet, a "who's
-  carrying" gear-strength ranking, and your best trophies.
+- **Overview** — gold, current & max stage (shown as **"Act X-Y" + the real stage name**, never a raw key), total
+  kills, runes, session gold/hr & kills/hr, an **offline-rewards card** (live idle timer + last collection rate + cap
+  learned from your own logs), deployed party, active pet, a plain-language **"who's carrying"** gear-strength ranking
+  (labeled bar + tooltips, no jargon), and your best trophies.
 - **Party** — every hero with level, **real XP-to-next-level progress** (calibrated from the game's level curve),
   equipped gear (hover for stats), equipped skill names, and a **full "who's carrying" source breakdown**: each deployed
   hero's stats attributed to Base / Gear / Tree, plus account-wide runes & pet.
@@ -18,8 +19,10 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 - **Loot** — Steam boxes held, offline-reward gold (with real timestamps), and a save-diff drop timeline with
   **Legendary+ rare-drop alerts** (optional, opt-in silent desktop notification).
 - **Runes** — the 197-node rune tree with real names/effects, leveled status, and cheapest-next-upgrade recommendations.
-- **Lifetime** — total kills, gold earned, per-difficulty completions, owned-by-rarity, and a calibrated
-  **kills-by-monster** breakdown.
+- **Lifetime** — total kills, gold earned, max stage (as "Act X-Y"), owned-by-rarity, and a calibrated
+  **kills-by-monster** breakdown (the per-monster counts sum exactly to total kills). Only counters whose meaning is
+  calibrated are shown — uncalibrated save aggregates are omitted rather than guessed (so nothing claims progress your
+  save doesn't support).
 - **Trends** — gold/kills/stage progression and gold-per-hour over time, charted from the game's own rolling save backups.
 - **Codex** — a browsable, virtualized grid of the game's **entire catalog** (5,944 items + 197 runes + 36 skills),
   independent of ownership (owned marked ✓). Filter by type / rarity / gear type, search by name or ID, sort, owned-only.
@@ -39,6 +42,9 @@ The UI is **fully responsive** — it works on phone, tablet, and desktop (no ho
   This reads your live save **plus** the rolling backups and `Player.log`, so you get History/Trends and the loot
   timeline. It updates live as you play.
 - **Connect file** → pick just `SaveFile_Live.es3` (everything except Trends).
+
+The connect screen walks you through it step-by-step (with a one-click button to copy the exact folder path), and a
+**Disconnect / Change folder** button in the header lets you clear the loaded save and switch to a different one at any time.
 
 No save handy? Click **Preview sample** for a demo, or **Browse the full item catalog** to explore the Codex with no save.
 (`?demo` and `?codex` also work as URL shortcuts.) The repo is also **Vercel-ready** (`vercel.json` + `index.html`) — import

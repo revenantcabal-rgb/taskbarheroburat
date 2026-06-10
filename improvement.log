@@ -1,9 +1,34 @@
 # TBH HUD — improvement.log
-Updated 2026-06-10 (cowork, session 5). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.1.
+Updated 2026-06-10 (cowork, session 7). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.2.
 Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~35 commits. Read-only, calibrated, SHIPPED (v1.0.1). All 8 tabs render vs the live save with 0 console errors.
+~37 commits. Read-only, calibrated, SHIPPED (v1.0.2). All 8 tabs render vs the live save with 0 console errors.
+- Session 7 — DATA HONESTY + UX (owner found these by REAL use; #1 rule: show ONLY what is TRUE in a user's own save):
+  • P1 REMOVED A SHIPPED FABRICATION — the Lifetime "Difficulty completions" panel read aggregate Type 16 as
+    Normal/Nightmare/Hell/Torment. That mapping is UNCALIBRATED and DISPROVEN by the live save: the account is
+    Normal-only (maxCompletedStage 1210 = Act 2-10, the first difficulty band) yet Type 16 = [263,179,83,1] would
+    claim Nightmare 179 / Hell 83 / Torment 1. Removed from both engines, the renderer, and the demo. aggregates()
+    now surfaces ONLY calibrated counters: lifetime gold (Type 2/Sub0, delta-matched) + total kills (Type 0/Sub0,
+    sum-validated by per-monster). Lifetime "Notes" now states WHY the per-difficulty reading is omitted. README
+    fixed too (it had claimed "per-difficulty completions"). verify_save.js extended with DATA-HONESTY ASSERTIONS:
+    fails if perDifficultyCompletions is exposed or any non-whitelisted aggregate leaks; asserts kills-by-monster
+    sum == totalKills; prints the Type-16 disproof. Live save: PASS.
+  • P2 STAGE DISPLAY — never show the raw stageKey. New stageLabel/stageActLabel/stageName decode
+    act=floor(k/100)-10, stage=k%100 (VERIFIED 1208->Act 2-8 "Sacred Tomb"; 1101->Act 1-1 "Pasture";
+    1210->Act 2-10 "Pharaoh's Underchannel") + the real StageName_<key> where present, else just "Act X-Y".
+    build_gamedata.py bakes DB.stages (30 names from localization). Fixed Overview, Lifetime, Trends (chart + table).
+    Headless: no raw stage-key leak anywhere.
+  • P3 OVERVIEW CLARITY — "Who's carrying" no longer prints "NN Σlvl · N gear · Rarity". Plain words ("Total gear
+    level NN · N items · best <Rarity>") + a hint line ("each bar = total equipped gear level, relative to your
+    strongest hero") + per-bar tooltips. No Σ / abbreviations / unexplained bars.
+  • P4 CONNECT + DISCONNECT — rewrote the connect screen as 3 numbered steps (click Connect folder → paste the
+    exact path with a one-click Copy button → Allow), privacy note kept/strengthened. Added a header "↩ Disconnect"
+    (logout): clears the loaded save + file/dir handles + live watchers + session/trends and returns to the connect
+    screen so a user can disconnect or switch saves. setConnectedUI() swaps pickers ↔ Disconnect; hidden in Electron.
+  • P5 FIRST-VISIT POLISH — friendly "no save yet" placeholder on data tabs (icon + per-tab message + Connect/Browse
+    buttons); cleaner gate (step cards, kbd chips, copy-path); styled gate links; reusable .hint class. Responsive:
+    0 horizontal overflow at 375px (mobile path wraps). Version -> 1.0.2; cache-bust gamedata.min.js?v=1.0.2 (DB gained stages).
 - Session 5 — verify + polish + responsiveness + uniqueness:
   • VERIFIED prior work is real (git clean/synced, audit 100%, live save parses, NO fabricated placeholders — the
     only grep hits are a real search-input placeholder attr + the 404 icon-fallback comment + the honest "type-15
@@ -69,15 +94,17 @@ Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md,
 - Read-only re-audited: zero writes/injection to game/save/memory. verify_save.js passes (0 unresolved names, 100% icons).
 
 ## NEXT GOAL (owner's full per-phase roadmap is docs/GOAL.md)
-A + B + 7 SHIPPED; session 5 added responsiveness + real XP-to-next + Vercel-ready + v1.0.1. Remaining/optional:
-1. VERCEL DEPLOY (owner, 1 click): import revenantcabal-rgb/taskbarheroburat at vercel.com (repo is Vercel-ready:
-   vercel.json + index.html). I could not auto-deploy (no interactive Vercel auth; only the Fusion Data Company team is
-   available). Browser access is already live via GitHub Pages — Vercel is an additive second host.
-2. Sign the installer with a real cert (WIN_CSC_LINK + re-enable win.signAndEditExecutable/verifyUpdateCodeSignature,
+Session 7 P1-P5 (data honesty + UX) SHIPPED to web (Pages) on push. Remaining/optional:
+1. PUBLISH the v1.0.2 desktop release so the data-honesty fix reaches existing Electron installs via auto-update:
+   `npm run dist` then `gh release create v1.0.2 dist/TBH-HUD-Setup-1.0.2.exe dist/latest.yml dist/*.blockmap`.
+   (Web is already current; desktop users on 1.0.0/1.0.1 still see the old build until 1.0.2 is published.)
+2. VERCEL DEPLOY (owner, 1 click): import revenantcabal-rgb/taskbarheroburat at vercel.com (repo is Vercel-ready:
+   vercel.json + index.html). Couldn't auto-deploy (no interactive Vercel auth). Pages is already live.
+3. Sign the installer with a real cert (WIN_CSC_LINK + re-enable win.signAndEditExecutable/verifyUpdateCodeSignature,
    build with Dev-Mode/elevation) to remove the SmartScreen "unknown publisher" prompt. Currently unsigned by design.
-3. Deepen the Codex (synthesis/crafting recipes via SynthesisRecipeInfoData/CraftingRecipeInfoData, set bonuses,
+4. Deepen the Codex (synthesis/crafting recipes via SynthesisRecipeInfoData/CraftingRecipeInfoData, set bonuses,
    per-source drop rates) — optional uniqueness.
-4. (deferred/caution) per-act gold/hr + live DPS / clear-time need the memory lane — don't build unless provably ban-safe.
+5. (deferred/caution) per-act gold/hr + live DPS / clear-time need the memory lane — don't build unless provably ban-safe.
 
 ## DEFERRED — golden rule, leave a note not a guess
 Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & clear-time (need memory); Steam Market
@@ -88,13 +115,14 @@ counters shown only if calibrated; otherwise omitted.
 ## GOLDEN RULE
 An additional helper, never game-breaking. Read-only always (CodeStage [ACTk] anti-cheat). No fabricated data — every
 label calibrated from the game's own tables/localization; honest fallback or omit. Verify EVERY change vs the LIVE save
-(Node + headless browser, all 7 tabs, 0 console errors). QoL only.
+(Node + headless browser, all 8 tabs, 0 console errors). QoL only.
 
 ## CONFIDENCE 9/10
-A+B+7 + session-5 polish shipped & verified: Codex owned-markers reconcile exactly; drop chain 5554/5554; audit 100% over
-6177; offline +739g/93s reproduced; XP-to-next calibrated vs all 6 live heroes (Knight L1 → 30 == ExpForLevelUp[1]);
-responsiveness measured (0 overflow @375/768/1280); v1.0.1 installer is a valid PE; Release v1.0.1 published (auto-update
-chain); Pages live with the new DB (levels) + ?v=1.0.1 cache-bust. Deduction (-1): the installer + electron-updater were
-built/validated/published but not run through a clean-machine INSTALL→update cycle here; the native Connect-folder dialog was
-exercised by code + a real-save fixture, not a hand-driven session; installer unsigned (SmartScreen); Vercel is repo-ready but
-not deployed (no interactive Vercel auth; only the work team available) — Pages already provides verified browser access.
+Session-7 P1-P5 shipped & verified: verify_save.js PASS vs the LIVE save with new data-honesty assertions (no
+perDifficultyCompletions; only calibrated aggregates; kills-by-monster sum == totalKills == 99,744; Type-16 disproof
+printed); stages decode 1101->Act 1-1 Pasture / 1208->Act 2-8 Sacred Tomb / 1210->Act 2-10 Pharaoh's Underchannel, no raw
+key leaks; headless demo + synthetic trends across all 8 tabs = 0 console errors; connect→disconnect→reconnect state
+transitions correct; gate/connect-hint responsive (0 horizontal overflow @375). DB rebuilt (audit 100% over 6177; +stages).
+Deduction (-1): the v1.0.2 desktop installer/release is NOT yet built+published, so existing Electron installs keep the old
+(fabricated) build until auto-update sees a 1.0.2 release — the WEB build (Pages) is current on push; native Connect-folder
+dialog is exercised by code + a real-save fixture, not a hand-driven OS picker session; installer unsigned (SmartScreen).

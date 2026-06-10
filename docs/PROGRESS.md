@@ -6,7 +6,7 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · 🔵 next (planned in SESSION-GOAL) · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-10, after session 5 (v1.0.1) — responsiveness + real hero XP-to-next + Vercel-ready + v1.0.1 release. (Session 4: Codex + offline card + installer/Pages/auto-update.)_
+_Last updated: 2026-06-10, after session 7 (v1.0.2) — DATA HONESTY (removed a shipped fabrication: per-difficulty completions) + stage decode ("Act X-Y" + names) + plain-language Overview + baby-simple connect screen with a Disconnect control + first-visit UI polish. (Session 5: responsiveness + real XP-to-next + v1.0.1.)_
 
 ## Goal list (PRD §3) — where each goal stands
 | # | Goal | Status | Notes / where it landed |
@@ -19,7 +19,7 @@ _Last updated: 2026-06-10, after session 5 (v1.0.1) — responsiveness + real he
 | 6 | Per-hero perf + "who's carrying" + **WHY (source breakdown)** | ✅ | Full source breakdown shipped: per deployed hero, factual stats by Base/Gear/Tree + account-wide runes/pet. Live DPS share ⛔ (memory). |
 | 7 | Loot timeline: timestamped, rarity+source, **rare alerts** | 🟡 | Timeline + offline rewards + **rare-drop alerts** (Legendary+ ★ + opt-in notify) ✅. Per-source attribution ⛔ (live drops not logged by the game). |
 | 8 | Steam Market value for tradeables | ⛔ | Steam Inventory Service throttled/empty in this build (`CreateSteamItem … items is empty`). |
-| 9 | Lifetime stats: kills, gold, per-difficulty **+ other aggregates** | ✅ | Kills/gold/per-difficulty ✅ + **calibrated kills-by-monster** (Type-0 subs sum == total kills). A few other aggregate Types remain unconfirmed → omitted, not guessed. |
+| 9 | Lifetime stats: kills, gold **+ other aggregates** | ✅ | Total kills + lifetime gold (both calibrated) + **calibrated kills-by-monster** (Type-0 subs sum == total kills). **Per-difficulty completions REMOVED in session 7** — Type 16 is uncalibrated and was disproven by the live save (Normal-only at Act 2-10 yet claimed Nightmare/Hell/Torment); omitted per the golden rule. All other unconfirmed aggregate Types omitted, not guessed. |
 | 10 | History / trends over time | ✅ | Trends tab from rolling save backups (session 2). |
 | 11 | Runes: 197-node tree, names, leveled, cheapest-next | ✅ | Rune tab. |
 | 12 | Blue-chest / cooldown tracker | ⛔ | 12-min cadence uncalibrated (no 720s in DropCooldown). Box **counts** surfaced instead. |
@@ -59,17 +59,21 @@ _Last updated: 2026-06-10, after session 5 (v1.0.1) — responsiveness + real he
 | B — offline-rewards card | ✅ | Overview card: live idle since last save + last collection (gold+rate from Player.log) + cap countdown. Cap **learned from the user's own logs** (no game table holds it → no assumed 8h). TZ bug caught: ticks are LOCAL, idle anchored on file UTC mtime. |
 | 7 — real run + packaging | ✅ | `npm start` runs clean; installer `TBH-HUD-Setup-1.0.1.exe`; Pages live (HTTPS); electron-updater wired + Releases v1.0.0/v1.0.1 published. |
 | 5b — responsiveness + XP-to-next + Vercel-ready (session 5) | ✅ | Mobile/tablet/desktop responsive (0 overflow); real hero XP-to-next (killed the `level/20` placeholder); cache-bust `?v=`; vercel.json + index.html; v1.0.1 shipped. |
+| P1-P5 — data honesty + UX (session 7, v1.0.2) | ✅ | **P1** removed the fabricated per-difficulty completions (Type 16, disproven by the Normal-only save) → engines/renderer/demo/README; verify_save.js now asserts data honesty. **P2** stages decode to "Act X-Y" + real StageName (DB.stages baked) everywhere; no raw-key leak. **P3** plain-language "Who's carrying" (no Σ; labeled bar + tooltips + hint). **P4** baby-simple 3-step connect screen w/ copy-path + a Disconnect/Change-folder control. **P5** friendly no-save placeholder + gate polish. Verified Node + headless, 0 errors. |
 
 ## Current health
-- **No console errors** vs the live save AND demo AND standalone (?codex) across all **8 tabs**; `npm start` (Electron) runs clean (main + 4 procs, 0 stderr).
-- **Fully responsive:** 0 horizontal overflow at 375 / 768 / 1280; header wraps; wide tables scroll in-panel; Codex virtualization recomputes cols (2/4/7).
-- Read-only confirmed; all data calibrated (Codex owned-markers reconcile exactly; drop chain 5554/5554; audit 100% over 6177; offline +739g/93s reproduced; **XP-to-next calibrated vs all 6 live heroes**; Node+browser parity); local = remote.
-- **Distribution live (v1.0.1):** installer `dist/TBH-HUD-Setup-1.0.1.exe` (valid PE); Pages serves the updated DB (with `levels`) + `?v=1.0.1`; Releases v1.0.0 & v1.0.1 published (auto-update chain). Vercel-ready (not yet deployed).
-- **Confidence: 9/10.** Deduction: installer + electron-updater built/validated/published but not run through a clean-machine install→update cycle here; native Connect-folder dialog exercised by code + a real-save fixture, not a hand-driven session; installer unsigned (SmartScreen); Vercel repo-ready but not deployed (no interactive Vercel auth; Pages already provides verified browser access).
+- **DATA HONESTY (P1):** nothing on any tab claims progress the save doesn't support. The fabricated per-difficulty completions are gone; `verify_save.js` PASSES new assertions vs the LIVE save (no `perDifficultyCompletions`; only the whitelisted calibrated aggregates surface; kills-by-monster sum == totalKills; the Type-16 disproof is printed).
+- **No console errors** vs demo + standalone (?codex) + synthetic trends across all **8 tabs**; live-save engine path verified by `verify_save.js`.
+- **Stages (P2):** decode to "Act X-Y" + real StageName everywhere (Overview/Lifetime/Trends); verified 1101→Act 1-1 Pasture, 1208→Act 2-8 Sacred Tomb, 1210→Act 2-10 Pharaoh's Underchannel; no raw stage-key leak.
+- **Fully responsive:** 0 horizontal overflow at 375 / 768 / 1280; the new connect screen + no-save placeholder wrap cleanly on mobile (375).
+- Read-only confirmed; data calibrated (audit 100% over 6177; DB rebuilt with `stages`; Node+browser parity); local = remote.
+- **Distribution:** WEB is current on push — Pages serves the new build + DB at `?v=1.0.2`. The **v1.0.2 desktop installer/release is NOT yet built+published** (existing Electron installs keep the old build until a 1.0.2 release exists for auto-update). Vercel-ready (not yet deployed).
+- **Confidence: 9/10.** Deduction: the v1.0.2 installer/release isn't published yet (web is); native Connect-folder dialog exercised by code + a real-save fixture, not a hand-driven OS picker; installer unsigned (SmartScreen).
 
 ## Next step
-**Distributable now** (v1.0.1 installer + auto-update + HTTPS Pages, fully responsive, real XP-to-next). Optional follow-ups:
-- **Vercel (owner, 1 click):** import `revenantcabal-rgb/taskbarheroburat` at vercel.com — repo is Vercel-ready (vercel.json + index.html). I couldn't auto-deploy (no interactive Vercel auth; only the Fusion Data Company team available).
+**P1-P5 shipped to the web (Pages) on push.** Follow-ups (highest value first):
+- **Publish the v1.0.2 desktop release** so the data-honesty fix reaches existing installs via auto-update: `npm run dist` → `gh release create v1.0.2 dist/TBH-HUD-Setup-1.0.2.exe dist/latest.yml dist/*.blockmap`.
+- **Vercel (owner, 1 click):** import `revenantcabal-rgb/taskbarheroburat` at vercel.com — repo is Vercel-ready. (No interactive Vercel auth here; Pages is already live.)
 - **Sign the installer** (cert) to drop the SmartScreen prompt.
 - **Deepen the Codex:** synthesis/crafting recipes, set bonuses, per-source drop rates (optional uniqueness).
 See [improvement.log](../improvement.log) · [GOAL.md](GOAL.md).
