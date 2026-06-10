@@ -670,15 +670,23 @@ function heroSources(hSave, equipped, attrSave){
 }
 // accountBuffs: runes + active pet (apply to ALL heroes — account-wide, shown once).
 // killsByMonster: aggregateSaveDatas Type-0 sub-counters are per-MonsterKey kill counts
-// (VALIDATED: they sum exactly to the total-kills counter). Resolve via DB.monsters. No fabrication.
+// (VALIDATED: they sum exactly to the total-kills counter). Resolve via DB.monsters {n,g,x}. g/x = the game's
+// BASE gold/exp per kill (actual is higher with buffs). No fabrication.
 function killsByMonster(psd){
   var out=[];
   (psd.aggregateSaveDatas||[]).forEach(function(a){
     if(a.Type!==0||a.SubKey===0||!(a.Value>0))return;
-    var nm=DB.monsters&&(DB.monsters[a.SubKey]||DB.monsters[String(a.SubKey)]);
-    out.push({key:a.SubKey,name:nm||('Monster #'+a.SubKey),kills:a.Value});
+    var m=DB.monsters&&(DB.monsters[a.SubKey]||DB.monsters[String(a.SubKey)]);
+    out.push({key:a.SubKey,name:(m&&m.n)||('Monster #'+a.SubKey),kills:a.Value,g:(m&&m.g)||0,x:(m&&m.x)||0});
   });
   return out.sort(function(x,y){return y.kills-x.kills;});
+}
+// Gold by source — mirror of saveEngine.goldBySource. Type 2 sub-keys sum-validate to a partition of lifetime
+// gold; Sub1 = combat (delta-confirmed during active farming), Sub2+Sub3 = other (offline+Cube+misc, not split).
+function goldBySourceInline(a){
+  function pk(t,s){var r=a.find(function(x){return x.Type===t&&x.SubKey===s;});return r?r.Value:null;}
+  var t=pk(2,0),c=pk(2,1),s2=pk(2,2),s3=pk(2,3); if(t==null)return null;
+  var other=(s2||0)+(s3||0); return ((c!=null)&&((c+other)===t))?{total:t,combat:c,other:other,validated:true}:null;
 }
 function accountBuffs(psd){
   var runes=[];
@@ -784,7 +792,7 @@ function analyze(psd){
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd), killsByMonster:killsByMonster(psd),
     ownedSkills:ownedSkills,
-    kills:pick(0,0), lifeGold:pick(2,0)
+    kills:pick(0,0), lifeGold:pick(2,0), goldBySource:goldBySourceInline(a)
     // NOTE: aggregate Type 16 ([Normal-band counts]) is NOT surfaced. It is uncalibrated and, read as
     // per-difficulty completions, is DISPROVEN by this save (Normal-only at Act 2-10 yet would claim
     // Nightmare/Hell/Torment). Per the golden rule, omitted until a known-value calibration confirms its meaning.
@@ -1484,6 +1492,25 @@ function renderLifetime(d){
     card('Play time',d.playHours!=null?(d.playHours+' h'):'—','','','⏱️')
   ].join('')+'</div>'));
 
+  // Gold by source — CALIBRATED: Type 2 sub-keys sum-validate to lifetime total; Sub1 = combat (delta-confirmed:
+  // it grows 1:1 with the total while farming). Sub2+Sub3 = a small "other" bucket (offline + Cube + misc) we do
+  // NOT split into a standalone "Cube gold" number (golden rule — not separately calibrated).
+  var gs=d.goldBySource;
+  if(gs&&gs.validated&&gs.total>0){
+    // 1 decimal so a tiny "other" (e.g. 0.5%) never rounds to a misleading 0% next to a real gold value
+    var combatPct=(gs.combat/gs.total*100).toFixed(1), otherPct=(gs.other/gs.total*100).toFixed(1);
+    p.appendChild(frag('<h3 class="sec">Gold by source <span class="tag">sum-validated split of your lifetime gold</span></h3>'+
+      '<div class="panel"><div class="raritybar" style="margin-bottom:10px">'+
+        '<span title="From combat (stages &amp; monsters)" style="flex:'+Math.max(1,gs.combat)+';background:var(--gold)"></span>'+
+        (gs.other>0?('<span title="Offline rewards + Cube + misc" style="flex:'+Math.max(1,gs.other)+';min-width:6px;background:var(--purple)"></span>'):'')+
+      '</div><div class="rlegend">'+
+        '<span><i style="background:var(--gold)"></i>From combat (stages &amp; monsters) <b>'+fmt(gs.combat)+'</b> · '+combatPct+'%</span>'+
+        '<span><i style="background:var(--purple)"></i>Other — offline, Cube, misc <b>'+fmt(gs.other)+'</b> · '+otherPct+'%</span>'+
+      '</div>'+
+      '<div class="hint" style="margin:10px 0 0">The save splits lifetime gold into buckets that sum exactly to the total. <b>From combat</b> is calibrated (it rises 1:1 with your gold while farming). The small <b>Other</b> bucket lumps offline rewards, the Cube and misc together — the game doesn’t separate them, so we don’t invent a standalone "Cube gold" figure.</div>'+
+      '</div>'));
+  }
+
   // Owned by rarity (full width). The old "Difficulty completions" panel was REMOVED: it read aggregate
   // Type 16 as Normal/Nightmare/Hell/Torment, but that mapping is uncalibrated and is disproven by the save
   // (Normal-only at Act 2-10). Showing it would claim progress the save doesn't support → omitted (golden rule).
@@ -1492,7 +1519,7 @@ function renderLifetime(d){
   var rbar=rs.map(function(r){return '<span style="flex:'+d.byRarity[r]+';background:'+rvar(r)+'"></span>';}).join('');
   var rleg=rs.map(function(r){return '<span><i style="background:'+rvar(r)+'"></i>'+r.charAt(0)+r.slice(1).toLowerCase()+' '+d.byRarity[r]+'</span>';}).join('');
 
-  p.appendChild(el('<h3 class="sec">Owned by rarity <span class="tag">'+total+' items</span></h3>'+
+  p.appendChild(frag('<h3 class="sec">Owned by rarity <span class="tag">'+total+' items</span></h3>'+
     '<div class="panel"><div class="raritybar">'+(rbar||'<span style="flex:1;background:var(--surface3)"></span>')+'</div>'+
     '<div class="rlegend">'+(rleg||'<span style="color:var(--dim)">no graded items</span>')+'</div></div>'));
 
@@ -1500,20 +1527,22 @@ function renderLifetime(d){
   var km=d.killsByMonster||[];
   if(km.length){
     var maxK=km[0].kills||1, kmSum=km.reduce(function(s,m){return s+m.kills;},0);
-    p.appendChild(el('<h3 class="sec">Kills by monster <span class="tag">'+km.length+' types · '+fmt(kmSum)+' kills · from save counters</span></h3>'));
+    p.appendChild(el('<h3 class="sec">Kills by monster <span class="tag">'+km.length+' types · '+fmt(kmSum)+' kills · base gold/xp per kill (before buffs)</span></h3>'));
     var kbars=km.slice(0,20).map(function(m){
       var pct=Math.round(m.kills/maxK*100);
-      return '<div class="bar"><div class="top"><span class="nm">'+m.name+'</span><span class="nv">'+fmt(m.kills)+'</span></div>'+
+      var rew=(m.g||m.x)?(' <span style="color:var(--dim);font-weight:400">· '+m.g+'g / '+m.x+'xp each</span>'):'';
+      return '<div class="bar"><div class="top"><span class="nm">'+m.name+rew+'</span><span class="nv">'+fmt(m.kills)+'</span></div>'+
         '<div class="track"><div class="fill" style="width:'+pct+'%;background:linear-gradient(90deg,var(--red),var(--amber))"></div></div></div>';
     }).join('');
     p.appendChild(el('<div class="panel"><div class="bars">'+kbars+'</div>'+
       (km.length>20?('<div style="color:var(--dim);font-size:11.5px;margin-top:12px">+ '+(km.length-20)+' more monster types</div>'):'')+'</div>'));
+    p.appendChild(el('<div class="hint" style="margin-top:8px">💰 <b>Best gold / XP farming stage?</b> The game doesn’t store gold or XP <i>per stage</i>, and a true rate would need live combat timing (which we never read — ban-safe). So instead of a fabricated "best stage", the honest signals are the <b>base gold/xp per kill</b> above (which monsters are worth most — later acts give more, but hit harder) and the <b>Trends</b> tab (your real gold/hr &amp; kills over time, from save backups).</div>'));
   }
 
   p.appendChild(el('<h3 class="sec">Notes</h3>'));
   p.appendChild(el('<div class="panel" style="color:var(--muted);font-size:13px">'+
-    'Lifetime gold, total kills and the kills-by-monster breakdown above are read straight from the save\'s aggregate counters '+
-    '(calibrated: the per-monster counts sum exactly to total kills). '+
+    'Lifetime gold, total kills, the gold-by-source split and the kills-by-monster breakdown above are read straight from the save\'s aggregate counters '+
+    '(calibrated: the per-monster counts sum exactly to total kills, and the gold sources sum exactly to lifetime gold). '+
     'Other lifetime counters in the save are <b>not</b> shown because we haven\'t confirmed what they mean — for example a "per-difficulty completions" reading is omitted because it would claim Nightmare / Hell / Torment progress this Normal-only save doesn\'t support. '+
     'Live combat DPS, clear-time and gold/hr <i>per act</i> need a live-telemetry reader (not built — reading game memory is a ban risk).</div>'));
 }
@@ -2045,8 +2074,8 @@ function loadDemo(){
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
     account:demoAccount,
-    killsByMonster:[{name:'Orc',kills:7683},{name:'Slime',kills:7532},{name:'Orc Warrior',kills:7230},{name:'Skeleton',kills:5740},{name:'Scorpion',kills:5685},{name:'Bat',kills:5449},{name:'Giant Fly',kills:5023}],
-    kills:72091,lifeGold:1574858});
+    killsByMonster:[{name:'Orc',kills:7683,g:14,x:14},{name:'Slime',kills:7532,g:10,x:10},{name:'Orc Warrior',kills:7230,g:17,x:17},{name:'Skeleton',kills:5740,g:12,x:12},{name:'Scorpion',kills:5685,g:13,x:13},{name:'Bat',kills:5449,g:11,x:11},{name:'Giant Fly',kills:5023,g:15,x:15}],
+    kills:72091,lifeGold:1574858,goldBySource:{total:1574858,combat:1567000,other:7858,validated:true}});
   $('dot').className='dot demo';$('statusText').textContent='SAMPLE — not your data';
 }
 $('demoBtn').addEventListener('click',loadDemo);

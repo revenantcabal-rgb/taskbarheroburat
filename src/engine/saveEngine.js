@@ -45,7 +45,7 @@ function heroSources(hSave, equipped, attrSave){
   return {base:heroBase(hSave.heroKey), gear:sumStats(gearList), tree:sumStats(treeList), treeSkills};
 }
 // per-MonsterKey kill counts from aggregateSaveDatas Type-0 sub-counters (sum == total kills; calibrated).
-function killsByMonster(psd){ const out=[]; (psd.aggregateSaveDatas||[]).forEach(a=>{ if(a.Type!==0||a.SubKey===0||!(a.Value>0))return; const nm=DB&&DB.monsters&&(DB.monsters[a.SubKey]||DB.monsters[String(a.SubKey)]); out.push({key:a.SubKey,name:nm||('Monster #'+a.SubKey),kills:a.Value}); }); return out.sort((x,y)=>y.kills-x.kills); }
+function killsByMonster(psd){ const out=[]; (psd.aggregateSaveDatas||[]).forEach(a=>{ if(a.Type!==0||a.SubKey===0||!(a.Value>0))return; const m=DB&&DB.monsters&&(DB.monsters[a.SubKey]||DB.monsters[String(a.SubKey)]); out.push({key:a.SubKey,name:(m&&m.n)||('Monster #'+a.SubKey),kills:a.Value,g:(m&&m.g)||0,x:(m&&m.x)||0}); }); return out.sort((x,y)=>y.kills-x.kills); }
 function accountBuffs(psd){
   const runes=[]; (psd.RuneSaveData||[]).forEach(r=>{ const lv=r.Level||0; if(lv<=0)return; const d=DB&&DB.runes&&DB.runes[r.RuneKey]; if(!d)return; const cur=(d.lv||[]).find(x=>x.l===lv); runes.push({n:d.n,eff:d.eff,level:lv,val:cur?cur.val:null}); });
   runes.sort((a,b)=>b.level-a.level);
@@ -106,7 +106,14 @@ function runes(psd){ const a=psd.RuneSaveData||[]; return {total:a.length,levele
 // exactly), Type 0/Sub0 = total kills (its per-MonsterKey sub-counters sum exactly to this). aggregate Type 16
 // is deliberately NOT exposed: read as per-difficulty completions it is DISPROVEN by the save (Normal-only,
 // maxCompletedStage in Act 2) yet would claim Nightmare/Hell/Torment progress → omitted (golden rule).
-function aggregates(psd){ const a=psd.aggregateSaveDatas||[]; return { lifetimeGold:pick(a,2,0), totalKills:pick(a,0,0) }; }
+// Gold by source (CALIBRATED): Type 2 sub-keys are a sum-validated partition of lifetime gold — Sub0 = total and
+// Sub1+Sub2+Sub3 == Sub0 exactly. Sub1 = gold from combat (delta-confirmed: it grows 1:1 with the total during
+// active farming while Sub2/Sub3 stay flat). Sub2+Sub3 = non-combat gold (offline + Cube + misc) — those two can't
+// be split into specific sources without further calibration, so we bucket them honestly as "other", never guessing
+// which is "Cube". Returns null if the partition doesn't sum (don't show an unvalidated split).
+function goldBySource(a){ const t=pick(a,2,0), c=pick(a,2,1), s2=pick(a,2,2), s3=pick(a,2,3); if(t==null) return null;
+  const other=(s2||0)+(s3||0); const validated=(c!=null)&&((c+other)===t); return validated?{total:t,combat:c,other:other,validated:true}:null; }
+function aggregates(psd){ const a=psd.aggregateSaveDatas||[]; return { lifetimeGold:pick(a,2,0), totalKills:pick(a,0,0), goldBySource:goldBySource(a) }; }
 // Stage display (P2): NEVER show the raw stageKey. Decode act=floor(k/100)-10, stage=k%100 (VERIFIED:
 // 1208 -> "Act 2-8" (Sacred Tomb); 1101 -> "Act 1-1" (Pasture)). Append the real StageName_<key> where the
 // game ships one (DB.stages, 30 names baked from localization), else just "Act X-Y". Out-of-range keys

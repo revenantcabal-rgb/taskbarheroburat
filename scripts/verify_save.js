@@ -76,7 +76,7 @@ const problems = [];
 if ('perDifficultyCompletions' in snap.aggregates) problems.push('aggregates still exposes perDifficultyCompletions (uncalibrated Type 16)');
 // 2) Only CALIBRATED aggregates may appear. Whitelist: lifetimeGold (Type2/Sub0, delta-matched a gold gain),
 //    totalKills (Type0/Sub0, sum-validated by per-monster sub-counters). Any other key = an uncalibrated leak.
-const allowedAgg = ['lifetimeGold', 'totalKills'];
+const allowedAgg = ['lifetimeGold', 'totalKills', 'goldBySource'];
 const extraAgg = Object.keys(snap.aggregates).filter(k => allowedAgg.indexOf(k) < 0);
 if (extraAgg.length) problems.push('aggregates exposes uncalibrated key(s): ' + extraAgg.join(', '));
 // 3) Show WHY Type 16 is omitted: max progress decodes to the FIRST difficulty band (an early act), yet
@@ -93,6 +93,12 @@ if (snap.aggregates.totalKills != null && kmSum !== snap.aggregates.totalKills) 
   problems.push('kills-by-monster sum ' + kmSum + ' != totalKills ' + snap.aggregates.totalKills);
 } else {
   console.log('kills check   ', 'per-monster sum ' + kmSum.toLocaleString() + ' == totalKills (' + km.length + ' monster types) ✓');
+}
+// 5) Gold-by-source: the displayed split must sum EXACTLY to lifetime gold (only shown when it does).
+const gs = snap.aggregates.goldBySource;
+if (gs) {
+  if (gs.combat + gs.other !== gs.total) problems.push('goldBySource ' + gs.combat + '+' + gs.other + ' != total ' + gs.total);
+  else console.log('gold sources  ', 'combat ' + gs.combat.toLocaleString() + ' + other ' + gs.other.toLocaleString() + ' == lifetime ' + gs.total.toLocaleString() + ' ✓ (combat ' + Math.round(gs.combat / gs.total * 100) + '%; "other" bundles offline+Cube+misc, not split)');
 }
 if (problems.length) {
   console.error('FAIL data honesty:\n  - ' + problems.join('\n  - '));

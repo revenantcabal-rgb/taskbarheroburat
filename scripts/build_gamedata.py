@@ -159,13 +159,20 @@ def main():
         pets[r["PetKey"]] = {"n": L(r.get("NameKey")) or prettify((r.get("NameKey") or "").replace("PetName_", "")),
                              "desc": L(r.get("DescriptionKey"))}
 
-    # ---- monsters: MonsterKey -> name. aggregateSaveDatas Type 0 sub-counters are per-MonsterKey kill
-    # counts (VALIDATED: they sum exactly to total kills) -> enables an honest "kills by monster" breakdown.
+    # ---- monsters: MonsterKey -> {n: name, g: RewardGold, x: RewardExp}. aggregateSaveDatas Type 0 sub-counters
+    # are per-MonsterKey kill counts (VALIDATED: they sum exactly to total kills). RewardGold/RewardExp are the
+    # game's BASE per-kill rewards (actual earnings are higher with gold/XP buffs) -> honest "kills + base reward
+    # by monster" breakdown. NOTE: shape changed from a bare name string to {n,g,x}; consumers read `.n`.
     monsters = {}
     for r in rows("MonsterInfoData.txt"):
         nm = L(r.get("MonsterNameStringKey"))
         if nm:
-            monsters[r["MonsterKey"]] = nm
+            def _int(v):
+                try:
+                    return int(float(v))
+                except (TypeError, ValueError):
+                    return 0
+            monsters[r["MonsterKey"]] = {"n": nm, "g": _int(r.get("RewardGold")), "x": _int(r.get("RewardExp"))}
 
     # ---- rune per-level effects: LevelKey -> [{level, cost, value, stat}] ----
     rune_levels = {}
