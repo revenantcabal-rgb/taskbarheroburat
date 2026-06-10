@@ -126,6 +126,9 @@
   .mini{width:30px;height:30px;border-radius:7px;border:1.5px solid var(--line);background:var(--bg2);
     display:grid;place-items:center;overflow:hidden}
   .mini img{width:88%;height:88%;image-rendering:pixelated}
+  .hero .skills{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
+  .hero .skill{font-size:10.5px;color:var(--blue2);background:rgba(75,125,255,.12);
+    border:1px solid rgba(75,125,255,.25);border-radius:6px;padding:2px 7px;white-space:nowrap}
 
   /* ---------- inventory grid ---------- */
   .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px}
@@ -341,9 +344,12 @@ function analyze(psd){
   var heroes=(psd.heroSaveDatas||[]).map(function(h){
     var hi=heroInfo(h.heroKey);
     var equipped=(h.equippedItemIds||[]).filter(nz).map(function(u){return byUid[String(u)];}).filter(Boolean);
+    // equipped skills -> authoritative names (DB.skills from SkillInfoData; base attacks/empty slots skipped)
+    var skills=(h.equippedSKillKey||[]).filter(function(s){return s&&s!==-1;}).map(function(sk){
+      var d=DB.skills&&(DB.skills[sk]||DB.skills[String(sk)]);return d?d.n:null;}).filter(Boolean);
     return {key:String(h.heroKey),cls:hi.cls,mw:hi.mw,level:h.HeroLevel,exp:Math.round(h.HeroExp||0),
       pts:h.AllocatedHeroAbilityPoint,unspent:h.AbilityPoint,gear:(h.equippedItemIds||[]).filter(nz).length,
-      equipped:equipped,deployed:party.indexOf(String(h.heroKey))>=0};
+      equipped:equipped,skills:skills,deployed:party.indexOf(String(h.heroKey))>=0};
   }).sort(function(x,y){return (y.deployed-x.deployed)||(y.level-x.level);});
   return {
     version:c.version, stage:c.currentStageKey, wave:c.currentStageWave, maxStage:c.maxCompletedStage,
@@ -544,6 +550,9 @@ function heroCard(h){
     });
     n.appendChild(row);
   }
+  if(h.skills&&h.skills.length){
+    n.appendChild(el('<div class="skills">'+h.skills.map(function(s){return '<span class="skill">'+s+'</span>';}).join('')+'</div>'));
+  }
   return n;
 }
 
@@ -610,10 +619,11 @@ function renderParty(d){
   p.appendChild(g);
   p.appendChild(el('<h3 class="sec">Roster detail</h3>'));
   var rows=d.heroes.map(function(h){
+    var sk=(h.skills&&h.skills.length)?h.skills.join(', '):'<span style="color:var(--dim)">—</span>';
     return '<tr><td><b>'+h.cls+'</b></td><td>'+(h.deployed?'<span class="pill" style="color:var(--green)">DEPLOYED</span>':'<span class="pill" style="color:var(--dim)">bench</span>')+
-      '</td><td class="r">'+h.level+'</td><td class="r">'+fmt(h.exp)+'</td><td class="r">'+h.gear+'/10</td><td class="r">'+h.pts+(h.unspent?(' (+'+h.unspent+')'):'')+'</td></tr>';
+      '</td><td class="r">'+h.level+'</td><td class="r">'+fmt(h.exp)+'</td><td class="r">'+h.gear+'/10</td><td class="r">'+h.pts+(h.unspent?(' (+'+h.unspent+')'):'')+'</td><td style="color:var(--blue2)">'+sk+'</td></tr>';
   }).join('');
-  p.appendChild(el('<div class="panel"><table><thead><tr><th>Hero</th><th>Status</th><th class="r">Lvl</th><th class="r">Exp</th><th class="r">Gear</th><th class="r">Ability pts</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+  p.appendChild(el('<div class="panel"><table><thead><tr><th>Hero</th><th>Status</th><th class="r">Lvl</th><th class="r">Exp</th><th class="r">Gear</th><th class="r">Ability pts</th><th>Equipped skills</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
 }
 
 var invFilter='ALL';
@@ -922,13 +932,14 @@ function loadDemo(){
     demoItem(190001),demoItem(140002),demoItem(110001)
   ];
   var byR={};owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
+  var dsk=function(keys){return keys.map(function(k){var d=DB.skills&&(DB.skills[k]||DB.skills[String(k)]);return d?d.n:null;}).filter(Boolean);};
   var heroes=[
-    {key:'401',cls:'Priest',mw:'SCEPTER',level:20,exp:1981148,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(8,12)},
-    {key:'301',cls:'Sorcerer',mw:'STAFF',level:20,exp:1445520,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(4,8)},
-    {key:'501',cls:'Hunter',mw:'CROSSBOW',level:20,exp:2895057,pts:20,unspent:0,gear:7,deployed:true,equipped:owned.slice(0,5)},
-    {key:'601',cls:'Slayer',mw:'AXE',level:15,exp:534655,pts:15,unspent:0,gear:1,deployed:false,equipped:[]},
-    {key:'201',cls:'Ranger',mw:'BOW',level:12,exp:133555,pts:12,unspent:0,gear:1,deployed:false,equipped:[]},
-    {key:'101',cls:'Knight',mw:'SWORD',level:1,exp:0,pts:0,unspent:1,gear:0,deployed:false,equipped:[]}
+    {key:'401',cls:'Priest',mw:'SCEPTER',level:20,exp:1981148,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(8,12),skills:dsk([40201,40101])},
+    {key:'301',cls:'Sorcerer',mw:'STAFF',level:20,exp:1445520,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(4,8),skills:dsk([30101,30301])},
+    {key:'501',cls:'Hunter',mw:'CROSSBOW',level:20,exp:2895057,pts:20,unspent:0,gear:7,deployed:true,equipped:owned.slice(0,5),skills:dsk([50201,50301])},
+    {key:'601',cls:'Slayer',mw:'AXE',level:15,exp:534655,pts:15,unspent:0,gear:1,deployed:false,equipped:[],skills:dsk([60201,60301])},
+    {key:'201',cls:'Ranger',mw:'BOW',level:12,exp:133555,pts:12,unspent:0,gear:1,deployed:false,equipped:[],skills:dsk([20301])},
+    {key:'101',cls:'Knight',mw:'SWORD',level:1,exp:0,pts:0,unspent:1,gear:0,deployed:false,equipped:[],skills:[]}
   ];
   lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15},
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15}];

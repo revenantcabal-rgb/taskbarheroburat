@@ -104,6 +104,18 @@ def main():
         if e:  # store only gear that has labeled inherent stats and/or a unique mod
             gear[r["GearKey"]] = e
 
+    # ---- skills: SkillKey -> {name, description} (SkillInfoData + localization). Base attacks have no NameKey -> skipped. ----
+    skills = {}
+    for r in rows("SkillInfoData.txt"):
+        nm = L(r.get("SkillNameKey"))
+        if not nm:
+            continue
+        e = {"n": nm}
+        dd = L(r.get("SkillDescriptionKey"))
+        if dd:
+            e["d"] = dd
+        skills[r["SkillKey"]] = e
+
     # ---- rune per-level effects: LevelKey -> [{level, cost, value, stat}] ----
     rune_levels = {}
     for r in rows("RuneLevelInfoData.txt"):
@@ -186,6 +198,7 @@ def main():
         "items": items,
         "stats": stats,
         "gear": gear,
+        "skills": skills,
         "runes": runes,
         "_calibrated": {
             "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/GearInfoData/UniqueModInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
@@ -211,6 +224,7 @@ def main():
     print(f"items {len(items)} | names auth {name_resolved+name_literal}, fallback {name_fallback} | desc {desc_count} | mat-effects {mat_fx}")
     print(f"stats {len(stats)} | runes {len(runes)} (with per-level effects)")
     print(f"gear {len(gear)} | inherent-stat sets {gear_inh} | unique mods {gear_um}")
+    print(f"skills {len(skills)} (named, with descriptions)")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 
