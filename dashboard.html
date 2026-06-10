@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBH HUD — Task Bar Hero companion</title>
-<script src="src/engine/gamedata.min.js"></script>
+<!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
+<script src="src/engine/gamedata.min.js?v=1.0.1"></script>
 <style>
   :root{
     --bg:#080a13; --bg2:#0b0e1a; --surface:#121728; --surface2:#171d33; --surface3:#1f2742;
@@ -118,7 +119,8 @@
   .hero .cls{font-size:16.5px;font-weight:700;margin-top:12px;display:flex;align-items:center;gap:8px}
   .hero .lvl{font-size:12.5px;color:var(--muted);margin-top:1px}
   .hero .xpbar{height:6px;border-radius:4px;background:var(--surface3);margin-top:10px;overflow:hidden}
-  .hero .xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:4px}
+  .hero .xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:4px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+  .hero .xpmeta{font-size:10.5px;color:var(--dim);margin-top:4px;font-variant-numeric:tabular-nums}
   .hero .meta{font-size:11.5px;color:var(--dim);margin-top:9px;display:flex;justify-content:space-between}
   .badge{font-size:9.5px;letter-spacing:.05em;font-weight:700;padding:3px 8px;border-radius:7px}
   .badge.dep{background:rgba(25,201,139,.16);color:var(--green)}
@@ -471,6 +473,10 @@ function runeDetail(save){
   return {total:list.length,leveled:leveled,list:list};
 }
 function heroInfo(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h||{cls:'#'+k,mw:null,base:[]};}
+// XP-to-next (CALIBRATED: HeroExp is per-level progress vs DB.levels[L]=ExpForLevelUp). Mirror of saveEngine.xpToNext.
+function xpToNext(level,exp){var need=DB.levels&&(DB.levels[level]||DB.levels[String(level)]);
+  if(!need||need<=0)return {need:null,remaining:null,pct:null};
+  var e=Math.max(0,Math.round(exp||0));return {need:need,remaining:Math.max(0,need-e),pct:Math.max(0,Math.min(1,e/need))};}
 // sumStats: group a list of {sn,st,m,v} by stat+modtype and sum — for honest per-source attribution.
 function sumStats(list){
   var by={};
@@ -591,7 +597,9 @@ function analyze(psd){
     // equipped skills -> authoritative names (DB.skills from SkillInfoData; base attacks/empty slots skipped)
     var skills=(h.equippedSKillKey||[]).filter(function(s){return s&&s!==-1;}).map(function(sk){
       var d=DB.skills&&(DB.skills[sk]||DB.skills[String(sk)]);return d?d.n:null;}).filter(Boolean);
+    var xp=xpToNext(h.HeroLevel,h.HeroExp);
     return {key:String(h.heroKey),cls:hi.cls,mw:hi.mw,level:h.HeroLevel,exp:Math.round(h.HeroExp||0),
+      xpNeed:xp.need,xpRemaining:xp.remaining,xpPct:xp.pct,
       pts:h.AllocatedHeroAbilityPoint,unspent:h.AbilityPoint,gear:(h.equippedItemIds||[]).filter(nz).length,
       equipped:equipped,skills:skills,sources:heroSources(h,equipped,psd.attributeSaveDatas),
       deployed:party.indexOf(String(h.heroKey))>=0};
@@ -819,11 +827,16 @@ function heroCard(h){
   var gif=el('<img src="'+HERO+h.key+'.gif" alt="'+h.cls+'">');
   gif.addEventListener('error',function(){port.textContent='🛡️';});
   port.appendChild(gif); n.appendChild(port);
-  var lvlPct=Math.min(100,Math.round(h.level/20*100));
+  // real XP-to-next progress (calibrated from the game's level curve) — replaces the old level/20 placeholder bar
+  var hasXp=(h.xpPct!=null);
+  var xpPct=hasXp?Math.round(h.xpPct*100):100;
+  var xpTitle=hasXp?('XP '+fmt(h.exp)+' / '+fmt(h.xpNeed)+' — '+fmt(h.xpRemaining)+' to Level '+(h.level+1)):'Max level';
+  var xpLabel=hasXp?(xpPct+'% &rarr; L'+(h.level+1)+' · '+fmt(h.xpRemaining)+' XP'):'max level';
   n.appendChild(frag(
     '<div class="cls">'+h.cls+' <span class="badge '+(h.deployed?'dep':'bench')+'">'+(h.deployed?'DEPLOYED':'BENCH')+'</span></div>'+
     '<div class="lvl">Level '+h.level+(h.mw?' · '+h.mw.toLowerCase():'')+'</div>'+
-    '<div class="xpbar"><i style="width:'+lvlPct+'%"></i></div>'+
+    '<div class="xpbar" title="'+xpTitle+'"><i style="width:'+xpPct+'%"></i></div>'+
+    '<div class="xpmeta">'+xpLabel+'</div>'+
     '<div class="meta"><span>'+h.gear+'/10 gear</span><span>'+h.pts+' pts'+(h.unspent?(' · +'+h.unspent):'')+'</span></div>'
   ));
   if(h.equipped&&h.equipped.length){
@@ -1004,10 +1017,11 @@ function renderParty(d){
   p.appendChild(el('<h3 class="sec">Roster detail</h3>'));
   var rows=d.heroes.map(function(h){
     var sk=(h.skills&&h.skills.length)?h.skills.join(', '):'<span style="color:var(--dim)">—</span>';
+    var xpCell=(h.xpPct!=null)?(fmt(h.xpRemaining)+' <span style="color:var(--dim)">('+Math.round(h.xpPct*100)+'%)</span>'):'<span style="color:var(--dim)">max</span>';
     return '<tr><td><b>'+h.cls+'</b></td><td>'+(h.deployed?'<span class="pill" style="color:var(--green)">DEPLOYED</span>':'<span class="pill" style="color:var(--dim)">bench</span>')+
-      '</td><td class="r">'+h.level+'</td><td class="r">'+fmt(h.exp)+'</td><td class="r">'+h.gear+'/10</td><td class="r">'+h.pts+(h.unspent?(' (+'+h.unspent+')'):'')+'</td><td style="color:var(--blue2)">'+sk+'</td></tr>';
+      '</td><td class="r">'+h.level+'</td><td class="r">'+xpCell+'</td><td class="r">'+h.gear+'/10</td><td class="r">'+h.pts+(h.unspent?(' (+'+h.unspent+')'):'')+'</td><td style="color:var(--blue2)">'+sk+'</td></tr>';
   }).join('');
-  p.appendChild(el('<div class="panel"><table><thead><tr><th>Hero</th><th>Status</th><th class="r">Lvl</th><th class="r">Exp</th><th class="r">Gear</th><th class="r">Ability pts</th><th>Equipped skills</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+  p.appendChild(el('<div class="panel"><table><thead><tr><th>Hero</th><th>Status</th><th class="r">Lvl</th><th class="r">XP to next</th><th class="r">Gear</th><th class="r">Ability pts</th><th>Equipped skills</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
 
   // Who's carrying — honest per-deployed-hero stat attribution by source (base / gear / tree)
   var deployed=d.heroes.filter(function(h){return h.deployed;});
@@ -1586,7 +1600,8 @@ function loadDemo(){
   ];
   // demo source breakdown: real base+gear; a few real leveled tree nodes per class so the panel showcases tree too
   var demoAttr=[{Key:401001,Level:5},{Key:401002,Level:5},{Key:401003,Level:5},{Key:301001,Level:3},{Key:301002,Level:8},{Key:301012,Level:3},{Key:501001,Level:5},{Key:501002,Level:5}];
-  heroes.forEach(function(h){if(h.deployed)h.sources=heroSources({heroKey:h.key},h.equipped,demoAttr);});
+  heroes.forEach(function(h){if(h.deployed)h.sources=heroSources({heroKey:h.key},h.equipped,demoAttr);
+    var x=xpToNext(h.level,h.exp);h.xpNeed=x.need;h.xpRemaining=x.remaining;h.xpPct=x.pct;});
   var demoAccount={runes:Object.keys(DB.runes||{}).slice(0,8).map(function(k,i){return {n:DB.runes[k].n,eff:DB.runes[k].eff,level:(i%3)?5:10};}),
     pet:(DB.pets&&DB.pets['6003'])?{key:6003,n:DB.pets['6003'].n,desc:DB.pets['6003'].desc}:{key:6003,n:'Dragon'}};
   lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15},

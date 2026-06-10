@@ -6,7 +6,7 @@ want=set(["ItemInfoData","GearInfoData","DropInfoData","ItemGroupInfoData","Stat
   "GradeInfoData","GearTypeInfoData","RuneInfoData","RuneLevelInfoData","SkillInfoData","SkillLevelInfoData",
   "MonsterInfoData","MaterialInfoData","UniqueModInfoData","StatModGroupInfoData","AttributeInfoData",
   "PassiveSkillInfoData","ItemLevelScaleInfoData","GearTypeScaleInfoData","HeroInfoData","PetInfoData",
-  "SynthesisRecipeInfoData","CraftingRecipeInfoData","OfflineRewardInfoData"])
+  "SynthesisRecipeInfoData","CraftingRecipeInfoData","OfflineRewardInfoData","LevelInfoData"])
 env=UnityPy.load(DATA)
 for obj in env.objects:
     if obj.type.name=="TextAsset":

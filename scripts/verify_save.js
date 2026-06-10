@@ -30,7 +30,8 @@ console.log('maxStage      ', snap.summary.maxCompletedStage, 'cur', snap.summar
 console.log('party         ', JSON.stringify(snap.summary.arrangedParty));
 console.log('lastSaved     ', snap.summary.lastSaved);
 console.log('heroes        ', snap.heroes.length, 'unlocked,', snap.heroes.filter(h => h.deployed).length, 'deployed');
-snap.heroes.forEach(h => console.log('   ', h.cls.padEnd(10), 'L' + h.level, h.gear + '/10 gear', h.deployed ? 'DEPLOYED' : 'bench'));
+snap.heroes.forEach(h => console.log('   ', h.cls.padEnd(10), 'L' + h.level, h.gear + '/10 gear', h.deployed ? 'DEPLOYED' : 'bench',
+  h.xpPct != null ? ('| XP→L' + (h.level + 1) + ': ' + h.xpRemaining.toLocaleString() + ' left (' + Math.round(h.xpPct * 100) + '%)') : '| XP: max'));
 console.log('inventory     ', JSON.stringify(snap.inventory));
 console.log('byRarity      ', JSON.stringify(snap.byRarity));
 console.log('runes         ', snap.runes.leveled + '/' + snap.runes.total, 'leveled');

@@ -267,6 +267,16 @@ def main():
     drops = {k: sorted(v, key=lambda x: int(x) if x.isdigit() else x) for k, v in sorted(drops_set.items())}
     drop_member_refs = sum(len(v) for v in drops.values())
 
+    # ---- hero level curve: Level -> ExpForLevelUp (exp needed WITHIN that level to reach the next).
+    # CALIBRATED vs the live save: every hero's HeroExp < ExpForLevelUp[HeroLevel] (per-level progress, not
+    # cumulative) -> enables an honest "XP to next level" (xpToNext = ExpForLevelUp[L] - HeroExp). Not ETA (needs xp/hr).
+    levels = {}
+    for r in rows("LevelInfoData.txt"):
+        try:
+            levels[int(r["Level"])] = int(r["ExpForLevelUp"])
+        except (ValueError, KeyError):
+            pass
+
     out = {
         "version": {"game": GAME_VERSION, "save": old.get("version", {}).get("save")},
         "grades": old.get("grades"),
@@ -281,6 +291,7 @@ def main():
         "monsters": monsters,
         "runes": runes,
         "drops": drops,
+        "levels": levels,
         "_calibrated": {
             "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/GearInfoData/UniqueModInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
             "rarityFrom": "itemKey 3rd digit == GRADE column, validated 5760/5760 gear rows",
@@ -310,6 +321,7 @@ def main():
     print(f"gear {len(gear)} | inherent-stat sets {gear_inh} | unique mods {gear_um}")
     print(f"skills {len(skills)} | heroes {len(heroes)} (w/ base stats) | attributes {len(attributes)} | passives {len(passives)} | pets {len(pets)} | monsters {len(monsters)}")
     print(f"drops {len(drops)} box DropKeys | {drop_member_refs} member refs (box contents / reverse drop sources)")
+    print(f"levels {len(levels)} (hero XP-to-next curve, calibrated vs live save)")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 
