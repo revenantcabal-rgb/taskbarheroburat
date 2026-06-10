@@ -57,6 +57,7 @@
   .dot.live{background:var(--green)}
   .dot.live::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--green);opacity:.6;animation:pulse 1.8s ease-out infinite}
   .dot.err{background:var(--red)}
+  .dot.demo{background:var(--amber)}
   @keyframes pulse{0%{transform:scale(.7);opacity:.7}100%{transform:scale(1.9);opacity:0}}
   button{font:inherit;font-size:13.5px;color:var(--text);background:var(--surface2);
     border:1px solid var(--line);border-radius:10px;padding:9px 16px;cursor:pointer;transition:.15s}
@@ -109,6 +110,21 @@
   .gate .browsernote{background:rgba(249,168,38,.08);border:1px solid rgba(249,168,38,.28);border-radius:10px;
     padding:9px 13px;color:var(--muted);max-width:480px;margin-left:auto;margin-right:auto}
   .gate .browsernote b{color:var(--text)}
+  /* "welcome back, reconnect" box shown when a refresh found a saved handle that needs a permission click */
+  .reconnect{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;max-width:480px;
+    margin:0 auto 18px;padding:13px 16px;border-radius:13px;background:linear-gradient(160deg,rgba(25,201,139,.14),var(--surface));
+    border:1px solid rgba(25,201,139,.4);font-size:13.5px;color:var(--text)}
+  /* collapsible "trouble connecting?" help for the blocked-folder ("system files") case */
+  .troublenote{max-width:480px;margin:6px auto 14px;text-align:left;background:var(--surface);border:1px solid var(--line);
+    border-radius:12px;padding:0 14px}
+  .troublenote summary{cursor:pointer;padding:11px 0;font-size:12.5px;color:var(--blue2);font-weight:600;list-style:none}
+  .troublenote summary::-webkit-details-marker{display:none}
+  .troublenote summary::before{content:"▸ ";color:var(--dim)}
+  .troublenote[open] summary::before{content:"▾ "}
+  .troublenote .tn-body{padding:0 2px 12px;color:var(--muted);font-size:12.5px;line-height:1.55}
+  .troublenote .tn-body b{color:var(--text)} .troublenote .tn-body code{font-size:11.5px}
+  .troublenote ol{margin:8px 0;padding-left:20px} .troublenote li{margin:6px 0}
+  .troublenote .tn-tip{color:var(--dim);font-size:11.5px;margin:8px 0 0}
 
   h3.sec{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);
     margin:30px 0 14px;font-weight:700;display:flex;align-items:center;gap:10px}
@@ -317,6 +333,18 @@
   .suggstrip .ss-t{font-size:13.5px;font-weight:600;color:var(--text)}
   .suggstrip .ss-b{font-size:12px;color:var(--muted);margin-top:2px}
   .suggstrip .ss-go{font-size:12px;color:var(--blue2);font-weight:600;white-space:nowrap}
+  /* Flex card — shareable brag panel */
+  .flexcard{background:linear-gradient(160deg,rgba(176,114,255,.12),rgba(75,125,255,.06),var(--surface));
+    border:1px solid var(--line2);border-radius:16px;padding:18px 18px 14px}
+  .flex-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px}
+  .flexitem{text-align:center}
+  .flexitem .fi-ic{font-size:19px;opacity:.85}
+  .flexitem .fi-k{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+  .flexitem .fi-v{font-size:19px;font-weight:700;color:var(--text);margin-top:3px;line-height:1.2}
+  .flexitem .fi-s{font-size:11px;color:var(--dim);margin-top:1px}
+  .flex-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;
+    margin-top:15px;padding-top:13px;border-top:1px solid var(--line)}
+  .flex-note{font-size:11.5px;color:var(--dim)}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:760px){.two{grid-template-columns:1fr}}
   /* ---------- responsive / mobile ---------- */
@@ -447,7 +475,7 @@
   <div class="spacer"></div>
   <div class="actions">
     <div class="status"><span class="dot" id="dot"></span><span id="statusText">no save</span></div>
-    <button class="ghost" id="demoBtn">Preview sample</button>
+    <button class="ghost" id="demoBtn" title="Load sample data to explore the app without your own save — clearly marked &quot;sample&quot;, never mixed with your real data">See a demo</button>
     <button class="ghost" id="connectBtn">Connect file</button>
     <button class="primary" id="connectFolderBtn">Connect folder</button>
     <button class="ghost hidden" id="disconnectBtn" title="Clear the loaded save and return to the connect screen">↩&nbsp;Disconnect</button>
@@ -471,6 +499,10 @@
   <div class="gate" id="gate">
     <div class="logo">⚔️</div>
     <h2>See your Task Bar Hero stats</h2>
+    <div class="reconnect hidden" id="reconnectBox">
+      <span>👋 Welcome back — reconnect your last save folder.</span>
+      <button class="primary" id="reconnectBtn" type="button">Reconnect</button>
+    </div>
     <p>A free, read-only companion that shows your heroes, gold, loot, runes and progress.
       It reads your save file and <b>never changes the game</b>.</p>
     <ol class="steps">
@@ -483,6 +515,18 @@
     <p class="fine">🔒 <b>Private &amp; safe.</b> Everything is decrypted and read on your own computer — nothing is uploaded, and the game is never modified. Chrome / Edge keep it live; other browsers load once (re&#8209;pick to refresh).</p>
     <p class="fine">👥 <b>No account, no sign&#8209;in.</b> This is just a web page — anyone can open it and connect their own save the same way. Your data never leaves your device, and no one else can see it.</p>
     <p class="fine browsernote hidden" id="browserNote">🧭 <b>On Firefox or Safari?</b> The one&#8209;click <b>folder</b> option needs Chrome or Edge. You can still use <span class="kbd">Connect&nbsp;file</span> below to load <code>SaveFile_Live.es3</code> — or open this page in Chrome / Edge for live updates &amp; history.</p>
+    <details class="troublenote">
+      <summary>Trouble connecting? (e.g. “this folder contains system files”)</summary>
+      <div class="tn-body">
+        <p>That message is your <b>browser blocking the folder</b> for safety — it’s not a bug in this tool. Any of these gets you in:</p>
+        <ol>
+          <li><b>Use <span class="kbd">Connect&nbsp;file</span></b> instead and pick just <code>SaveFile_Live.es3</code> — single files usually aren’t blocked.</li>
+          <li><b>Drag &amp; drop</b> your <code>SaveFile_Live.es3</code> anywhere onto this page. This always works (it bypasses the folder picker entirely).</li>
+          <li><b>Use the desktop app</b> — it reads the folder directly with no browser restrictions, auto-finds your save, and updates live.</li>
+        </ol>
+        <p class="tn-tip">Tip: when the folder dialog opens, paste the path above and select the <b>TaskbarHero</b> folder itself (not its parent), then click <b>Select Folder</b>.</p>
+      </div>
+    </details>
     <p class="fine">No save handy? <a href="#" id="demoLink">Preview with sample data →</a>
       &nbsp;·&nbsp; <a href="#" id="codexLink">Browse the full item catalog →</a></p>
   </div>
@@ -994,6 +1038,39 @@ function renderOfflineCard(d){
   return n;
 }
 
+/* Flex card — a shareable brag summary built ONLY from calibrated save stats (for comparing with friends).
+   Nothing inflated: furthest stage, top hero level, best rarity owned, kills, lifetime gold, runes. */
+function flexBest(d){ for(var i=RARITY.length-1;i>=0;i--){ if(d.byRarity&&d.byRarity[RARITY[i]]) return cap(RARITY[i]); } return '—'; }
+function flexTopHero(d){ var h=(d.heroes||[]).slice().sort(function(a,b){return (b.level||0)-(a.level||0);})[0]; return h?(cap(h.cls)+' Lv '+h.level):'—'; }
+function flexShareText(d){
+  var parts=['🏆 My Task Bar Hero run', 'Furthest: '+stageLabel(d.maxStage), 'Top hero: '+flexTopHero(d), 'Best gear: '+flexBest(d)];
+  if(d.kills!=null)parts.push(fmt(d.kills)+' kills');
+  if(d.lifeGold!=null)parts.push(fmt(d.lifeGold)+' lifetime gold');
+  if(d.runes)parts.push(d.runes.leveled+'/'+d.runes.total+' runes');
+  if(d.trophies&&d.trophies.length)parts.push(d.trophies.length+' Legendary+ trophies');
+  return parts.join(' · ')+' — via TBH HUD';
+}
+function flexCard(d){
+  var items=[
+    {ic:'🗺️',k:'Furthest stage',v:stageActLabel(d.maxStage),s:stageName(d.maxStage)||''},
+    {ic:'🦸',k:'Top hero',v:flexTopHero(d),s:''},
+    {ic:'💎',k:'Best gear owned',v:flexBest(d),s:''},
+    {ic:'💀',k:'Total kills',v:fmt(d.kills),s:''},
+    {ic:'🪙',k:'Lifetime gold',v:fmt(d.lifeGold),s:''},
+    {ic:'🔮',k:'Runes leveled',v:(d.runes?(d.runes.leveled+' / '+d.runes.total):'—'),s:''}
+  ];
+  var grid=items.map(function(x){return '<div class="flexitem"><div class="fi-ic">'+x.ic+'</div><div class="fi-k">'+x.k+'</div><div class="fi-v">'+x.v+'</div>'+(x.s?('<div class="fi-s">'+esc(x.s)+'</div>'):'')+'</div>';}).join('');
+  var panel=el('<div class="flexcard"><div class="flex-grid">'+grid+'</div>'+
+    '<div class="flex-actions"><button class="ghost" id="flexCopyBtn" type="button">📋 Copy to share with friends</button>'+
+    '<span class="flex-note">Straight from your save — nothing inflated.</span></div></div>');
+  panel.querySelector('#flexCopyBtn').addEventListener('click',function(){
+    var b=this, txt=flexShareText(d);
+    function ok(){var o=b.textContent;b.textContent='Copied ✓';setTimeout(function(){b.textContent=o;},1600);}
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok,ok);
+    else{try{var t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);ok();}catch(e){}}
+  });
+  return panel;
+}
 function renderOverview(d){
   var p=$('tab-overview');p.innerHTML='';
   // session rates
@@ -1018,6 +1095,10 @@ function renderOverview(d){
     card('Total kills',fmt(d.kills),'blue','','💀'),
     card('Runes',d.runes.leveled+'<span style="font-size:16px;color:var(--dim)"> / '+d.runes.total+'</span>','','leveled nodes','🔮')
   ].join('')+'</div>'));
+
+  // Flex card — shareable bragging rights (for comparing with friends)
+  p.appendChild(el('<h3 class="sec">Flex card <span class="tag">your bragging rights · copy &amp; share with friends</span></h3>'));
+  p.appendChild(flexCard(d));
 
   // top suggestion teaser → the full, live list lives on the Tips tab
   var topSugg=computeSuggestions(d);
@@ -1065,8 +1146,8 @@ function renderOverview(d){
   }).sort(function(a,b){return b.lvlSum-a.lvlSum;});
   if(ranked.length){
     var maxSum=Math.max.apply(null,ranked.map(function(r){return r.lvlSum;}))||1;
-    p.appendChild(el('<h3 class="sec">Who\'s carrying? <span class="tag">gear strength by hero — not live combat damage</span></h3>'));
-    p.appendChild(el('<div class="hint">Each bar shows a hero\'s <b>total equipped gear level</b> — the item levels of everything they have equipped, added together — drawn relative to your strongest hero. It reflects the gear they\'re wearing, not live damage.</div>'));
+    p.appendChild(el('<h3 class="sec">Who\'s carrying? <span class="tag">strongest gear by hero — not a live DPS meter</span></h3>'));
+    p.appendChild(el('<div class="hint"><b>Who hits hardest?</b> There’s no live DPS counter here on purpose — measuring real-time damage means reading the running game’s memory, which this tool never does (that would risk a CodeStage ban). Instead each bar ranks a hero by <b>total equipped gear level</b> (the item levels of everything they’re wearing, added up, relative to your strongest hero) — the most honest stand-in the save gives for “who’s strongest.”</div>'));
     var bars=ranked.map(function(r){
       var pct=Math.round(r.lvlSum/maxSum*100), topName=r.top>=0?cap(RARITY[r.top]):'';
       var items=r.n+' item'+(r.n===1?'':'s');
@@ -1209,7 +1290,7 @@ function renderLoot(d){
   // New-items timeline — items detected between save reads. HONEST: this can't tell a chest DROP from a Cube
   // CRAFT/SYNTHESIS — the game stores no per-item origin and logs neither locally, so both appear here together.
   p.appendChild(el('<h3 class="sec">New items <span class="tag">detected from your save · drops &amp; Cube crafts · Legendary+ highlighted</span></h3>'));
-  p.appendChild(el('<div class="hint">New gear appears here whether it <b>dropped from a chest / stage</b> or you <b>crafted or synthesized it in the Cube</b> — the game records no origin flag and logs neither locally, so they honestly can\'t be told apart.'+
+  p.appendChild(el('<div class="hint">New gear appears here whether it <b>dropped from a chest / stage</b>, you <b>crafted or synthesized it in the Cube</b>, or you <b>bought it on the Steam Market</b> — the save records no origin flag and logs none of these locally, so they honestly can\'t be told apart. (And in this game build the Steam Market / inventory service is throttled, so market items rarely even arrive.)'+
     (d&&d.cube?(' Your Cube is <b>level '+d.cube.Level+'</b>.'):'')+' Each item is timestamped in both your local time and UTC.</div>'));
   var alertOn=rareAlerts&&('Notification'in window)&&Notification.permission==='granted';
   var canNotify=('Notification'in window);
@@ -1724,6 +1805,7 @@ function setConnectedUI(connected){
 function disconnect(){
   if(timer){clearInterval(timer);timer=null;}
   if(dirTimer){clearInterval(dirTimer);dirTimer=null;}
+  forgetHandles();   // clear the persisted handle so a later refresh doesn't silently re-attach this save
   handle=null;dirHandle=null;lastMod=0;liveMod=0;scanTick=0;lastSaveFileMs=null;
   current=null;session=null;trends=[];
   // Change-folder = clean slate: reset loot tracking so a DIFFERENT save isn't diffed against the old one
@@ -1757,21 +1839,55 @@ async function onBytes(buf){
     $('dot').className='dot err';$('statusText').textContent='decrypt failed: '+(e.message||e);console.error(e);
   }
 }
+/* Persist the picked handle (dir or file) in IndexedDB so a page REFRESH re-attaches instead of dumping the user
+   back to the connect screen ("booted out on refresh"). FileSystemHandles are structured-cloneable; on reload we
+   re-check permission (auto-resume if still granted, else a one-click Reconnect). Disconnect clears the stored handle. */
+var IDB_DB='tbh-hud', IDB_STORE='handles';
+function idbOpen(){return new Promise(function(res,rej){try{var r=indexedDB.open(IDB_DB,1);r.onupgradeneeded=function(){r.result.createObjectStore(IDB_STORE);};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};}catch(e){rej(e);}});}
+function idbSet(k,v){return idbOpen().then(function(db){return new Promise(function(res){var tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).put(v,k);tx.oncomplete=function(){res();};tx.onerror=function(){res();};});}).catch(function(){});}
+function idbGet(k){return idbOpen().then(function(db){return new Promise(function(res){var tx=db.transaction(IDB_STORE,'readonly');var rq=tx.objectStore(IDB_STORE).get(k);rq.onsuccess=function(){res(rq.result||null);};rq.onerror=function(){res(null);};});}).catch(function(){return null;});}
+function idbDel(k){return idbOpen().then(function(db){return new Promise(function(res){var tx=db.transaction(IDB_STORE,'readwrite');tx.objectStore(IDB_STORE).delete(k);tx.oncomplete=function(){res();};tx.onerror=function(){res();};});}).catch(function(){});}
+function forgetHandles(){idbDel('dir');idbDel('file');}
+
 var handle=null,lastMod=0,timer=null;
+var dirHandle=null,dirTimer=null,liveMod=0,scanTick=0;
+function startFileWatch(){
+  async function poll(){try{var f=await handle.getFile();if(f.lastModified!==lastMod){lastMod=f.lastModified;lastSaveFileMs=f.lastModified;onBytes(await f.arrayBuffer());}}catch(e){}}
+  poll();if(timer)clearInterval(timer);timer=setInterval(poll,4000);
+}
+function startFolderWatch(){
+  scanFolder(true);if(dirTimer)clearInterval(dirTimer);dirTimer=setInterval(function(){scanFolder(false);},5000);
+}
 async function connectFS(){
   var picked=await window.showOpenFilePicker({types:[{description:'TBH save',accept:{'application/octet-stream':['.es3']}}]});
-  handle=picked[0];
-  async function poll(){try{var f=await handle.getFile();if(f.lastModified!==lastMod){lastMod=f.lastModified;lastSaveFileMs=f.lastModified;onBytes(await f.arrayBuffer());}}catch(e){}}
-  await poll();if(timer)clearInterval(timer);timer=setInterval(poll,4000);
+  handle=picked[0];dirHandle=null;idbDel('dir');idbSet('file',handle);
+  startFileWatch();
 }
 /* directory access: live save + the game's rolling backups -> live dashboard AND History/Trends.
    Pure reads (mode:'read'); the game folder is never written to. */
-var dirHandle=null,dirTimer=null,liveMod=0,scanTick=0;
 async function connectFolder(){
   dirHandle=await window.showDirectoryPicker({id:'tbh-save',mode:'read'});
-  await scanFolder(true);
-  if(dirTimer)clearInterval(dirTimer);
-  dirTimer=setInterval(function(){scanFolder(false);},5000);
+  handle=null;idbDel('file');idbSet('dir',dirHandle);
+  startFolderWatch();
+}
+// On reload, re-attach the last handle so a refresh doesn't boot the user out.
+async function restoreHandle(){
+  if(!('indexedDB'in window))return false;
+  try{
+    var dh=await idbGet('dir');
+    if(dh&&dh.queryPermission){var p=await dh.queryPermission({mode:'read'});
+      if(p==='granted'){dirHandle=dh;startFolderWatch();return true;} showReconnect('folder',dh);return true;}
+    var fh=await idbGet('file');
+    if(fh&&fh.queryPermission){var p2=await fh.queryPermission({mode:'read'});
+      if(p2==='granted'){handle=fh;startFileWatch();return true;} showReconnect('file',fh);return true;}
+  }catch(e){}
+  return false;
+}
+// If the browser needs a fresh permission click after reload, surface a one-click Reconnect on the gate.
+function showReconnect(kind,h){
+  var box=$('reconnectBox'); if(!box)return; box.classList.remove('hidden');
+  $('reconnectBtn').onclick=async function(){try{var perm=await h.requestPermission({mode:'read'});
+    if(perm==='granted'){box.classList.add('hidden');if(kind==='folder'){dirHandle=h;startFolderWatch();}else{handle=h;startFileWatch();}}}catch(e){}};
 }
 async function scanFolder(full){
   if(!dirHandle)return;
@@ -1881,7 +1997,7 @@ function loadDemo(){
     account:demoAccount,
     killsByMonster:[{name:'Orc',kills:7683},{name:'Slime',kills:7532},{name:'Orc Warrior',kills:7230},{name:'Skeleton',kills:5740},{name:'Scorpion',kills:5685},{name:'Bat',kills:5449},{name:'Giant Fly',kills:5023}],
     kills:72091,lifeGold:1574858});
-  $('dot').className='dot live';$('statusText').textContent='sample data';
+  $('dot').className='dot demo';$('statusText').textContent='SAMPLE — not your data';
 }
 $('demoBtn').addEventListener('click',loadDemo);
 $('demoLink').addEventListener('click',function(e){e.preventDefault();loadDemo();});
@@ -1902,8 +2018,18 @@ $('disconnectBtn').addEventListener('click',disconnect);
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(ok,function(){ok();});}
   else{try{var t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);ok();}catch(e){}}
 });})();
+// Drag-and-drop a SaveFile_Live.es3 anywhere — a UNIVERSAL fallback when the browser blocks the folder picker
+// ("this folder contains system files"). Uses the classic File API, which is NOT subject to the File System
+// Access blocklist, so it works even when Connect folder / Connect file are refused.
+document.addEventListener('dragover',function(e){if(e.dataTransfer)e.preventDefault();});
+document.addEventListener('drop',function(e){
+  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(!f)return; e.preventDefault();
+  if(!/\.es3$/i.test(f.name)){$('statusText').textContent='drop a .es3 save file';return;}
+  lastSaveFileMs=f.lastModified;var r=new FileReader();r.onload=function(){onBytes(r.result);};r.readAsArrayBuffer(f);
+});
 if(location.search.indexOf('demo')>=0)loadDemo();
 else if(location.search.indexOf('codex')>=0)browseCatalog();
+else if(!(window.tbhNative&&window.tbhNative.onSave))restoreHandle();  // re-attach last folder/file after a refresh
 </script>
 </body>
 </html>
