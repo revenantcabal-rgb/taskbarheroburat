@@ -24,26 +24,29 @@ AC: README + about lead with the browser link; installer "Run anyway" documented
 place behind env vars; build still produces the unsigned installer cleanly; nothing fabricated.
 
 ### 2. CODEX DEPTH (calibrated from the game's own tables; read-only)
-- Crafting recipes: CraftingRecipeInfoData (CraftingRecipeKey, ItemCraftingType, RecipeTier, Material, MaterialIndex, DropKey).
-  Show "crafted from [materials]" + result(s) via DropKey in the Codex detail modal.
-- Synthesis recipes: SynthesisRecipeInfoData (MinMaterialTier, MinResultLevel, ItemSynthesisType, GRADE, MaterialAmount,
-  LevelWeight1-4). Show "synthesize N x [tier] -> [grade] result".
-- Drop RATES: DropInfoData has a `Weight` column (+ HeroKeyCondition). Compute per-member drop % = Weight / sum(Weight) within
-  the DropKey/ItemGroup; show the % next to each box-content item; flag per-hero conditional drops where HeroKeyCondition set.
-  CALIBRATE: the percentages within a group must sum to ~100%.
-- SET BONUSES: NONE exist in the game data (no set table/column in GearInfoData/UniqueModInfoData/ItemInfoData). DO NOT build
-  set bonuses — it would be fabrication. Note the absence and omit.
+- Crafting recipes — REAL: CraftingRecipeInfoData (56 rows: CraftingRecipeKey, ItemCraftingType, RecipeTier, Material,
+  MaterialIndex, DropKey). Show "crafted from [materials]" + the result (the DropKey, which resolves through the drop chain).
+- Synthesis recipes — REAL: SynthesisRecipeInfoData (533 rows: MinMaterialTier, MinResultLevel, ItemSynthesisType, GRADE,
+  MaterialAmount, LevelWeight1-4). Show "synthesize N x [tier] -> [grade] result".
+- Drop RATES — calibrate, do NOT over-claim. DropInfoData (6212 rows, 245 DropKeys) has a `Weight` column; within a DropKey
+  the weights form a clean distribution that sums to ~100% (VERIFIED on a sample DropKey). BUT most reward entries are item
+  GROUPS (REWARDTYPE ITEMGROUP), not single items, and ItemGroupInfoData has NO per-item weight; some entries are hero-only
+  (HeroKeyCondition) and DropType varies (EachDropOneWeight / _DLCVariant / SelectOneByClass). So: show the GROUP/reward-level
+  drop % (Weight/sum, summing ~100% per DropKey); flag per-hero drops; show DropType. Do NOT fabricate a precise per-individual
+  -item % where within-group has no weights — show the group % (and "items equally likely" only if confirmed) or omit it.
+- SET BONUSES: NONE exist (VERIFIED: no "set" column in any table, no set-bonus/effect string in localization, no Korean 세트
+  anywhere). DO NOT build set bonuses — it would be fabrication. Note the absence and omit.
 Bake recipe + drop-weight maps into scripts/build_gamedata.py (DB.recipes, DB.dropRates); rebuild; mirror in saveEngine.js +
-inline engine; surface in the Codex modal. Extend scripts/audit_catalog.js to assert recipe + drop-rate resolution.
-AC: Codex modal shows recipes + drop % (summing ~100% per group) + per-hero drop conditions; NO fabricated sets; audit passes;
-0 console errors live + demo across all 8 tabs.
+inline engine; surface in the Codex modal. Extend scripts/audit_catalog.js to assert recipes resolve + group weights sum ~100%.
+AC: Codex modal shows recipes + GROUP-level drop % (sum ~100%/DropKey) + per-hero/DropType flags; NO fabricated per-item % or
+sets; audit passes; 0 console errors live + demo across all 8 tabs.
 
 ## DEFERRED (note, never guess)
-Live DPS / combat memory (ban risk); per-act gold/hr & clear-time (memory lane); Steam Market value (throttled/empty);
-12-min blue-chest (no 720s); Korean ItemGroup names; item SETS (do not exist in the data).
+Live DPS / combat memory (ban risk); per-act gold/hr & clear-time; Steam Market value (throttled/empty); 12-min blue-chest
+(no 720s); Korean ItemGroup names; precise per-individual-item drop % (no within-group weights); item SETS (do not exist).
 
 ## LOOP & DONE
 After each sub-task -> verify vs LIVE save (node scripts/verify_save.js + headless, all 8 tabs, 0 errors) -> commit -> push ->
 update CLAUDE.md + docs/PROGRESS.md + improvement.log. Full regression ~45min.
-DONE = both workstreams shipped (signing pipeline + docs + browser-first; Codex recipes + drop-rates, no sets); all calibrated
-+ verified + pushed; docs current; end summary (shipped, calibration evidence, confidence 1-10, exact next step).
+DONE = both workstreams shipped (signing pipeline + docs + browser-first; Codex recipes + honest group-level drop-rates, no
+fabricated per-item % or sets); all calibrated + verified + pushed; docs current; end summary (shipped, evidence, confidence 1-10, next).
