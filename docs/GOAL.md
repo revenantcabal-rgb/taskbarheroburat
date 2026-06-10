@@ -1,101 +1,49 @@
-# TBH HUD — GOAL (per phase).  `/goal` reads this. CONTINUE from current state; do NOT redo done work.
-Read CLAUDE.md + docs/PRD.md + improvement.log + docs/PROGRESS.md FIRST, then START at the first PENDING phase below.
-Golden rule: a helper, never game-breaking, never bannable; never fabricate — every label from the game's own tables/localization.
-READ-ONLY always. Verify EVERY change vs the LIVE save (node scripts/verify_save.js + headless browser, all tabs, 0 console errors).
-CONTINUOUS: after each sub-task -> verify -> commit -> push -> update CLAUDE.md + docs/PROGRESS.md + improvement.log. Full
-regression ~45min. Work 2-3h non-stop; don't ask unless truly blocked.
+# TBH HUD — GOAL (Session 6).  `/goal` reads this. CONTINUE; do NOT redo shipped work.
+Read CLAUDE.md + docs/PRD.md + improvement.log + docs/PROGRESS.md FIRST. Read-only, calibrated, verify vs the LIVE save,
+commit + push each step. Golden rule: a helper, never bannable; never fabricate — every label from the game's own tables.
 
-## DONE (do NOT rebuild)
-Phases 2 (535 icons + 39 rune icons), 3 (premium 7-tab dashboard), 5 (Player.log loot + rare alerts + pet card), 6 (History/Trends);
-#2 full "who's carrying" source breakdown (Party); #3 loot/lifetime depth (pet card, rare alerts, kills-by-monster);
-rune panel (names + icons + cheapest-next). Authoritative DB from the game's own CSV tables.
+## SHIPPED (do NOT rebuild) — v1.0.1
+Phases 2/3/5/6/A/B/7 + who's-carrying + loot/lifetime + rune panel + real XP-to-next + full responsiveness + NSIS installer
++ GitHub Pages (live) + electron-updater. 8 tabs, audit 100% over 6177 catalog entries. All committed + pushed.
 
-## COVERAGE REALITY (calibrated vs gamedata.min.json — the DB is the game's MASTER catalog, not the owner's inventory)
-items 5944: name 100%, icon 100%, grade 100% of gear. materials 125 (115 with desc + effects `fx`). runes 197, skills 36, stats 62, gear 5440.
-=> EVERY unseen endgame item is ALREADY in the DB. The low-level live save only verifies the ~50 OWNED.
-The game ships only 115 ItemDescription strings (gear has NO flavor text — it's defined by STATS we already have): show desc
-where it exists, stats/effects otherwise, honest "no description" — never a guess.
-NOT yet: real end-to-end run; installer/Pages (Phase 7).
+## FOCUS — two workstreams; alternate so the app stays shippable:
 
-## PHASE A — FULL-CATALOG CODEX + AUDIT  ✅ DONE (session 4)
-Shipped: virtualized Codex tab (6177 entries: 5944 items + 197 runes + 36 skills), filters (category/rarity/gearType/
-search/sort) + owned-only toggle, owned markers, per-entry detail (desc/inherent stats/unique mod/material fx/rune
-per-level/marketable). Drop chain calibrated into DB.drops (DropInfoData->ItemGroupInfoData): box contents + reverse
-"drops from"; Korean ItemGroup names omitted. scripts/audit_catalog.js asserts 100% name+icon over 6177. Works with no
-save (?codex). Verified vs the live save (Node audit + headless browser, all 8 tabs, 0 console errors).
+### 1. INSTALLER SIGNING — the NO-MONEY path (do NOT buy a cert)
+Reality (verified): a self-signed cert does NOT remove SmartScreen (untrusted -> still warns). Every TRUSTED cert costs money
+EXCEPT free open-source programs (SignPath Foundation / SSL.com OSS / OSSign), and even a free OV signature only earns
+SmartScreen trust as download reputation builds (only paid EV is instant). So:
+- Make the BROWSER version (GitHub Pages link) the PRIMARY "give this to friends" path in README + the app's about/help —
+  it has NO SmartScreen at all.
+- Keep the installer UNSIGNED but document the one-time "More info -> Run anyway" clearly (README + short FAQ), like tbh-meter.
+  Unsigned != unsafe.
+- Wire the signing PIPELINE so it is drop-in once a free OSS cert is obtained: env-var cert path
+  (WIN_CSC_LINK/WIN_CSC_KEY_PASSWORD, re-enable win.signAndEditExecutable + verifyUpdateCodeSignature only when a cert is
+  present). Write docs/SIGNING.md: the free routes (SignPath Foundation etc.) + the honest reputation caveat. DO NOT claim it
+  is signed until a real cert actually signs it; never commit a cert.
+AC: README + about lead with the browser link; installer "Run anyway" documented; docs/SIGNING.md written; signing config in
+place behind env vars; build still produces the unsigned installer cleanly; nothing fabricated.
 
-### Original Phase A spec (for reference)
-1. New "Codex" tab: browsable grid of the ENTIRE catalog (all 5944 items + 197 runes + 36 skills + 125 materials), each with
-   real icon + name + rarity + level + type, INDEPENDENT of ownership. Mark owned vs not-owned.
-2. Filters + search: type / gearType / rarity (Common..Cosmic) + name search; sort by rarity/level. Virtualize or paginate the
-   5944 rows so it stays smooth with 0 console errors.
-3. Detail per item: name, rarity, level, gearType, description (where the game provides), material effects (`fx`), gear inherent
-   stats + unique mods, drop sources (DropInfoData -> where it drops), marketable flag.
-4. Stage-box contents: DropKey -> DropInfoData -> ItemGroupInfoData -> member ItemKeys -> EN names; show "box can contain:
-   [items]" — OMIT the Korean group name, never guess it.
-5. Full-catalog audit: extend scripts/verify_save.js OR add scripts/audit_catalog.js — validate ALL 5944 items + runes +
-   materials headless; assert 0 missing name, 0 missing icon, desc present where the game provides; print coverage %. Fix gaps.
-6. (Optional) cross-check Korean stage-box names / drop rates vs https://www.tbhwiki.com — COMMUNITY data; label it; tables win on conflict.
-AC: Codex renders the FULL catalog (owned + unseen) with working filters/search; audit prints 100% name+icon across 5944; 0 console errors live + demo.
+### 2. CODEX DEPTH (calibrated from the game's own tables; read-only)
+- Crafting recipes: CraftingRecipeInfoData (CraftingRecipeKey, ItemCraftingType, RecipeTier, Material, MaterialIndex, DropKey).
+  Show "crafted from [materials]" + result(s) via DropKey in the Codex detail modal.
+- Synthesis recipes: SynthesisRecipeInfoData (MinMaterialTier, MinResultLevel, ItemSynthesisType, GRADE, MaterialAmount,
+  LevelWeight1-4). Show "synthesize N x [tier] -> [grade] result".
+- Drop RATES: DropInfoData has a `Weight` column (+ HeroKeyCondition). Compute per-member drop % = Weight / sum(Weight) within
+  the DropKey/ItemGroup; show the % next to each box-content item; flag per-hero conditional drops where HeroKeyCondition set.
+  CALIBRATE: the percentages within a group must sum to ~100%.
+- SET BONUSES: NONE exist in the game data (no set table/column in GearInfoData/UniqueModInfoData/ItemInfoData). DO NOT build
+  set bonuses — it would be fabrication. Note the absence and omit.
+Bake recipe + drop-weight maps into scripts/build_gamedata.py (DB.recipes, DB.dropRates); rebuild; mirror in saveEngine.js +
+inline engine; surface in the Codex modal. Extend scripts/audit_catalog.js to assert recipe + drop-rate resolution.
+AC: Codex modal shows recipes + drop % (summing ~100% per group) + per-hero drop conditions; NO fabricated sets; audit passes;
+0 console errors live + demo across all 8 tabs.
 
-## PHASE B — OFFLINE-CAP TIMER  ✅ DONE (session 4)
-Shipped: "Offline rewards" card on Overview — live-ticking idle since last save + last collection (gold + rate from
-Player.log) + cap countdown. FINDINGS: dumped OfflineRewardInfoData (per-StageLevel yield params: BaseGold/Exp/
-KillCount/ClearCount), and confirmed NONE of the game's 45 data tables holds the offline time-cap (it's a code
-constant) — so we do NOT assume 8h. Per the golden rule the cap+rate are LEARNED from the user's OWN Player.log
-[OfflineReward] events (reward==delta until the cap, then plateaus; rate=gold/reward of the latest). TZ calibration:
-the .es3 lastSavedTime is LOCAL .NET ticks (verified 8h ahead of the file's UTC mtime), so idle is anchored on the
-file's true UTC mtime (file.lastModified in-app / fs.mtime in the harness), TZ-corrected ticks as fallback. No invented
-daily reset. parseOfflineEvents+offlineStatus mirrored in saveEngine.js; verify_save.js prints offline status + tz check.
-Calibration: +739g/93s (~7.95 g/s) reproduced exactly; 0 console errors.
+## DEFERRED (note, never guess)
+Live DPS / combat memory (ban risk); per-act gold/hr & clear-time (memory lane); Steam Market value (throttled/empty);
+12-min blue-chest (no 720s); Korean ItemGroup names; item SETS (do not exist in the data).
 
-### Original Phase B spec (for reference)
-1. Dump OfflineRewardInfoData (extend scripts/dump_textassets.py); extract the REAL cap + accrual rate. DO NOT assume 8h.
-2. Countdown card: from save lastSavedTime show time-idle, reward banked, time-until-cap ("offline rewards max in Xh Ym" /
-   "capped - collect now"). Calibrate vs Player.log [OfflineReward] saved/now/delta/reward until they match exactly. Mirror in
-   saveEngine.js + the inline engine.
-3. No invented daily reset — the cap is RELATIVE to lastSavedTime. "Good time to go offline" = anytime; just return before the cap.
-AC: timer matches the game's offline accrual exactly; 0 console errors.
-
-## PHASE 7 — REAL END-TO-END RUN + PACKAGING  ✅ DONE (session 4)
-Shipped: (1) `npm start` smoke-tested — Electron launches clean (main + 4 procs, 0 stderr); electron-updater loads
-and no-ops correctly in dev; Electron now sends the save's true UTC mtime for the offline timer. (2) NSIS installer
-`dist/TBH-HUD-Setup-1.0.0.exe` (76 MB, valid PE). The winCodeSign symlink error (no admin / Developer Mode on this
-box) was fixed WITHOUT signing via `win.signAndEditExecutable=false` + `verifyUpdateCodeSignature=false` (lossless:
-unsigned, no .ico). (3) GitHub Pages LIVE over HTTPS → https://revenantcabal-rgb.github.io/taskbarheroburat/dashboard.html
-(+ .nojekyll; dashboard/DB/sprites all HTTP 200, correct MIME). (4) electron-updater wired (publish=github) and Release
-**v1.0.0** published with installer + latest.yml + blockmap → auto-update live. NOTE: installer is unsigned → SmartScreen
-"unknown publisher" prompt (no cert available); sign later to remove it.
-
-### Original Phase 7 spec (for reference)
-1. Real run: `npm start` (Electron) vs the live save + the REAL browser Connect-folder native dialog (not the mock handle).
-   Fix anything that breaks live. Confirm all tabs incl. Codex + offline timer render with real data, 0 console errors.
-2. NSIS installer: `npm run dist`; fix the winCodeSign symlink error (extract only windows\* from the cache, or Developer Mode /
-   elevated). Produce dist\TBH-HUD-Setup-<ver>.exe.
-3. GitHub Pages: serve repo root over HTTPS (Connect folder needs HTTPS/localhost); publish so friends get a link.
-4. Wire electron-updater auto-update to GitHub releases (latest.yml).
-AC: real `npm start` works end-to-end; an installer .exe is produced; the Pages link loads the dashboard.
-
-## IF A PHASE FINISHES EARLY — deepen (keep the 2-3h productive, always shippable)
-More Codex depth (synthesis/crafting recipes via SynthesisRecipeInfoData/CraftingRecipeInfoData, set bonuses, per-source drop
-rates); premium-styling polish; accessibility; perf; widen the audit to a descriptions/effects coverage %.
-
-## DEFERRED (golden rule — note, never guess)
-Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & clear-time (memory lane); Steam Market value
-(Inventory Service throttled/empty this build); 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; hero XP-to-next/ETA.
-
-## DONE ✅ (session 4 — A + B + 7 all shipped)
-Codex covers the full 6177-entry catalog + audit reports 100% name+icon; offline timer calibrated (no assumed cap);
-real `npm start` verified; installer produced; GitHub Pages live (HTTPS); electron-updater wired + Release published.
-
-## DONE ✅ (session 5 — verify + polish, v1.0.1)
-Verified prior work is real (no fabricated placeholders). FULLY RESPONSIVE (phone/tablet/desktop, 0 horizontal overflow —
-header wraps, tables scroll in-panel, breakpoints). REAL hero XP-to-next (killed the fake `level/20` bar) — `LevelInfoData`
-curve calibrated vs the live save. Cache-bust `gamedata.min.js?v=1.0.1`. VERCEL-READY (vercel.json + root index.html; works
-on Pages too). Rebuilt installer + published Release **v1.0.1** (auto-update chain). All pushed; docs current.
-
-## NEXT (optional, for the next session)
-1. Vercel deploy (owner 1-click import — repo is ready; I lacked interactive Vercel auth; only the work team available).
-2. Sign the installer (cert) to remove the SmartScreen prompt.
-3. Deepen the Codex: synthesis/crafting recipes, set bonuses, per-source drop rates.
-4. (deferred/caution) live DPS / xp-hr / per-act gold/hr / clear-time — memory lane, ban-risk; don't build unless provably safe.
+## LOOP & DONE
+After each sub-task -> verify vs LIVE save (node scripts/verify_save.js + headless, all 8 tabs, 0 errors) -> commit -> push ->
+update CLAUDE.md + docs/PROGRESS.md + improvement.log. Full regression ~45min.
+DONE = both workstreams shipped (signing pipeline + docs + browser-first; Codex recipes + drop-rates, no sets); all calibrated
++ verified + pushed; docs current; end summary (shipped, calibration evidence, confidence 1-10, exact next step).
