@@ -1,58 +1,62 @@
-# TBH HUD — GOAL (per phase).  `/goal` reads this.
-Read CLAUDE.md + docs/PRD.md + improvement.log FIRST. Read-only, calibrated, verify vs the LIVE save, commit+push each step.
+# TBH HUD — GOAL (per phase).  `/goal` reads this. CONTINUE from current state; do NOT redo done work.
+Read CLAUDE.md + docs/PRD.md + improvement.log + docs/PROGRESS.md FIRST, then START at the first PENDING phase below.
 Golden rule: a helper, never game-breaking, never bannable; never fabricate — every label from the game's own tables/localization.
+READ-ONLY always. Verify EVERY change vs the LIVE save (node scripts/verify_save.js + headless browser, all tabs, 0 console errors).
+CONTINUOUS: after each sub-task -> verify -> commit -> push -> update CLAUDE.md + docs/PROGRESS.md + improvement.log. Full
+regression ~45min. Work 2-3h non-stop; don't ask unless truly blocked.
 
-> **STATUS (2026-06-10): PHASE C ✓ DONE** (rune panel shipped earlier; "who's carrying" full source breakdown shipped this
-> session — see improvement.log / docs/PROGRESS.md). **PHASE A (full-catalog Codex)** and **PHASE B (offline-cap timer)**
-> are still PENDING and remain the owner's top asks. Also pending: real-run verification + Phase 7 packaging (NSIS + Pages).
+## DONE (do NOT rebuild)
+Phases 2 (535 icons + 39 rune icons), 3 (premium 7-tab dashboard), 5 (Player.log loot + rare alerts + pet card), 6 (History/Trends);
+#2 full "who's carrying" source breakdown (Party); #3 loot/lifetime depth (pet card, rare alerts, kills-by-monster);
+rune panel (names + icons + cheapest-next). Authoritative DB from the game's own CSV tables.
 
-## COVERAGE REALITY (calibrated vs gamedata.min.json — built from the game's OWN master tables, NOT from what the owner has collected)
-- items 5944: **name 100%, icon 100%, grade 100% of gear** (125 materials are g:null by design). So EVERY endgame item the
-  owner has never seen is ALREADY in the DB with name+icon+rarity+effects. The low-level live save only verifies the ~40 OWNED.
-- materials 125: 115 have full description + effects (`fx`: which stat per equip type); 10 (150001-150010) are unnamed
-  placeholders -> honest fallback. runes 197, skills 36, stats 62, gear 5440 — all from the tables.
-- The game ships only 115 ItemDescription strings: gear has NO flavor text (it's defined by STATS, which we have via DB.gear +
-  enchants). "A description for every item" is impossible by the game's own design — show desc where it exists, stats/effects
-  otherwise, honest "no description" never a guess.
-- NOT yet done: full-catalog RENDER audit (dashboard verified only vs owned items); stage-box contents surfaced;
-  OfflineRewardInfoData dumped.
-- Confidence now: ~9/10 on DATA, ~7/10 on SURFACED+VERIFIED. This GOAL closes it to 10.
+## COVERAGE REALITY (calibrated vs gamedata.min.json — the DB is the game's MASTER catalog, not the owner's inventory)
+items 5944: name 100%, icon 100%, grade 100% of gear. materials 125 (115 with desc + effects `fx`). runes 197, skills 36, stats 62, gear 5440.
+=> EVERY unseen endgame item is ALREADY in the DB. The low-level live save only verifies the ~50 OWNED.
+The game ships only 115 ItemDescription strings (gear has NO flavor text — it's defined by STATS we already have): show desc
+where it exists, stats/effects otherwise, honest "no description" — never a guess.
+NOT yet: full-catalog Codex + audit; offline-cap timer + OfflineRewardInfoData dump; real end-to-end run; installer/Pages.
 
-## PHASE A — FULL-CATALOG COVERAGE + CODEX (owner's #1 ask: every item, not just a low-level account's)
-1. Codex view: browsable grid of the ENTIRE catalog (all 5944 items + 125 materials + 197 runes + 36 skills), each with real
-   name + icon + rarity + level + description/effects, independent of ownership. Filter by type/rarity/gearType; mark owned vs not.
-2. Surface descriptions + material effects (`fx`) + gear inherent stats + enchant mods in EVERY tooltip (owned AND not-owned).
-3. Stage boxes: resolve DropKey -> DropInfoData -> ItemGroupInfoData -> member ItemKeys -> EN names; show "this box can contain:
-   [items]" even though the group NAME is Korean (omit the Korean label, never guess it).
-4. Full-catalog audit: extend scripts/verify_save.js (or new scripts/audit_catalog.js) to validate ALL 5944 items + runes +
-   materials headless — assert 0 missing name, 0 missing icon, desc present where the game provides; print coverage %.
-5. (Optional cross-check) https://www.tbhwiki.com is COMMUNITY data — use ONLY to cross-check or fill what the tables don't expose
-   in English (Korean stage-box names, drop rates). LABEL anything wiki-sourced; the game's own tables ALWAYS win on conflict.
-AC: Codex shows every item correctly; audit reports 100% name+icon across 5944; 0 console errors live + demo, all tabs.
+## PHASE A — FULL-CATALOG CODEX + AUDIT  (owner's #1 ask — START HERE)
+1. New "Codex" tab: browsable grid of the ENTIRE catalog (all 5944 items + 197 runes + 36 skills + 125 materials), each with
+   real icon + name + rarity + level + type, INDEPENDENT of ownership. Mark owned vs not-owned.
+2. Filters + search: type / gearType / rarity (Common..Cosmic) + name search; sort by rarity/level. Virtualize or paginate the
+   5944 rows so it stays smooth with 0 console errors.
+3. Detail per item: name, rarity, level, gearType, description (where the game provides), material effects (`fx`), gear inherent
+   stats + unique mods, drop sources (DropInfoData -> where it drops), marketable flag.
+4. Stage-box contents: DropKey -> DropInfoData -> ItemGroupInfoData -> member ItemKeys -> EN names; show "box can contain:
+   [items]" — OMIT the Korean group name, never guess it.
+5. Full-catalog audit: extend scripts/verify_save.js OR add scripts/audit_catalog.js — validate ALL 5944 items + runes +
+   materials headless; assert 0 missing name, 0 missing icon, desc present where the game provides; print coverage %. Fix gaps.
+6. (Optional) cross-check Korean stage-box names / drop rates vs https://www.tbhwiki.com — COMMUNITY data; label it; tables win on conflict.
+AC: Codex renders the FULL catalog (owned + unseen) with working filters/search; audit prints 100% name+icon across 5944; 0 console errors live + demo.
 
-## PHASE B — OFFLINE-CAP / RESET TIMER (save-only, safe)
-1. Dump OfflineRewardInfoData (re-run scripts/dump_textassets.py for it) — extract the REAL offline cap + accrual rate. DO NOT
-   assume 8h; calibrate the actual value from the table.
-2. Countdown card from save `lastSavedTime`: show time-idle, reward banked, and time-until-cap ("offline rewards max in Xh Ym" /
-   "capped — collect now"). Calibrate vs the Player.log [OfflineReward] deltas (saved/now/delta/reward) until they match exactly.
-3. Server reset: only show a daily/server reset if a table actually evidences one. The offline cap is RELATIVE to lastSavedTime,
-   not a fixed clock — DO NOT invent a reset time. "Best time to go offline" = anytime; just return before the cap.
-AC: timer matches the game's offline accrual exactly.
+## PHASE B — OFFLINE-CAP TIMER  (save-only, safe)
+1. Dump OfflineRewardInfoData (extend scripts/dump_textassets.py); extract the REAL cap + accrual rate. DO NOT assume 8h.
+2. Countdown card: from save lastSavedTime show time-idle, reward banked, time-until-cap ("offline rewards max in Xh Ym" /
+   "capped - collect now"). Calibrate vs Player.log [OfflineReward] saved/now/delta/reward until they match exactly. Mirror in
+   saveEngine.js + the inline engine.
+3. No invented daily reset — the cap is RELATIVE to lastSavedTime. "Good time to go offline" = anytime; just return before the cap.
+AC: timer matches the game's offline accrual exactly; 0 console errors.
 
-## PHASE C — RUNE PANEL + "WHO'S CARRYING" full breakdown (save-only, safe) — ✓ DONE
-1. ✓ Rune-tree panel: real names + icons + per-node current level + cheapest-next-upgrade (RuneInfoData/RuneLevelInfoData
-   JOIN save RuneSaveData). Shipped (Runes tab).
-2. ✓ "Who's carrying" full source breakdown per deployed hero: base HeroInfoData / gear (DB.gear inherent + enchants) / tree
-   (AttributeInfoData JOIN attributeSaveDatas) + active skills / account-wide runes + pet (PetInfoData via ArrangedPetKey).
-   Labeled gear/build power, NOT live DPS; no XP-to-next (no level curve). Shipped on Party + account-wide panel.
-AC met: both render save-only, calibrated (Node+browser parity), 0 console errors.
+## PHASE 7 — REAL END-TO-END RUN + PACKAGING  (the real-world blocker for friends)
+1. Real run: `npm start` (Electron) vs the live save + the REAL browser Connect-folder native dialog (not the mock handle).
+   Fix anything that breaks live. Confirm all tabs incl. Codex + offline timer render with real data, 0 console errors.
+2. NSIS installer: `npm run dist`; fix the winCodeSign symlink error (extract only windows\* from the cache, or Developer Mode /
+   elevated). Produce dist\TBH-HUD-Setup-<ver>.exe.
+3. GitHub Pages: serve repo root over HTTPS (Connect folder needs HTTPS/localhost); publish so friends get a link.
+4. Wire electron-updater auto-update to GitHub releases (latest.yml).
+AC: real `npm start` works end-to-end; an installer .exe is produced; the Pages link loads the dashboard.
+
+## IF A PHASE FINISHES EARLY — deepen (keep the 2-3h productive, always shippable)
+More Codex depth (synthesis/crafting recipes via SynthesisRecipeInfoData/CraftingRecipeInfoData, set bonuses, per-source drop
+rates); premium-styling polish; accessibility; perf; widen the audit to a descriptions/effects coverage %.
 
 ## DEFERRED (golden rule — note, never guess)
-Live DPS/combat memory reading; per-act gold/hr (needs memory); Steam Market value (Inventory Service throttled/empty this build);
-12-min blue-chest timer (no 720s in DropCooldown); Korean ItemGroup names (show box CONTENTS only).
+Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & clear-time (memory lane); Steam Market value
+(Inventory Service throttled/empty this build); 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; hero XP-to-next/ETA.
 
-## LOOP & DONE
-Loop: pick -> implement (calibrated, read-only) -> verify vs LIVE save (node scripts/verify_save.js + headless, all tabs, 0 errors)
--> commit -> push -> update CLAUDE.md + docs/PROGRESS.md + improvement.log -> repeat. Full regression ~45min.
-DONE = A + B + C shipped, audit reports full catalog coverage, every label calibrated + verified, provably read-only, all pushed,
-docs current; end summary (shipped, calibration evidence, coverage %, confidence 1-10, exact next step). Target: 10/10 coverage.
+## DONE
+A + B + 7 shipped; Codex covers the full catalog + audit reports 100%; offline timer calibrated; real `npm start` verified;
+installer produced + Pages live; all committed + pushed; CLAUDE.md + PROGRESS.md + improvement.log current.
+End summary: shipped, calibration evidence, coverage %, confidence 1-10, exact next step. Target 10/10.
