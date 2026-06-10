@@ -58,6 +58,30 @@ function dropSources(itemKey){
       for(const ik of mem){ (_dropSrc[ik]=_dropSrc[ik]||[]).push(k); } } } }
   return _dropSrc[String(itemKey)]||[];
 }
+// Player.log offline-reward events (paired lines). reward==delta until the offline cap, then plateaus.
+function parseOfflineEvents(text){
+  const lines=String(text||'').split(/\r?\n/); const out=[]; let pend=null;
+  for(const ln of lines){ if(ln.indexOf('[OfflineReward]')<0)continue;
+    const mE=ln.match(/saved=(\d+),\s*now=(\d+),\s*delta=(\d+)s,\s*reward=(\d+)s(?:,\s*counter=(\d+))?/);
+    if(mE){ pend={saved:+mE[1],now:+mE[2],delta:+mE[3],reward:+mE[4],counter:mE[5]?+mE[5]:null,t:(+mE[2])*1000}; continue; }
+    const mG=ln.match(/gold=(\d+)/); if(mG){ const ev=pend||{t:null}; ev.gold=parseInt(mG[1],10);
+      const mh=ln.match(/heroCount=(\d+)/); if(mh)ev.heroCount=+mh[1]; if(ev.reward>0)ev.rate=ev.gold/ev.reward; out.push(ev); pend=null; } }
+  return out;
+}
+// offlineStatus: idle/banked/cap from save lastSavedTime + log events. CAP learned from the user's own logs
+// (reward plateau where reward<delta) — NEVER assumed (no 8h, no daily reset). Mirror of the inline engine.
+function offlineStatus(savedMs, events, nowMs){
+  if(!savedMs)return null;
+  const idleSec=Math.max(0,(nowMs-savedMs)/1000);
+  const evs=(events||[]).filter(e=>e&&e.reward!=null).slice().sort((a,b)=>(b.now||0)-(a.now||0));
+  const last=evs[0]||null;
+  const capped=evs.filter(e=>e.delta>e.reward);
+  const capSec=capped.length?Math.max(...capped.map(e=>e.reward)):null;
+  const rate=(last&&last.reward>0)?(last.gold/last.reward):null;
+  return {idleSec,last,rate,capSec,atCap:(capSec!=null&&idleSec>=capSec),
+    timeToCapSec:(capSec!=null?Math.max(0,capSec-idleSec):null),
+    bankedEst:(capSec!=null&&rate!=null)?Math.round(Math.min(idleSec,capSec)*rate):null,count:evs.length};
+}
 const rarityRank=g=>{const i=RARITY.indexOf(g);return i<0?-1:i;};
 
 function gold(psd){ const c=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); return c?c.Quantity:0; }
@@ -79,4 +103,4 @@ function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev
 function trendPoint(psd){ const c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[]; const goldRow=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); const d=netTicksToDate(c.lastSavedTime); return {t:d?+d:null,gold:goldRow?goldRow.Quantity:0,lifeGold:pick(a,2,0),kills:pick(a,0,0),playH:c.playTime?+(c.playTime/3600).toFixed(2):null,maxStage:c.maxCompletedStage,items:(psd.itemSaveDatas||[]).length,runes:(psd.RuneSaveData||[]).filter(r=>(r.Level||0)>0).length}; }
 function buildTrends(points){ const seen={},pts=[]; (points||[]).filter(p=>p&&p.t).sort((a,b)=>a.t-b.t).forEach(p=>{const k=p.t+'/'+p.lifeGold; if(seen[k])return; seen[k]=1; pts.push(p);}); for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i]; const dPlay=(b.playH!=null&&a.playH!=null)?b.playH-a.playH:null; const dWall=(b.t-a.t)/3600000; const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; const dLife=(b.lifeGold!=null&&a.lifeGold!=null)?b.lifeGold-a.lifeGold:null; const dKills=(b.kills!=null&&a.kills!=null)?b.kills-a.kills:null; b.goldPerHr=(dLife!=null&&h>0.01)?Math.round(dLife/h):null; b.killsPerHr=(dKills!=null&&h>0.01)?Math.round(dKills/h):null; } return pts; }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,GOLD_KEY};

@@ -152,6 +152,21 @@
   .petcard .petn{font-weight:700;font-size:14.5px}
   .petcard .petd{color:var(--dim);font-size:12px;margin-top:1px}
 
+  /* ---------- offline-rewards card ---------- */
+  .offcard{display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px}
+  .offbig{display:flex;flex-direction:column}
+  .offbig .v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.3px}
+  .offbig .l{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .offcap{flex:1;min-width:210px}
+  .offcap .top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;color:var(--muted)}
+  .offcap .top b{color:var(--text);font-weight:600}
+  .offcap .track{height:9px;background:var(--surface3);border-radius:6px;overflow:hidden}
+  .offcap .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--green),var(--amber));transition:width .6s}
+  .offcap.full .fill{background:linear-gradient(90deg,var(--amber),var(--red))}
+  .offlast{font-size:12px;color:var(--muted);flex-basis:100%}
+  .offlast b{color:var(--gold);font-weight:600}
+  .offnote{font-size:11.5px;color:var(--dim);flex-basis:100%;line-height:1.45}
+
   /* ---------- inventory grid ---------- */
   .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px}
   .filters button{padding:6px 12px;font-size:12.5px;border-radius:20px}
@@ -406,6 +421,9 @@ function el(html){var t=document.createElement('template');t.innerHTML=html.trim
 // string contains multiple top-level elements (el() would silently drop all but the first).
 function frag(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content;}
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
+// compact duration: "2h 14m", "14m 03s", "0m 09s" (for idle/offline countdowns)
+function fmtDur(sec){sec=Math.max(0,Math.floor(sec));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  if(h>0)return h+'h '+(m<10?'0':'')+m+'m'; if(m>0)return m+'m '+(s<10?'0':'')+s+'s'; return s+'s';}
 function rrank(g){return RARITY.indexOf(g);}
 function rvar(g){return g?('var(--r-'+g+')'):'var(--line)';}
 function nz(v){return v&&v!==0&&v!=='0';}
@@ -665,17 +683,44 @@ function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:l
    timestamped offline-reward gold and current Steam-box counts. We surface those honestly and
    do NOT invent any drop/cooldown the log doesn't contain. */
 var logData={offline:[],boxes:{}};
+// The save's true last-save instant (UTC). The .es3 lastSavedTime FIELD is stored as LOCAL wall-clock .NET
+// ticks (calibration: on the live save the ticks read 8h ahead of the file's UTC mtime — the user's TZ offset),
+// so for absolute "idle since save" we prefer the file's real modification time (true UTC, set by the connect
+// paths) and fall back to TZ-corrected ticks. Never used for fabricated values — only honest elapsed time.
+var lastSaveFileMs=null;
+// The game logs each offline collection as a PAIR of lines:
+//   [OfflineReward] saved=<unix>, now=<unix>, delta=<idle>s, reward=<credited>s, counter=<n>
+//   [OfflineReward] ...: gold=<g>, heroCount=<h>
+// `reward` is the CLAMPED `delta` (reward==delta until the offline cap, then plateaus) — so a real cap is
+// learned from the user's OWN logs where reward<delta. We capture the full event (no assumed cap/rate).
 function parseLog(text){
-  var lines=String(text||'').split(/\r?\n/), offline=[], boxes={}, ts=null;
+  var lines=String(text||'').split(/\r?\n/), offline=[], boxes={}, pend=null;
   for(var i=0;i<lines.length;i++){var ln=lines[i];
     if(ln.indexOf('[OfflineReward]')>=0){
-      var mNow=ln.match(/now=(\d{9,})/); if(mNow) ts=parseInt(mNow[1],10)*1000;
-      var mG=ln.match(/gold=(\d+)/); if(mG&&ts){offline.push({t:ts,gold:parseInt(mG[1],10)}); ts=null;}
+      var mE=ln.match(/saved=(\d+),\s*now=(\d+),\s*delta=(\d+)s,\s*reward=(\d+)s(?:,\s*counter=(\d+))?/);
+      if(mE){pend={saved:+mE[1],now:+mE[2],delta:+mE[3],reward:+mE[4],counter:mE[5]?+mE[5]:null,t:(+mE[2])*1000};continue;}
+      var mG=ln.match(/gold=(\d+)/);
+      if(mG){var ev=pend||{t:null};ev.gold=parseInt(mG[1],10);var mh=ln.match(/heroCount=(\d+)/);if(mh)ev.heroCount=+mh[1];
+        if(ev.reward>0)ev.rate=ev.gold/ev.reward; offline.push(ev); pend=null;}
     } else if(ln.indexOf('GetBoxCount')>=0){
       var mb=ln.match(/Count\s*:\s*(\d+)\s*\/\/\s*ItemKey\s*:\s*(\d+)/); if(mb) boxes[mb[2]]=parseInt(mb[1],10);
     }
   }
   return {offline:offline, boxes:boxes};
+}
+// offlineStatus: honest idle/banked/cap from the save's lastSavedTime + the user's Player.log offline events.
+// The CAP is learned from their own logs (the reward plateau where reward<delta) — NEVER assumed (no 8h, no daily reset).
+function offlineStatus(savedMs, events, nowMs){
+  if(!savedMs)return null;
+  var idleSec=Math.max(0,(nowMs-savedMs)/1000);
+  var evs=(events||[]).filter(function(e){return e&&e.reward!=null;}).slice().sort(function(a,b){return (b.now||0)-(a.now||0);});
+  var last=evs[0]||null;
+  var cappedEvs=evs.filter(function(e){return e.delta>e.reward;});       // observed clamping = real cap
+  var capSec=cappedEvs.length?Math.max.apply(null,cappedEvs.map(function(e){return e.reward;})):null;
+  var rate=(last&&last.reward>0)?(last.gold/last.reward):null;            // gold/sec from the latest collection
+  return {idleSec:idleSec, last:last, rate:rate, capSec:capSec,
+    atCap:(capSec!=null&&idleSec>=capSec), timeToCapSec:(capSec!=null?Math.max(0,capSec-idleSec):null),
+    bankedEst:(capSec!=null&&rate!=null)?Math.round(Math.min(idleSec,capSec)*rate):null, count:evs.length};
 }
 function setLog(texts){
   var off=[], boxes={};
@@ -770,6 +815,49 @@ function heroCard(h){
   return n;
 }
 
+/* Offline-rewards card — idle since last save + (log-learned) cap countdown + last collection.
+   Honest: the cap is NOT in the game's data tables, so it's learned from the user's own Player.log
+   reward-plateau; until observed, we show idle + accrual and say so. Never assumes 8h / a daily reset. */
+var offTimer=null, offBasis=null;
+function startOfflineTicker(){ if(offTimer)return; offTimer=setInterval(function(){
+  if(!offBasis)return; var idle=$('offIdle'); if(!idle)return;   // overview not rendered
+  var idleSec=Math.max(0,(Date.now()-offBasis.savedMs)/1000);
+  idle.textContent=fmtDur(idleSec);
+  var capEl=$('offCap'), bar=$('offBar');
+  if(capEl&&offBasis.cap!=null){var ttc=Math.max(0,offBasis.cap-idleSec);
+    capEl.innerHTML='<b>'+(ttc>0?('max in '+fmtDur(ttc)):'capped — collect now')+'</b>';
+    if(bar)bar.style.width=Math.min(100,idleSec/offBasis.cap*100)+'%';
+    var wrap=capEl.parentNode&&capEl.parentNode.parentNode; if(wrap&&wrap.classList)wrap.classList.toggle('full',ttc<=0);
+  }
+},1000); }
+function renderOfflineCard(d){
+  // prefer the file's true UTC mtime; fall back to TZ-corrected ticks (renderer TZ == save TZ on the same machine)
+  var savedMs=lastSaveFileMs||(d.lastSaved?(+d.lastSaved+new Date().getTimezoneOffset()*60000):null); if(!savedMs)return null;
+  var st=offlineStatus(savedMs,(logData.offline||[]),Date.now());
+  offBasis={savedMs:savedMs,cap:st.capSec,rate:st.rate};
+  var n=el('<div class="panel offcard"></div>');
+  n.appendChild(el('<div class="offbig"><div class="v"><span id="offIdle">'+fmtDur(st.idleSec)+'</span></div><div class="l">idle since last save</div></div>'));
+  if(st.capSec!=null){
+    var pct=Math.min(100,st.idleSec/st.capSec*100);
+    n.appendChild(el('<div class="offcap'+(st.atCap?' full':'')+'"><div class="top"><span>offline rewards</span>'+
+      '<span id="offCap"><b>'+(st.timeToCapSec>0?('max in '+fmtDur(st.timeToCapSec)):'capped — collect now')+'</b></span></div>'+
+      '<div class="track"><div class="fill" id="offBar" style="width:'+pct+'%"></div></div></div>'));
+  } else {
+    n.appendChild(el('<div class="offbig"><div class="v" style="color:var(--green)">accruing</div><div class="l">rewards while away</div></div>'));
+  }
+  if(st.last&&st.last.gold!=null)
+    n.appendChild(el('<div class="offlast">Last offline reward <b>+'+fmt(st.last.gold)+' gold</b> over '+fmtDur(st.last.reward)+
+      (st.rate?(' (~'+st.rate.toFixed(1)+'/s)'):'')+' · '+new Date(st.last.t).toLocaleString()+'</div>'));
+  var note;
+  if(st.capSec!=null) note='Cap learned from your Player.log — the reward stopped growing at '+fmtDur(st.capSec)+'.'+
+    (st.bankedEst!=null?(' Est. banked ~'+fmt(st.bankedEst)+' gold at your last offline rate.'):'');
+  else if(st.count) note='Offline rewards keep accruing from your last save. The exact cap isn’t in the game’s data tables, so the HUD will learn it from your Player.log the first time you idle past it — no assumed cap.';
+  else note='Use Connect folder (Chrome / Edge) or the desktop app to read offline rewards from Player.log. Idle time above is from your save’s last-saved time.';
+  n.appendChild(el('<div class="offnote">'+note+'</div>'));
+  startOfflineTicker();
+  return n;
+}
+
 function renderOverview(d){
   var p=$('tab-overview');p.innerHTML='';
   // session rates
@@ -796,6 +884,10 @@ function renderOverview(d){
     card('Session length',hrs<0.017?'just started':(hrs.toFixed(2)+' h'),'','since you connected','⏱️'),
     card('Inventory',fmt(d.inv.owned),'',d.inv.stash+' in stash'+(d.inv.trade?(' · '+d.inv.trade+' trading'):''),'🎒')
   ].join('')+'</div>'));
+
+  // Offline rewards — idle accrual + (log-learned) cap countdown
+  var offc=renderOfflineCard(d);
+  if(offc){p.appendChild(el('<h3 class="sec">Offline rewards <span class="tag">idle accrual since your last save · calibrated from Player.log, no assumed cap</span></h3>'));p.appendChild(offc);}
 
   p.appendChild(el('<h3 class="sec">Active party <span class="tag">deployed heroes</span></h3>'));
   var party=el('<div class="grid party"></div>');
@@ -1377,7 +1469,7 @@ var handle=null,lastMod=0,timer=null;
 async function connectFS(){
   var picked=await window.showOpenFilePicker({types:[{description:'TBH save',accept:{'application/octet-stream':['.es3']}}]});
   handle=picked[0];
-  async function poll(){try{var f=await handle.getFile();if(f.lastModified!==lastMod){lastMod=f.lastModified;onBytes(await f.arrayBuffer());}}catch(e){}}
+  async function poll(){try{var f=await handle.getFile();if(f.lastModified!==lastMod){lastMod=f.lastModified;lastSaveFileMs=f.lastModified;onBytes(await f.arrayBuffer());}}catch(e){}}
   await poll();if(timer)clearInterval(timer);timer=setInterval(poll,4000);
 }
 /* directory access: live save + the game's rolling backups -> live dashboard AND History/Trends.
@@ -1399,7 +1491,7 @@ async function scanFolder(full){
       if(/\.es3(\.bak)?$/i.test(entry.name))backups.push(entry);
       if(/^Player(-prev)?\.log$/i.test(entry.name))logs.push(entry);
     }
-    if(liveH){var lf=await liveH.getFile();if(lf.lastModified!==liveMod){liveMod=lf.lastModified;await onBytes(await lf.arrayBuffer());}}
+    if(liveH){var lf=await liveH.getFile();if(lf.lastModified!==liveMod){liveMod=lf.lastModified;lastSaveFileMs=lf.lastModified;await onBytes(await lf.arrayBuffer());}}
     var periodic=(scanTick++%12===0);   // ~once a minute; new backups/log lines appear periodically
     if(full||periodic||activeTab==='trends'){
       var list=[];
@@ -1420,7 +1512,7 @@ $('connectBtn').addEventListener('click',async function(){
   if(window.showOpenFilePicker){try{await connectFS();}catch(e){if(e.name!=='AbortError')console.error(e);}}
   else $('fileInput').click();
 });
-$('fileInput').addEventListener('change',function(e){if(e.target.files[0]){var r=new FileReader();r.onload=function(){onBytes(r.result);};r.readAsArrayBuffer(e.target.files[0]);}});
+$('fileInput').addEventListener('change',function(e){if(e.target.files[0]){var fl=e.target.files[0];lastSaveFileMs=fl.lastModified;var r=new FileReader();r.onload=function(){onBytes(r.result);};r.readAsArrayBuffer(fl);}});
 
 /* Electron native bridge */
 if(window.tbhNative&&window.tbhNative.onSave){
