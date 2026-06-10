@@ -10,14 +10,22 @@ Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
-- **S13b (v1.0.5) — visible, on-demand updates.** The desktop updater used to check ONCE at launch, silently — an
-  always-open HUD never re-checked, and a check that raced GitHub's CDN right after a release failed invisibly
-  (observed live shipping v1.0.4). Now: a **"↻ Check for updates" header button** (desktop only) with visible states
-  (checking… / downloading % / update ready / you're on the latest vX / couldn't reach GitHub), a **4-hour periodic
-  re-check** while running, an `update-not-available`/`checking` relay over the existing IPC, and the installed **app
-  version shown in the footer** (distinct from the game-save version in the header). Background checks stay quiet —
-  feedback only when the user asked. Verified: dev boot clean; browser build unaffected (no button there; 11 tabs,
-  0 errors); release published and the v1.0.4 install observed auto-updating to v1.0.5.
+- **S13c (v1.0.6) — auto-update was NEVER working in any shipped build; found and fixed.** Root cause (proved by
+  attaching an inspector to the INSTALLED app's main process): `require('electron-updater')` throws **Cannot find
+  module** — electron-updater lived in devDependencies since day one (commit 7d1ba64) and electron-builder packs only
+  production `dependencies` into the asar, so every installer v1.0.0→v1.0.5 shipped WITHOUT the updater; the try/catch
+  in main.js made it a perfectly silent no-op (no check, no error, nothing). Earlier doc claims that the chain was
+  "live/proven" were wrong and are corrected. FIX: electron-updater moved to `dependencies` (v1.0.6); verified by
+  running the freshly built win-unpacked app under --inspect: the module loads and a real packaged checkForUpdates
+  round-trips. CONSEQUENCE for users: installs of v1.0.5 and older need ONE manual reinstall (README warns them);
+  from v1.0.6 on, updates are genuinely automatic (launch + 4h re-check + the manual button from S13b).
+- **S13b (v1.0.5) — visible, on-demand updates.** The desktop updater only checked ONCE at launch, silently — an
+  always-open HUD never re-checked, and a failed/raced check was invisible with no retry. Now: a **"↻ Check for
+  updates" header button** (desktop only) with visible states (checking… / downloading % / update ready / you're on
+  the latest vX / couldn't reach GitHub), a **4-hour periodic re-check** while running, `checking`/`none` update-status
+  relays, and the installed **app version shown in the footer** (distinct from the game-save version in the header).
+  Background checks stay quiet — feedback only when the user asked. (Superseded within the hour by v1.0.6, which fixes
+  the deeper bug above that made all of this moot in shipped builds.)
   **F1 History + per-stage gold/hr (goals #2/#3, save-only):** the HUD now records its OWN lean snapshot per save change
   (IndexedDB `tbh-hud-history`, separate from the `tbh-hud` handle store; loaded on startup, merged with the game's
   rolling backups, capped 2400, cleared on Disconnect like the loot timeline). **Per-stage farming rates** from the

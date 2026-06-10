@@ -175,6 +175,14 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S13c (v1.0.6) — AUTO-UPDATE WAS NEVER WORKING IN ANY SHIPPED BUILD; fixed.** Proof: attached --inspect to the
+  INSTALLED app's main process → `require('electron-updater')` throws Cannot find module (the try/catch made it a
+  silent no-op: no check, no error, ever). Cause: electron-updater sat in devDependencies since day one, and
+  electron-builder packs only production `dependencies` into the asar. **RULE: electron-updater MUST stay in
+  "dependencies".** Fixed + verified by running the freshly built win-unpacked app under --inspect: module loads,
+  a real packaged check round-trips (checking-for-update → update-not-available). Users on ≤v1.0.5 need ONE manual
+  reinstall (README warns); from v1.0.6 updates are genuinely automatic. Prior "auto-update chain live" doc claims
+  were wrong — corrected here, in PROGRESS (#17) and the README.
 - **S13b (v1.0.5)** — update UX: "↻ Check for updates" header button (desktop; visible checking/none/error states,
   quiet in background), 4h periodic re-check (launch-only before — an always-open HUD never saw new releases, and a
   check minutes after a release could miss it while GitHub's CDN propagated), `checking`/`none` update-status relays,
@@ -204,7 +212,8 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.4 is SHIPPED everywhere** — desktop release (installer + latest.yml + blockmap; older installs auto-update),
+1. **v1.0.6 is SHIPPED everywhere** — desktop release (installer + latest.yml + blockmap; auto-update WORKS from
+   v1.0.6 on — older installs need one manual reinstall, see S13c),
    GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from
    the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project `tbh-crew-api`
    under the fusiondatacompany team; Neon Postgres; DATABASE_URL in Vercel env only). To ship the NEXT version:

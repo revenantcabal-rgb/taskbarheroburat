@@ -76,7 +76,7 @@ No save handy? Click **Preview sample** for a demo, or **Browse the full item ca
 it at vercel.com for a one-click second deployment.
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.5.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.5/TBH-HUD-Setup-1.0.5.exe)** (direct, ~79 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.6.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.6/TBH-HUD-Setup-1.0.6.exe)** (direct, ~79 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and
@@ -121,13 +121,16 @@ CodeStage anti-cheat ban). The honest stand-in is the **"Who's carrying"** ranki
 power) — and the **Flex card** gives you shareable bragging rights (furthest stage, top hero, best gear, kills,
 lifetime gold) with a one-click **Copy to share with friends**.
 
-**Will it auto-update when you ship changes?** Yes, two ways: the **browser version is always current** (it's served
-from the host, so a refresh gets the latest), and the **desktop app auto-updates** — it checks GitHub releases on
+**Will it auto-update when you ship changes?** The **browser version is always current** (it's served from the host,
+so a refresh gets the latest). The **desktop app auto-updates from v1.0.6 onward**: it checks GitHub releases on
 launch **and every few hours while running**, downloads any newer version in the background, and offers a one-click
 **Restart to update** (or applies it on next quit even if you don't click). There's also a **"↻ Check for updates"**
-button in the app header if you don't want to wait — it tells you "checking… / downloading / you're on the latest /
-couldn't reach GitHub" so you always know where you stand. Publishing a new release is all it takes to push an update
-to everyone — including friends who installed any older version in the past.
+button in the app header — it tells you "checking… / downloading / you're on the latest / couldn't reach GitHub" so
+you always know where you stand.
+
+> ⚠️ **If you installed v1.0.5 or older:** those builds shipped with a packaging bug that silently disabled the
+> updater (the update module wasn't bundled), so they will never offer an update on their own. **Reinstall once**
+> from the download link above — settings and history are kept, and from v1.0.6 on updates really are automatic.
 
 ## Develop & test locally
 Requires [Node.js](https://nodejs.org) (LTS) and (to rebuild the game DB) Python + UnityPy + Pillow.
