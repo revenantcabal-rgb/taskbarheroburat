@@ -1,108 +1,25 @@
-# TBH HUD — Autonomous Work Session Brief (copy-paste this into Claude / cowork)
+Pick up TBH HUD — a READ-ONLY companion for the Steam game "TBH: Task Bar Hero". Work autonomously 2–3h, no stopping; don't ask unless truly blocked. Commit + push continuously; keep local = remote.
 
-> Paste everything below the line into a fresh session. It is self-contained.
+ORIENT: Repo root D:\Task Bar Hero - Github MOD\Task Bar Hero Github (TBH-Github). READ CLAUDE.md + docs/PRD.md in full, skim git log. GitHub revenantcabal-rgb/taskbarheroburat (authed). Live save %USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\SaveFile_Live.es3. Game tables dumped in scripts/_gamedata_raw/*.txt; en-US in src/engine/localization.min.json; DB src/engine/gamedata.min.json (rebuild via scripts/build_gamedata.py). Preview: server root = repo, http://127.0.0.1:8778/dashboard.html (?demo). Engine check: node scripts/verify_save.js. Refresh test/ (gitignored) from the live folder for headless checks.
 
----
+GOLDEN RULE (non-negotiable): an additional helper, never game-breaking. Read-only always — never write/inject game/save/memory ([ACTk] CodeStage anti-cheat). NO fabricated data — every label calibrated from the game's own tables/localization; honest fallback or omit otherwise. Verify EVERY change vs the LIVE save (Node + headless browser, all 7 tabs, 0 console errors). QoL only.
 
-You are picking up **TBH HUD**, a read-only companion app for the Steam idle-RPG **TBH: Task Bar Hero**.
-Work **autonomously for 2–3 hours without stopping**. Do not pause to ask for confirmation unless you are
-genuinely blocked (missing file, ambiguous *destructive* action). Self-pace, keep improving, and commit + push
-your progress continuously.
+MISSION — do BOTH, alternate so the app stays shippable:
 
-## 0. Orient first (do this before any work)
-1. Working dir: `D:\Task Bar Hero - Github MOD\Task Bar Hero Github (TBH-Github)` (this is the git repo root).
-2. **Read `CLAUDE.md` and `docs/PRD.md` in full** — they have the verified technical facts, the calibrated data
-   rules, the phased roadmap, and the acceptance criteria. Then skim `git log` to see what's already done.
-3. GitHub home: **`revenantcabal-rgb/taskbarheroburat`** (already authed; `git push` works). Commit small and
-   often; push after each meaningful unit of work. Keep the local folder = the pushed remote at all times.
-4. Verify the environment: game install at
-   `D:\steam\steamapps\common\TaskbarHero\TaskBarHero_Data`; live save at
-   `%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\SaveFile_Live.es3`; Python + UnityPy + Pillow
-   installed; preview via the static-server config in `.claude/launch.json`.
+#2 FULL "WHO'S CARRYING" SOURCE BREAKDOWN (save-only, no ban risk). Per deployed hero, split power by source and show each contribution:
+- Base: HeroInfoData (per HeroKey: AttackDamage/AttackSpeed/CastSpeed/CriticalChance/CriticalDamage/MaxHp/Armor/CooldownReduction/MovementSpeed + HeroName_/MainWeaponGearType).
+- Tree: AttributeInfoData (AttributeKey,HeroKey,GroupKey,ATTRIBUTETYPE,Value,RequiredPoint,MaxLevel) JOINED to the save's attributeSaveDatas (per-hero levels) + unlockedAttributeGroupKeys; + PassiveSkillInfoData (PassiveSkillKey,SkillNameKey,STATTYPE,MODTYPE,Value).
+- Gear: DB.gear inherent stats + item enchants (already built).
+- Runes (DB.runes) + Pet: PetInfoData (PetKey→PetName_/effect) via save ArrangedPetKey.
+Add hero/attribute/passive/pet maps to build_gamedata.py; rebuild; mirror in saveEngine.js + the inline engine. Render a per-hero breakdown (e.g. "Priest: base / gear / tree / runes / pet"). LABEL it gear/build-based power, NOT live DPS. NOTE: tables have NO hero XP/level curve → do NOT promise XP-to-next-level/ETA; the hero-card "xp bar" is a level/20 proxy → relabel honestly or drop it.
 
-## 1. THE GOLDEN RULE (non-negotiable — this defines the whole product)
-**We are an ADDITIONAL HELPER for players, never a game-breaking change.**
-- **Read-only, always.** Never write to / modify / inject into the game, its save, or its memory.
-- **Not bannable.** The game uses CodeStage anti-cheat. Reading files on disk (save, `Player.log`, game asset
-  files) and reading the screen are safe. **Anything that writes to or injects into the running game process is
-  forbidden.** If a feature *might* be construed as cheating or modifying gameplay, **do not build it** — stop and
-  leave a note instead.
-- **No fabricated data.** Every label (name, rarity, effect, stat, cost) must be calibrated against the game's own
-  data tables (the CSV TextAssets in `sharedassets0.assets`) or its localization. If something can't be resolved
-  authoritatively, show an honest fallback — never a guess, never a community rumor.
-- **Verify against the real save.** After any data/UI change, confirm it against the live
-  `SaveFile_Live.es3` (decrypt+parse in Node, and render in a headless browser via the preview tools).
-- **Quality-of-life only.** The mission is to make the game more pleasant to play with full information — not to
-  give an unfair advantage or alter outcomes.
+#3 LOOT & LIFETIME DEPTH (save+log only, safe):
+- Rare-drop alerts: highlight Legendary+ in the loot timeline + optional opt-in desktop Notification (no sound by default).
+- Active pet card: resolve save ArrangedPetKey → PetInfoData name+effect (parsed, unused).
+- Decode more aggregateSaveDatas: Type 0 subkeys (10011, 10021-10023, 10031, 10041-10053, 20011-20091 = likely per-monster/per-item-category), Type 4/5/7 sub 0-4, Type 10/15. CALIBRATE each against a known delta before labeling; if meaning is unconfirmed, show an honest "counter #N", never a guess. Surface confirmed ones on Lifetime.
 
-## 2. Current state (already DONE — revisit/harden, don't redo)
-- Save engine (`src/engine/saveEngine.js`) — decrypt + parse + analytics; exposes iconId/statName/resolveMods.
-- **Authoritative game DB** (`src/engine/gamedata.min.json`, regenerated by `scripts/build_gamedata.py` from the
-  game's own tables): 5,944 items with real names/grades/icons/levels, 62 enchant stat mods, 197 runes with
-  per-level effects + costs + tree links, material descriptions + contextual effects + material types.
-  `src/engine/localization.min.json` = full en-US text (1,824 keys incl. skill/monster/passive names).
-- **535 item icons** + **39 rune icons** extracted (read-only) to `src/assets/`.
-- **Premium dashboard** (`dashboard.html`): tabs Overview / Party / Inventory / Loot / Runes / Lifetime;
-  animated hero GIFs, rarity-framed icon grid, enchant tooltips with real stat names, material tooltips with
-  descriptions + effects, rune tree with cheapest-next-upgrade. Works standalone in browser AND as Electron renderer.
-- Extraction/build pipeline in `scripts/` (`dump_textassets.py`, `extract_localization.py`, `build_gamedata.py`,
-  `extract_icons.py`, `extract_rune_icons.py`, `audit_coverage.py`, `find_item_table.py`, `validate_grade.py`).
+DO NOT BUILD (golden rule — leave a note, not a guess): live DPS/combat memory reading; per-act gold/hr (needs memory); Steam Market value (service throttled/empty this build); 12-min blue-chest timer (no 720s in DropCooldown); stage-box drop contents (ItemGroup names are Korean).
 
-## 3. Your mission this session (priority order — do as many as time allows)
-Two threads run in parallel: **(A) harden what exists**, **(B) advance coverage/features**. Alternate so the app
-is always shippable.
+LOOP: pick next → implement (calibrated, read-only) → verify vs LIVE save (node scripts/verify_save.js + headless browser) → fix → commit → push → update CLAUDE.md + docs/PROGRESS.md + docs/CHANGELOG.md → repeat. Full regression every ~45min.
 
-### A. Regression + bug hunt (do this FIRST, ~30 min, then recurring)
-- Drive the dashboard in a headless browser against BOTH `?demo` and the **live save**; click every tab; check the
-  browser console for errors after each. Fix every console error and any broken render.
-- Edge cases: empty/early save (no items, level-1 heroes), a save with 0 leveled runes, the file-picker fallback
-  path (non-Chrome), the Electron `tbhNative` path, missing-icon fallback, very large inventories.
-- Confirm READ-ONLY: grep the codebase for any write to the game/save paths; there must be none.
-- Keep a running list of bugs found/fixed in your commits and in `CLAUDE.md`.
-
-### B. Close coverage gaps (task #9 from the tracker)
-1. **Stage-box drop contents** — resolve `DropKey → DropInfoData → ItemGroupInfoData` (weighted/conditional drop
-   tables) so each stage box shows what it can drop. Handle weights honestly (show probabilities or "can drop"
-   categories) — do NOT imply guaranteed drops.
-2. **Gear base-stats / power score** — integrate `GearInfoData` (per-GearKey BaseStat/InherentStat/UniqueMod) so
-   items show their real stats and a comparable power number; surface in tooltips + inventory sort.
-3. **Surface skill/monster/passive names** (already in `localization.min.json`) where relevant (hero skills,
-   loot/monster context).
-4. **Confirm stat-value numeric formatting** (e.g. whether a Percent stat's "+220" shows as 220% or 22.0% in-game)
-   — verify against the live game UI before changing display; keep the raw value if uncertain.
-
-### C. Advance the roadmap (high-QoL, 100% safe lanes first)
-5. **Loot timeline + blue-chest tracker (Phase 5, save+log only — safe):** tail `Player.log` (same folder as the
-   save) for `OfflineReward` / `StageBox` / `Drop` / `ItemCache` events to build a timestamped loot timeline with
-   rare-drop highlights, and auto-track the **12-minute blue-chest cooldown** per stage with a ready-ping. This is
-   pure file reading — fully safe — and is a marquee feature over the competitor.
-6. **History / trends (Phase 6, safe):** use the rolling save backups (`SaveFile_Live_*.es3.bak` / timestamped
-   backups) as historical diff points to chart gold/hr, kills, gear progression over time.
-7. **Live combat telemetry (Phase 4) — CAUTION:** real-time DPS/clear-time needs the memory lane. Only pursue if it
-   can be done strictly read-only (external process memory read, signature-based, no injection, no writes) with a
-   graceful fallback to save+log mode. **If there is ANY doubt about ban-safety, do NOT implement memory reading**
-   — leave a documented design note and prefer the save+log derived metrics instead. The golden rule wins over this
-   feature every time.
-
-### D. Polish to clearly beat the competition
-- Keep making the UI visibly more premium and more complete than **tbh-meter** and **tbh-copilot** (full
-  authoritative item set with icons/enchants, rune tree, loot timeline, per-act gold/hr, who's-carrying). Animations,
-  empty states, responsiveness, accessibility.
-
-## 4. Working method (the loop)
-Repeat for the whole session:
-1. Pick the next highest-priority item. 2. Implement it (calibrated, read-only). 3. **Verify against the live save**
-in a headless browser (and Node for engine changes). 4. Fix anything broken. 5. Commit with a clear message and
-**push**. 6. Update the task tracker + `CLAUDE.md` if state changed. 7. Go to 1. Do a quick full regression pass
-every ~45 min so the app is always shippable.
-
-## 5. Definition of done for the session
-- App runs clean (no console errors) against the live save AND demo, across all tabs.
-- New features are calibrated against the game's own data, verified vs the live save, and **provably read-only /
-  not bannable**.
-- Everything committed and pushed; `CLAUDE.md` + task tracker reflect reality; local = remote.
-- A short end-of-session summary: what shipped, bugs fixed, coverage %, honest confidence rating (1–10), and the
-  exact next step.
-
-**Remember:** better than the other app, more complete, more polished — but always just a *helper*. Read-only.
-Never bannable. Never fabricate. Verify everything against the real game.
+DONE = #2 + #3 shipped, every label calibrated + verified vs live save, provably read-only; no console errors vs live + demo across all tabs; all committed + pushed; PROGRESS.md + CHANGELOG.md + CLAUDE.md current; end summary (shipped, calibration evidence, coverage %, confidence 1–10, next step). Read-only. Never bannable. Never fabricate. Verify against the real game.
