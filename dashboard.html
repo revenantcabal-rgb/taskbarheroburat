@@ -165,6 +165,9 @@
   .hero .xpbar{height:6px;border-radius:4px;background:var(--surface3);margin-top:10px;overflow:hidden}
   .hero .xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:4px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
   .hero .xpmeta{font-size:10.5px;color:var(--dim);margin-top:4px;font-variant-numeric:tabular-nums}
+  .hero .eta{font-size:11px;color:var(--green);margin-top:6px;font-variant-numeric:tabular-nums}
+  .hero .eta b{font-weight:700}
+  .hero .eta.meas,.hero .eta.idle{color:var(--dim)}
   .hero .meta{font-size:11.5px;color:var(--dim);margin-top:9px;display:flex;justify-content:space-between}
   .badge{font-size:9.5px;letter-spacing:.05em;font-weight:700;padding:3px 8px;border-radius:7px}
   .badge.dep{background:rgba(25,201,139,.16);color:var(--green)}
@@ -616,6 +619,29 @@ function heroInfo(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h||{cls:'#'
 function xpToNext(level,exp){var need=DB.levels&&(DB.levels[level]||DB.levels[String(level)]);
   if(!need||need<=0)return {need:null,remaining:null,pct:null};
   var e=Math.max(0,Math.round(exp||0));return {need:need,remaining:Math.max(0,need-e),pct:Math.max(0,Math.min(1,e/need))};}
+// === Per-hero "time to next level" (honest, calibrated) ===
+// XP-to-next is calibrated from the game's level curve; the RATE is MEASURED from THIS session (XP actually gained
+// per hour since you connected) — never fabricated, never a guessed combat number. Cumulative XP = sum of
+// ExpForLevelUp[1..L-1] + current HeroExp, so the rate survives a hero levelling up mid-session.
+function heroCumXp(level,exp){var t=Math.max(0,Math.round(exp||0));for(var l=1;l<(level||1);l++){var e=DB.levels&&(DB.levels[l]||DB.levels[String(l)]);if(e)t+=e;}return t;}
+function fmtEta(sec){var h=sec/3600;if(h>=48)return Math.round(h/24)+' days';if(h>=1){var H=Math.floor(h),M=Math.round((h-H)*60);return M?(H+'h '+M+'m'):(H+'h');}return Math.max(1,Math.round(sec/60))+' min';}
+// Capture the session baseline ONCE (gold earned + kills + per-hero cumulative XP). Reset on Disconnect.
+function ensureSession(d){
+  if(session)return;
+  var xp0={};(d.heroes||[]).forEach(function(h){xp0[h.key]=heroCumXp(h.level,h.exp);});
+  session={t0:Date.now(),earned0:(d.lifeGold!=null?d.lifeGold:d.gold),kills0:d.kills,heroXp0:xp0};
+}
+// {state:'eta'|'measuring'|'idle', perHr, etaSec} or null (max level / no baseline). Pure from session + save.
+function heroLevelEta(h){
+  if(h.xpPct==null||!session||!session.heroXp0)return null;
+  var x0=session.heroXp0[h.key]; if(x0==null)return null;
+  var hrs=(Date.now()-session.t0)/3600000;
+  if(hrs<0.033)return {state:'measuring'};                 // ~2 min warm-up — XP arrives in lumps
+  var gained=heroCumXp(h.level,h.exp)-x0;
+  if(gained<=0)return {state:'idle'};                      // not gaining XP right now (idle / benched)
+  var perHr=gained/hrs;
+  return {state:'eta',perHr:perHr,etaSec:(h.xpRemaining/perHr)*3600};
+}
 // sumStats: group a list of {sn,st,m,v} by stat+modtype and sum — for honest per-source attribution.
 function sumStats(list){
   var by={};
@@ -975,11 +1001,19 @@ function heroCard(h){
   var xpPct=hasXp?Math.round(h.xpPct*100):100;
   var xpTitle=hasXp?('XP '+fmt(h.exp)+' / '+fmt(h.xpNeed)+' — '+fmt(h.xpRemaining)+' to Level '+(h.level+1)):'Max level';
   var xpLabel=hasXp?(xpPct+'% &rarr; L'+(h.level+1)+' · '+fmt(h.xpRemaining)+' XP'):'max level';
+  // honest time-to-next-level: XP remaining / the XP/hr MEASURED this session (no fabricated combat numbers)
+  var eta=heroLevelEta(h), etaLabel='';
+  if(eta){
+    if(eta.state==='measuring')etaLabel='<div class="eta meas">⏱ leveling pace: measuring…</div>';
+    else if(eta.state==='idle')etaLabel='<div class="eta idle">⏱ not gaining XP right now</div>';
+    else etaLabel='<div class="eta" title="'+fmt(Math.round(eta.perHr))+' XP/hr measured this session">⏱ ≈ <b>'+fmtEta(eta.etaSec)+'</b> to Level '+(h.level+1)+'</div>';
+  }
   n.appendChild(frag(
     '<div class="cls">'+h.cls+' <span class="badge '+(h.deployed?'dep':'bench')+'">'+(h.deployed?'DEPLOYED':'BENCH')+'</span></div>'+
     '<div class="lvl">Level '+h.level+(h.mw?' · '+h.mw.toLowerCase():'')+'</div>'+
     '<div class="xpbar" title="'+xpTitle+'"><i style="width:'+xpPct+'%"></i></div>'+
     '<div class="xpmeta">'+xpLabel+'</div>'+
+    etaLabel+
     '<div class="meta"><span>'+h.gear+'/10 gear</span><span>'+h.pts+' pts'+(h.unspent?(' · +'+h.unspent):'')+'</span></div>'
   ));
   if(h.equipped&&h.equipped.length){
@@ -1084,7 +1118,7 @@ function renderOverview(d){
   // re-parses the FULL save into a fresh `d`, so nothing displayed accumulates stale data across reads; this
   // baseline is the only session-scoped value (and it's reset on Disconnect).
   var earnedNow=(d.lifeGold!=null?d.lifeGold:d.gold);
-  if(!session) session={t0:now,earned0:earnedNow,kills0:d.kills};
+  ensureSession(d);   // baseline gold/kills/per-hero-XP once at connect (also powers per-hero level ETAs)
   var hrs=(now-session.t0)/3600000;
   var measuring=hrs<0.0167; // hold rates for the first ~minute to avoid wild extrapolation
   var gph=measuring?null:Math.round((earnedNow-session.earned0)/hrs);
@@ -1211,6 +1245,7 @@ function renderParty(d){
   var p=$('tab-party');p.innerHTML='';
   p.appendChild(el('<h3 class="sec">Heroes <span class="tag">'+d.heroes.length+' unlocked · '+
     d.heroes.filter(function(h){return h.deployed;}).length+' deployed</span></h3>'));
+  p.appendChild(el('<div class="hint">⏱ <b>Time to next level</b> is estimated from the XP each hero is actually gaining <b>this session</b> — it sharpens the longer you play, shows “measuring…” for the first couple of minutes, and “not gaining XP” for heroes that aren’t earning any (e.g. benched). It’s your real pace, not a fixed prediction.</div>'));
   var g=el('<div class="grid party"></div>');
   d.heroes.forEach(function(h){g.appendChild(heroCard(h));});
   p.appendChild(g);
@@ -1218,10 +1253,15 @@ function renderParty(d){
   var rows=d.heroes.map(function(h){
     var sk=(h.skills&&h.skills.length)?h.skills.join(', '):'<span style="color:var(--dim)">—</span>';
     var xpCell=(h.xpPct!=null)?(fmt(h.xpRemaining)+' <span style="color:var(--dim)">('+Math.round(h.xpPct*100)+'%)</span>'):'<span style="color:var(--dim)">max</span>';
+    var eta=heroLevelEta(h);
+    var etaCell=!eta?'<span style="color:var(--dim)">—</span>'
+      :eta.state==='measuring'?'<span style="color:var(--dim)">measuring…</span>'
+      :eta.state==='idle'?'<span style="color:var(--dim)">idle</span>'
+      :'≈ '+fmtEta(eta.etaSec);
     return '<tr><td><b>'+h.cls+'</b></td><td>'+(h.deployed?'<span class="pill" style="color:var(--green)">DEPLOYED</span>':'<span class="pill" style="color:var(--dim)">bench</span>')+
-      '</td><td class="r">'+h.level+'</td><td class="r">'+xpCell+'</td><td class="r">'+h.gear+'/10</td><td class="r">'+h.pts+(h.unspent?(' (+'+h.unspent+')'):'')+'</td><td style="color:var(--blue2)">'+sk+'</td></tr>';
+      '</td><td class="r">'+h.level+'</td><td class="r">'+xpCell+'</td><td class="r">'+etaCell+'</td><td class="r">'+h.gear+'/10</td><td class="r">'+h.pts+(h.unspent?(' (+'+h.unspent+')'):'')+'</td><td style="color:var(--blue2)">'+sk+'</td></tr>';
   }).join('');
-  p.appendChild(el('<div class="panel"><table><thead><tr><th>Hero</th><th>Status</th><th class="r">Lvl</th><th class="r">XP to next</th><th class="r">Gear</th><th class="r">Ability pts</th><th>Equipped skills</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+  p.appendChild(el('<div class="panel"><table><thead><tr><th>Hero</th><th>Status</th><th class="r">Lvl</th><th class="r">XP to next</th><th class="r">Time to next</th><th class="r">Gear</th><th class="r">Ability pts</th><th>Equipped skills</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
 
   // Who's carrying — honest per-deployed-hero stat attribution by source (base / gear / tree)
   var deployed=d.heroes.filter(function(h){return h.deployed;});
@@ -1996,6 +2036,9 @@ function loadDemo(){
     pet:(DB.pets&&DB.pets['6003'])?{key:6003,n:DB.pets['6003'].n,desc:DB.pets['6003'].desc}:{key:6003,n:'Dragon'}};
   lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15},
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15}];
+  // seed a ~10-min session so the sample showcases live rates + per-hero level ETAs (deployed gain XP, bench don't)
+  var demoXp0={}; heroes.forEach(function(h){demoXp0[h.key]=heroCumXp(h.level,h.exp)-(h.deployed?42000:0);});
+  session={t0:Date.now()-600000,earned0:1574858-48000,kills0:72091-2600,heroXp0:demoXp0};
   render({version:'1.00.11 (sample)',stage:1208,wave:2,maxStage:1210,playHours:34.4,lastSaved:new Date(),
     pet:6003,gold:77298,heroes:heroes,inv:{owned:owned.length,stash:20,stashSlots:343,trade:0},
     owned:owned,byRarity:byR,
