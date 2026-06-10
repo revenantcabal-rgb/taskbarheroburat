@@ -1,28 +1,52 @@
 # TBH HUD
 
 A **read-only** companion dashboard for the Steam game *TBH: Task Bar Hero*. It decrypts your local save
-and shows gold, party (by class), inventory by rarity, trophies, a live loot log with timestamps,
-gold/hr, and lifetime stats. It **never writes to or modifies the game** — it only reads your save file.
+(and reads the game's `Player.log` + rolling backups) entirely on your machine and presents a premium dashboard.
+It **never writes to, modifies, or injects into the game** — it only reads files on disk.
 
 Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 
+## What it shows (7 tabs)
+- **Overview** — gold, current/max stage, total kills, runes, session gold/hr & kills/hr, deployed party, active pet,
+  a "who's carrying" gear-strength ranking, and your best trophies.
+- **Party** — every hero with level, equipped gear (hover for stats), equipped skill names, and a **full "who's
+  carrying" source breakdown**: each deployed hero's stats attributed to Base / Gear / Tree, plus account-wide runes & pet.
+- **Inventory** — every owned item with its real name, rarity (color-framed), real icon, level, enchants, **inherent
+  gear stats and unique-mod effects** (hover tooltip). Filter by rarity / materials.
+- **Loot** — Steam boxes held, offline-reward gold (with real timestamps), and a save-diff drop timeline with
+  **Legendary+ rare-drop alerts** (optional, opt-in silent desktop notification).
+- **Runes** — the 197-node rune tree with real names/effects, leveled status, and cheapest-next-upgrade recommendations.
+- **Lifetime** — total kills, gold earned, per-difficulty completions, owned-by-rarity, and a calibrated
+  **kills-by-monster** breakdown.
+- **Trends** — gold/kills/stage progression and gold-per-hour over time, charted from the game's own rolling save backups.
+
+Every label (item names, rarity, stats, skills, runes, monsters) is **calibrated from the game's own data tables** —
+nothing is guessed; if something can't be resolved authoritatively it shows an honest fallback.
+
 ## Two ways to use it
 
-### 1. Browser (no install)
-Open `dashboard.html` in **Chrome or Edge**, click **Connect save**, and pick:
-`%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\SaveFile_Live.es3`
-It updates live every few seconds while you play. (Hosting it on GitHub Pages gives your friends a link — nothing to install.)
+### 1. Browser (no install) — Chrome / Edge
+Open `dashboard.html` and either:
+- **Connect folder** (recommended) → pick `%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\`.
+  This reads your live save **plus** the rolling backups and `Player.log`, so you get History/Trends and the loot
+  timeline. It updates live as you play.
+- **Connect file** → pick just `SaveFile_Live.es3` (everything except Trends).
+
+No save handy? Click **Preview sample** for a demo. (Hosting `dashboard.html` on GitHub Pages gives friends a link.)
 
 ### 2. Desktop app / installer (Windows)
-A one-click `Setup.exe` your friends just run. It auto-finds the save, watches it, and updates live.
+A one-click `Setup.exe`. It auto-finds the save, watches it (+ backups + log), and updates live.
 
 ## Develop & test locally
-Requires [Node.js](https://nodejs.org) (LTS).
+Requires [Node.js](https://nodejs.org) (LTS) and (to rebuild the game DB) Python + UnityPy + Pillow.
 ```
 npm install
-npm start
+npm start            # launches the desktop app pointed at your live save
+node scripts/verify_save.js   # read-only: decrypt+parse the live save, print a calibrated snapshot
 ```
-This launches the desktop app pointed at your live save.
+The calibrated game DB (`src/engine/gamedata.min.json`) is rebuilt from the game's own tables by
+`python scripts/build_gamedata.py`. See `CLAUDE.md`, `docs/PRD.md`, and `docs/PROGRESS.md` for the full design,
+roadmap, and current status.
 
 ## Build the installer
 ```
@@ -34,5 +58,6 @@ Produces `dist\TBH-HUD-Setup-<version>.exe`. Hand that file to your friends.
 > Click **More info -> Run anyway**. (Code-signing requires a paid certificate; can be added later.)
 
 ## Safety
-Read-only by design: never writes to the game, never injects code, never modifies files or saves.
-Your save is decrypted and read locally — nothing is uploaded anywhere.
+Read-only by design: never writes to the game, never injects code, never modifies files or saves. The game uses
+CodeStage anti-cheat — reading files on disk is safe; this tool never touches the running game process. Your save is
+decrypted and read locally — nothing is uploaded anywhere.
