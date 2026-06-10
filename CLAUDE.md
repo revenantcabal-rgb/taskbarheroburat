@@ -12,9 +12,10 @@ stats, lifetime stats, history/trends, runes, and a blue-chest tracker. Ships as
 reading is safe, writing/injecting is not.)
 
 Owner: Rob. GitHub: **`revenantcabal-rgb`** (his PERSONAL account), repo **`revenantcabal-rgb/taskbarheroburat`**.
-NOTE: the only GitHub token currently on the machine belongs to a different work account
-(`Fusion-Data-Company`) — do NOT push with it. Push from Claude Code where Rob is signed in as revenantcabal,
-or have him supply a token for that account.
+NOTE (updated session 4): `gh` is now authed as **`revenantcabal-rgb` (active account, full `repo`+`workflow` scopes)** —
+git push, `gh release`, and `gh api` (Pages) all work as revenantcabal. A second `Fusion-Data-Company` account is also in
+the keyring but is NOT active — don't switch to it. Live distribution: Release **v1.0.0** + **GitHub Pages**
+(https://revenantcabal-rgb.github.io/taskbarheroburat/dashboard.html).
 
 ## Project tracking (read these; keep them current)
 - **The plan:** `docs/PRD.md` — goal list (§3), phased roadmap + acceptance criteria (§6).
@@ -150,6 +151,15 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE
+- **Phase 7 — real run + packaging + distribution (SHIPPED):** (1) `npm start` smoke-tested — Electron launches clean
+  (main + 4 procs, 0 stderr); electron-updater loads + no-ops correctly in dev. main.js now sends the save file's true
+  UTC mtime (preload + dashboard `onSave` use it) so the offline timer is authoritative in Electron too. (2) NSIS
+  installer `dist/TBH-HUD-Setup-1.0.0.exe` (76 MB, valid PE). **winCodeSign symlink fix** (no admin / Developer Mode
+  here): set `win.signAndEditExecutable=false` + `win.verifyUpdateCodeSignature=false` — lossless for an unsigned,
+  icon-less app and it skips the winCodeSign fetch (the symlink-extract step) entirely. (3) **GitHub Pages live** over
+  HTTPS (+`.nojekyll`): https://revenantcabal-rgb.github.io/taskbarheroburat/dashboard.html (dashboard/DB/sprites HTTP
+  200, correct MIME; Connect-folder works). (4) **electron-updater wired + Release v1.0.0 published** (installer +
+  latest.yml + blockmap) → auto-update from GitHub releases. Installer is UNSIGNED (SmartScreen prompt — no cert).
 - **Phase B — offline-rewards card (Overview):** live-ticking idle since last save + last offline collection
   (gold + rate from Player.log) + cap countdown. Dumped `OfflineRewardInfoData` (per-StageLevel yield params:
   BaseGold/Exp/KillCount/ClearCount) — but NONE of the 45 tables holds the offline **time-cap** (it's a code
@@ -230,6 +240,12 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Stat %% interpretation:** exact meaning of MULTIPLICATIVE/ADDITIVE values not asserted; shown raw + modtype tag.
 
 ## Build / run
-- Browser: open `dashboard.html` in Chrome/Edge -> Connect save.
-- Desktop: `npm install` then `npm start`.
-- Installer: `npm run dist` -> `dist/TBH-HUD-Setup-<ver>.exe`.
+- Browser (no install): **https://revenantcabal-rgb.github.io/taskbarheroburat/dashboard.html** (GitHub Pages, HTTPS) ->
+  Connect folder. Or open `dashboard.html` locally in Chrome/Edge. `?codex` browses the full catalog with no save; `?demo` loads sample data.
+- Desktop: `npm install` then `npm start` (Electron; auto-finds the save, watches it, auto-updates from GitHub releases).
+- Installer: `npm run dist` -> `dist/TBH-HUD-Setup-<ver>.exe`. **winCodeSign note:** building on a non-admin box without
+  Developer Mode hits a symlink-extract error; `package.json` sets `win.signAndEditExecutable=false` +
+  `verifyUpdateCodeSignature=false` to skip the winCodeSign fetch (we don't sign / have no .ico). To SIGN later, provide a
+  cert (WIN_CSC_LINK) and re-enable those, with Developer Mode/elevation so winCodeSign extracts.
+- Release/auto-update: `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml dist/*.blockmap` (electron-updater reads latest.yml).
+- Full-catalog audit: `node scripts/audit_catalog.js`. Live-save check: `node scripts/verify_save.js` (incl. offline tz check).

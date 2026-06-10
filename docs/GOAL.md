@@ -57,7 +57,17 @@ Calibration: +739g/93s (~7.95 g/s) reproduced exactly; 0 console errors.
 3. No invented daily reset — the cap is RELATIVE to lastSavedTime. "Good time to go offline" = anytime; just return before the cap.
 AC: timer matches the game's offline accrual exactly; 0 console errors.
 
-## PHASE 7 — REAL END-TO-END RUN + PACKAGING  (the real-world blocker for friends)
+## PHASE 7 — REAL END-TO-END RUN + PACKAGING  ✅ DONE (session 4)
+Shipped: (1) `npm start` smoke-tested — Electron launches clean (main + 4 procs, 0 stderr); electron-updater loads
+and no-ops correctly in dev; Electron now sends the save's true UTC mtime for the offline timer. (2) NSIS installer
+`dist/TBH-HUD-Setup-1.0.0.exe` (76 MB, valid PE). The winCodeSign symlink error (no admin / Developer Mode on this
+box) was fixed WITHOUT signing via `win.signAndEditExecutable=false` + `verifyUpdateCodeSignature=false` (lossless:
+unsigned, no .ico). (3) GitHub Pages LIVE over HTTPS → https://revenantcabal-rgb.github.io/taskbarheroburat/dashboard.html
+(+ .nojekyll; dashboard/DB/sprites all HTTP 200, correct MIME). (4) electron-updater wired (publish=github) and Release
+**v1.0.0** published with installer + latest.yml + blockmap → auto-update live. NOTE: installer is unsigned → SmartScreen
+"unknown publisher" prompt (no cert available); sign later to remove it.
+
+### Original Phase 7 spec (for reference)
 1. Real run: `npm start` (Electron) vs the live save + the REAL browser Connect-folder native dialog (not the mock handle).
    Fix anything that breaks live. Confirm all tabs incl. Codex + offline timer render with real data, 0 console errors.
 2. NSIS installer: `npm run dist`; fix the winCodeSign symlink error (extract only windows\* from the cache, or Developer Mode /
@@ -74,7 +84,8 @@ rates); premium-styling polish; accessibility; perf; widen the audit to a descri
 Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & clear-time (memory lane); Steam Market value
 (Inventory Service throttled/empty this build); 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; hero XP-to-next/ETA.
 
-## DONE
-A + B + 7 shipped; Codex covers the full catalog + audit reports 100%; offline timer calibrated; real `npm start` verified;
-installer produced + Pages live; all committed + pushed; CLAUDE.md + PROGRESS.md + improvement.log current.
-End summary: shipped, calibration evidence, coverage %, confidence 1-10, exact next step. Target 10/10.
+## DONE ✅ (session 4 — A + B + 7 all shipped)
+Codex covers the full 6177-entry catalog + audit reports 100% name+icon; offline timer calibrated (no assumed cap);
+real `npm start` verified; installer `TBH-HUD-Setup-1.0.0.exe` produced; GitHub Pages live (HTTPS); electron-updater
+wired + Release v1.0.0 published; all committed + pushed; CLAUDE.md + PROGRESS.md + improvement.log current.
+Optional follow-ups: sign the installer (drop SmartScreen prompt); hero XP-to-next via the newly-found LevelInfoData curve.
