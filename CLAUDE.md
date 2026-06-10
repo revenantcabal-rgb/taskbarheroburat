@@ -123,13 +123,17 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   byRarity, trophies, lootDiff, runes, aggregates, rates/gold-hr). Tested on the real save. **Adds
   `iconId(key)`** — pure structural icon resolver: gear variants map to their base rarity-0 icon
   (`type+'00'+baseIndex`); `ownedItems` now also returns `icon` + raw `enchants`.
-- `src/engine/gamedata.min.json` / `.js` — calibrated item DB (authoritative names + rarity-from-digit + materials fixed).
+- `src/engine/gamedata.min.json` / `.js` — calibrated DB: `items` (5944, authoritative names + rarity-from-digit +
+  materials), `stats` (62 enchant mods), `gear` (5440 GearKey -> inherent stats + unique mods), `skills` (36 named),
+  `runes` (197, per-level effects+costs+tree). Rebuilt by `scripts/build_gamedata.py` from the game's own tables.
 - `src/engine/item_names_en.json` — 511 authoritative item names from the game.
 - `scripts/extract_icons.py` — read-only UnityPy extractor (Phase 2). Re-run to refresh icons after a game patch.
-- `dashboard.html` — **DONE (Phase 3): premium multi-tab UI** (Overview / Party / Inventory / Loot / Lifetime),
-  animated hero GIFs, rarity-framed icon grid + enchant pips + hover tooltips, per-hero equipped gear, session
-  gold/hr & kills/hr, lifetime + difficulty + rarity charts. Inline engine mirrors saveEngine (works standalone
-  in browser via Web Crypto AND as the Electron renderer). Verified in a headless browser vs the live save.
+- `dashboard.html` — premium multi-tab UI: **Overview / Party / Inventory / Loot / Runes / Lifetime / Trends**.
+  Animated hero GIFs, rarity-framed icon grid + enchant pips + tooltips (now incl. inherent stats + unique mods),
+  per-hero equipped gear + skill chips, session gold/hr & kills/hr, rune tree (cheapest-next), lifetime/difficulty/
+  rarity charts, History/Trends charts (SVG, from backups), Loot tab (boxes + offline rewards + save-diff drops).
+  Inline engine mirrors saveEngine (standalone browser via Web Crypto + `Connect folder` dir picker AND Electron
+  renderer). Verified headless vs the live save + real backups + Player.log; all 7 tabs, 0 console errors.
 - `src/main.js`, `src/preload.js`, `package.json` — Electron app: auto-finds the save, watches it, feeds the renderer.
 - `src/assets/heroes/*.gif` (6 animated hero portraits). **`src/assets/sprites/` — full 535-icon set extracted**
   (139 `Item_<id>` materials/currency + 396 gear `<TYPE>_<id>` -> keyed by numeric id) + `_manifest.json`.
@@ -141,22 +145,52 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Authoritative names + localization:** found the game's own data tables (sharedassets0 TextAssets); item names,
   enchant stat names, and rune names are now 100% calibrated from the game (no guessing). gamedata.min.json
   regenerated; localization.min.json committed. Verified vs the live save.
+- **Gear inherent stats + unique mods (task #1/#9-2):** `DB.gear` (GearKey -> labeled inherent stats from
+  GearInfoData + unique-mod effect text from UniqueModInfoData; 5440 entries, 127 unique mods) now shown in item
+  tooltips. NOT shown: GearInfoData BaseStat1/2 columns — the game ships no GearTypeInfoData mapping them to a stat
+  type, so labeling them would be a guess (golden rule). No fake composite "power score"; inventory sort stays
+  rarity+level (the game's own power indicators).
+- **Phase 6 — History/Trends:** new Trends tab charts lifetime gold, kills, max-stage and gold/hr-by-interval over
+  time from the game's own rolling+timestamped save backups (read-only). Browser `Connect folder`
+  (showDirectoryPicker, mode:'read') reads the live save + all backups + Player.log; Electron pushes them over IPC.
+  `trendPoint`/`buildTrends` in both engines. Verified vs the real folder (~24.7h, 10 points, gold/hr 36k->92k).
+- **Phase 5 — Loot/log integration:** Loot tab shows Steam boxes held (Player.log GetBoxCount -> real DB names),
+  offline-reward gold (real Unix timestamps), and the save-diff drop timeline (now timestamped with the save's
+  lastSavedTime). Live combat drops are NOT in the game log (they go to the save) — handled honestly, no fabricated
+  "12-min blue-chest" timer (DropCooldown has no 720s value; cadence unconfirmed -> not invented).
+- **Equipped skills on heroes:** `DB.skills` (SkillInfoData + localization, 36 named skills) -> skill chips on hero
+  cards + an "Equipped skills" roster column (e.g. Fireball/Lightning). Verified vs live save.
+- **Read-only re-audit:** grepped the whole codebase — zero writes/injection to the game/save/memory. Every game
+  path is opened read-only (UnityPy/csv readers, fs.readFile, fs.watch, browser file/dir pickers mode:'read',
+  Web Crypto). All `open(...,"w")` and fs writes target our own repo outputs only.
+- **Bug fixed:** hero cards silently dropped level/XP/gear-meta — `el(html)` returned only `t.content.firstChild`,
+  so the 4-sibling heroCard block lost `.lvl/.xpbar/.meta` on every hero (demo + live). Added `frag()`; fixed.
+- **scripts/verify_save.js:** read-only Node harness (decrypt+parse a real .es3, print snapshot + fabrication/icon
+  coverage audit). Live save: 40 items, 0 unresolved names, 100% icons.
 
 ## Next (priority order) — full acceptance criteria in docs/PRD.md
-1. **Use the newly-available data in the UI:** rune-tree panel (RuneSaveData join DB.runes + rune icons,
-   cheapest-next rec), item descriptions in tooltips, item base-stats from GearInfoData (power/score). "Who's
-   carrying" source breakdown can use AttributeInfoData/PassiveSkillInfoData + GearInfoData (computed, save-only)
-   even before live telemetry. Skill/monster names available in localization.min.json.
-2. **Phase 4 — Live telemetry:** own read-only memory reader -> per-run DPS, clear time, gold/s, xp/s,
-   gold/hr & xp/hr PER ACT, per-hero DPS share + source breakdown. (owner wants tbh-meter gone.) READ-ONLY only —
-   no writing/injecting into the game process (CodeStage anti-cheat). Must not be bannable.
-3. **Phase 5 — Loot timeline** (save-diff + Player.log tail) with timestamps + rare-drop alerts + Steam Market
-   value; **blue-chest 12-min cooldown tracker**.
-4. **Phase 6 — History/trends** over time (use the rolling save backups as diff points).
-5. **Phase 7 — Packaging:** NSIS installer + GitHub auto-update + GitHub Pages browser build. NOTE: electron-builder
+1. **"Who's carrying" source breakdown (save-only, SAFE):** per-hero contribution by source (base / gear / runes /
+   enchants / pet). We now have inherent gear stats + enchants + equipped skills per hero; AttributeInfoData/
+   PassiveSkillInfoData (hero trees) are extracted but not yet surfaced. An HONEST gear-power proxy (sum of equipped
+   item levels/rarity/inherent stats) is computable without combat data — label it a proxy, not DPS.
+2. **Phase 7 — Packaging:** NSIS installer + GitHub auto-update + GitHub Pages browser build. NOTE: electron-builder
    hits a winCodeSign symlink error on Windows — extract only `windows\*` from the winCodeSign cache, or build with
-   Developer Mode / elevated.
-6. **Phase 8 (optional)** — private friends leaderboard.
+   Developer Mode / elevated. (Pages: serve the repo root; `Connect folder` needs HTTPS or localhost.)
+3. **Phase 4 — Live telemetry (CAUTION):** own read-only memory reader -> per-run DPS, clear time, gold/s, xp/s,
+   gold/hr & xp/hr PER ACT, per-hero DPS share. READ-ONLY only — no writing/injecting (CodeStage `[ACTk]` anti-cheat
+   confirmed in Player.log). If ANY ban-safety doubt, DO NOT build it — the save+log lanes already cover most metrics.
+4. **Phase 8 (optional)** — private friends leaderboard.
+
+### Deferred / deliberately NOT built (golden rule)
+- **Stage-box drop contents (task #9-1):** DropKey -> DropInfoData -> ItemGroupInfoData resolves, but ItemGroup
+  `GroupName`s are Korean (only the member ItemKeys resolve to EN names) and the drop tables are large
+  weighted/conditional (per-hero) sets. Showing a box's full contents would be noisy or need Korean labels; left
+  as a note rather than shipping something low-value/ambiguous. Box keys/names + counts ARE surfaced (Loot tab).
+- **Per-act gold/hr (PRD #2) + live DPS (#5):** need the memory lane (which stage gold/xp is attributed to).
+  Save+log give gold/hr over TIME (Trends) but can't attribute it per act. Pending Phase 4 (caution).
+- **Steam Market value (PRD #8):** the Steam Inventory Service is throttled/empty in this build (Player.log shows
+  `CreateSteamItem returned OK but items is empty`), so live market value isn't reliably available.
+- **Stat %% interpretation:** exact meaning of MULTIPLICATIVE/ADDITIVE values not asserted; shown raw + modtype tag.
 
 ## Build / run
 - Browser: open `dashboard.html` in Chrome/Edge -> Connect save.
