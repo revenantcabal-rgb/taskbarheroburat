@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBH HUD — Task Bar Hero companion</title>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.3"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.4"></script>
 <style>
   :root{
     --bg:#080a13; --bg2:#0b0e1a; --surface:#121728; --surface2:#171d33; --surface3:#1f2742;
@@ -463,6 +463,41 @@
   .cxrune table{font-size:12px} .cxrune td{padding:4px 8px}
   .cxnote{color:var(--dim);font-size:11.5px;line-height:1.45}
 
+  /* ---------- Advisor (gear-gap / rune plan / enchant ROI) ---------- */
+  .advrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+  .advrow:first-of-type{border-top:none}
+  .advrow .advhero{flex:0 0 92px;font-weight:700;font-size:13px}
+  .advrow .advhero small{display:block;font-weight:600;font-size:9.5px;letter-spacing:.05em;color:var(--dim)}
+  .advrow .advhero small.dep{color:var(--green)}
+  .advitem{display:flex;align-items:center;gap:8px;min-width:0}
+  .advitem .advn{font-size:12.5px;line-height:1.3;min-width:0}
+  .advitem .advn b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+  .advitem .advn span{font-size:10.5px;font-weight:700}
+  .advarrow{color:var(--green);font-size:17px;font-weight:700;flex:0 0 auto}
+  .advwhy{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--green);
+    background:rgba(25,201,139,.12);border:1px solid rgba(25,201,139,.35);border-radius:7px;padding:3px 8px;white-space:nowrap}
+  .advtotal{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:11px;padding-top:11px;border-top:1px solid var(--line)}
+  .advtotal b{color:var(--text)}
+  /* ---------- Crew (opt-in leaderboard) ---------- */
+  .crewform{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .crewform input{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 13px;
+    color:var(--text);font:inherit;font-size:13.5px;min-width:150px;flex:1}
+  .crewform input:focus{outline:none;border-color:var(--line2)}
+  .crewrow{display:flex;align-items:center;gap:13px;padding:11px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+  .crewrow:first-of-type{border-top:none}
+  .crewrow.me{background:linear-gradient(90deg,rgba(75,125,255,.07),transparent 75%);border-radius:10px;padding-left:8px;margin-left:-8px}
+  .crewrank{flex:0 0 30px;font-size:15px;font-weight:800;color:var(--dim);text-align:center;font-variant-numeric:tabular-nums}
+  .crewrow:first-of-type .crewrank{color:var(--gold)}
+  .crewname{flex:0 0 140px;min-width:0}
+  .crewname b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crewname small{font-size:10.5px;color:var(--dim)}
+  .crewstat{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .crewchips{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+  .crewchips .chip{white-space:normal}   /* the top-heroes chip can exceed a phone viewport — let it wrap */
+  .crewach{font-size:11.5px;color:var(--amber);flex-basis:100%;padding-left:43px}
+  .crewach .gap{color:var(--dim);margin-left:8px}
+  @media(max-width:680px){.crewach{padding-left:0}.crewname{flex-basis:110px}}
+  .crewnote{font-size:11.5px;color:var(--dim);line-height:1.5}
   /* accessibility: honor reduced-motion — drop the looping pulse/shine/rise + bar/tooltip transitions */
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
@@ -496,8 +531,10 @@
   <button data-tab="inventory">Inventory <span class="count" id="tabInvCount"></span></button>
   <button data-tab="loot">Loot <span class="count" id="tabLootCount"></span></button>
   <button data-tab="runes">Runes <span class="count" id="tabRuneCount"></span></button>
+  <button data-tab="advisor">Advisor <span class="count" id="tabAdvisorCount"></span></button>
   <button data-tab="lifetime">Lifetime</button>
   <button data-tab="trends">Trends <span class="count" id="tabTrendCount"></span></button>
+  <button data-tab="crew">Crew <span class="count" id="tabCrewCount"></span></button>
   <button data-tab="codex">Codex <span class="count" id="tabCodexCount"></span></button>
   <button data-tab="tips">Tips <span class="count" id="tabTipCount"></span></button>
 </nav>
@@ -520,7 +557,7 @@
     </ol>
     <p class="fine"><b>Just one file?</b> <span class="kbd">Connect&nbsp;file</span> loads only <code>SaveFile_Live.es3</code> — quick, but no history charts (the folder option also reads the game's backups to chart your progress over time).</p>
     <p class="fine">🔒 <b>Private &amp; safe.</b> Everything is decrypted and read on your own computer — nothing is uploaded, and the game is never modified. Chrome / Edge keep it live; other browsers load once (re&#8209;pick to refresh).</p>
-    <p class="fine">👥 <b>No account, no sign&#8209;in.</b> This is just a web page — anyone can open it and connect their own save the same way. Your data never leaves your device, and no one else can see it.</p>
+    <p class="fine">👥 <b>No account, no sign&#8209;in.</b> This is just a web page — anyone can open it and connect their own save the same way. Your data never leaves your device, and no one else can see it. (The optional <b>Crew</b> leaderboard is the one exception — it shares a few brag&#8209;stats <b>only if you opt in</b>, and never your save file.)</p>
     <p class="fine browsernote hidden" id="browserNote">🧭 <b>On Firefox or Safari?</b> The one&#8209;click <b>folder</b> option needs Chrome or Edge. You can still use <span class="kbd">Connect&nbsp;file</span> below to load <code>SaveFile_Live.es3</code> — or open this page in Chrome / Edge for live updates &amp; history.</p>
     <details class="troublenote">
       <summary>Trouble connecting? (e.g. “this folder contains system files”)</summary>
@@ -544,8 +581,10 @@
   <div id="tab-inventory" class="tab-page hidden"></div>
   <div id="tab-loot" class="tab-page hidden"></div>
   <div id="tab-runes" class="tab-page hidden"></div>
+  <div id="tab-advisor" class="tab-page hidden"></div>
   <div id="tab-lifetime" class="tab-page hidden"></div>
   <div id="tab-trends" class="tab-page hidden"></div>
+  <div id="tab-crew" class="tab-page hidden"></div>
   <div id="tab-codex" class="tab-page hidden"></div>
   <div id="tab-tips" class="tab-page hidden"></div>
 </main>
@@ -704,6 +743,65 @@ function accountBuffs(psd){
 /* structural icon resolver — see saveEngine.iconId */
 function iconId(key){var s=String(key);if(s.length!==6)return s;var t=s.slice(0,2),r=s[2],suf=s.slice(3);if(r==='0')return s;return t+'00'+suf.slice(0,2);}
 
+/* ============================================================================
+   Build advisor — mirrors saveEngine.gearGaps / runePlan / enchantStatus / statTotals.
+   All save-derived, no fabrication. The inline variants take the analyzed shapes
+   (owned[], heroes[] with .equipped, runes.list) instead of the raw psd.
+   ========================================================================== */
+// gearGaps: "you own better gear than you're wearing." Per hero, per equipped item, find an UNEQUIPPED owned
+// item of the SAME GEARTYPE that is strictly better — higher rarity, or equal rarity & higher item level. ONLY
+// provable upgrades (equal rarity+level is a sidegrade, never claimed better). Greedy one-to-one: each spare
+// offered once, deployed heroes and bigger jumps first.
+function gearGapsD(owned,heroes){
+  var equippedUids={};
+  (heroes||[]).forEach(function(h){(h.equipped||[]).forEach(function(e){equippedUids[e.uid]=1;});});
+  var freeByGt={};
+  (owned||[]).forEach(function(o){ if(equippedUids[o.uid]||!o.gt||o.mat) return; (freeByGt[o.gt]=freeByGt[o.gt]||[]).push(o); });
+  Object.keys(freeByGt).forEach(function(gt){freeByGt[gt].sort(function(a,b){return (rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));});});
+  var cand=[];
+  (heroes||[]).forEach(function(h){(h.equipped||[]).forEach(function(e){
+    var pool=freeByGt[e.gt]||[], er=rrank(e.grade), el=e.lvl||0;
+    for(var i=0;i<pool.length;i++){ var c=pool[i], cr=rrank(c.grade), cl=c.lvl||0;
+      if(cr>er||(cr===er&&cl>el)){ cand.push({hero:h.cls,heroKey:h.key,deployed:h.deployed,gt:e.gt,
+        cur:{name:e.name,grade:e.grade,lvl:e.lvl,icon:e.icon,uid:e.uid},
+        up:{name:c.name,grade:c.grade,lvl:c.lvl,icon:c.icon,uid:c.uid},
+        reason:(cr>er?'higher rarity':'higher level'),jump:(cr-er)*1000+(cl-el)}); break; } } });});
+  cand.sort(function(a,b){return (b.deployed-a.deployed)||(b.jump-a.jump);});
+  var usedUp={},usedSlot={},out=[];
+  cand.forEach(function(g){ if(usedUp[g.up.uid]) return; var sk=g.heroKey+'|'+g.cur.uid; if(usedSlot[sk]) return;
+    usedUp[g.up.uid]=1; usedSlot[sk]=1; out.push(g); });
+  return out;
+}
+// runePlan: greedy cheapest-first rune-upgrade path within a gold budget. Rune level costs are GOLD (verified:
+// all 663 rune-level costs use the Gold currency). Walks the per-level cost table so multi-step paths price
+// correctly; bounded to a short "next moves" list; also returns the cheapest unaffordable next (save-for).
+function runePlanD(list,gold){
+  var runes=(list||[]).filter(function(r){return r.max;}).map(function(r){return {name:r.name,eff:r.eff,level:r.level||0,max:r.max,lv:r.lv||[]};});
+  function nextCost(r){ if(r.level>=r.max) return null; var nl=(r.lv||[]).filter(function(x){return x.l===r.level+1;})[0]; return (nl&&nl.cost!=null)?nl.cost:null; }
+  var budget=(gold||0), steps=[], guard=0;
+  while(guard++<60){ var best=null;
+    runes.forEach(function(r){ var c=nextCost(r); if(c==null||c>budget) return; if(best==null||c<best.c) best={r:r,c:c}; });
+    if(!best) break;
+    steps.push({name:best.r.name,from:best.r.level,to:best.r.level+1,max:best.r.max,cost:best.c,eff:best.r.eff});
+    budget-=best.c; best.r.level++; if(steps.length>=12) break; }
+  var cheapestNext=null;
+  runes.forEach(function(r){ var c=nextCost(r); if(c==null) return; if(cheapestNext==null||c<cheapestNext.cost) cheapestNext={name:r.name,level:r.level,max:r.max,cost:c,eff:r.eff}; });
+  return {gold:(gold||0),steps:steps,spent:(gold||0)-budget,remaining:budget,cheapestNext:cheapestNext};
+}
+// enchantStatus: equipped items on DEPLOYED heroes that still have open enchant slots (each item holds up to 3).
+// Honest — surfaces the fill state only; never claims a specific reroll outcome.
+function enchantStatusD(heroes){
+  var out=[];
+  (heroes||[]).forEach(function(h){ if(!h.deployed) return;
+    (h.equipped||[]).forEach(function(o){ if(!o||o.mat||!o.gt) return;
+      var used=o.ench||0; if(used<3) out.push({hero:h.cls,name:o.name,grade:o.grade,gt:o.gt,lvl:o.lvl,icon:o.icon,used:used,open:3-used}); }); });
+  out.sort(function(a,b){return a.used-b.used;});
+  return out;
+}
+// statTotals: a hero's full computed stat sheet = base + gear + tree, summed per stat (account-wide runes/pet
+// apply on top and are shown separately). No fabricated composite — just the real numbers added up.
+function statTotals(s){ s=s||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
+
 /* ---------- Codex: full-catalog index + drop chain (mirror of saveEngine) ----------
    The DB is the game's MASTER catalog, not the owner's inventory — every item (owned or unseen)
    is here. buildCatalog() flattens items+runes+skills into one browsable list; ownership is overlaid
@@ -793,6 +891,7 @@ function analyze(psd){
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd), killsByMonster:killsByMonster(psd),
     ownedSkills:ownedSkills,
+    gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes),
     kills:pick(0,0), lifeGold:pick(2,0), goldBySource:goldBySourceInline(a)
     // NOTE: aggregate Type 16 ([Normal-band counts]) is NOT surfaced. It is uncalibrated and, read as
     // per-difficulty completions, is DISPROVEN by this save (Normal-only at Act 2-10 yet would claim
@@ -811,8 +910,10 @@ function trendPoint(psd){
   function pick(t,s){var r=a.find(function(x){return x.Type===t&&x.SubKey===s;});return r?r.Value:null;}
   var goldRow=(psd.currenySaveDatas||[]).find(function(x){return x.Key===GOLD_KEY;});
   var d=ticksToDate(c.lastSavedTime);
-  return {t:d?+d:null, gold:goldRow?goldRow.Quantity:0, lifeGold:pick(2,0), kills:pick(0,0),
-    playH:c.playTime?+(c.playTime/3600).toFixed(2):null, maxStage:c.maxCompletedStage,
+  // cur (active stage) + combat (the CALIBRATED combat-gold sub-counter, Type 2/Sub 1) power the per-stage
+  // farming rates — mirror of saveEngine.trendPoint.
+  return {t:d?+d:null, gold:goldRow?goldRow.Quantity:0, lifeGold:pick(2,0), combat:pick(2,1), kills:pick(0,0),
+    cur:c.currentStageKey, playH:c.playTime?+(c.playTime/3600).toFixed(2):null, maxStage:c.maxCompletedStage,
     items:(psd.itemSaveDatas||[]).length, runes:(psd.RuneSaveData||[]).filter(function(r){return (r.Level||0)>0;}).length};
 }
 function buildTrends(points){
@@ -833,18 +934,91 @@ function buildTrends(points){
   }
   return pts;
 }
-var trends=[];
+/* Trends come from TWO merged sources: the game's rolling backups (backupPts) and the HUD's OWN snapshot
+   history (histPts, persisted in IndexedDB on every save read — Electron + browser). The HUD's history is what
+   unlocks long-horizon trends + per-stage rates: the game only keeps ~6 rolling backups, but the HUD remembers
+   every save change it has seen. buildTrends dedups overlapping points (same t + lifeGold). */
+var trends=[], backupPts=[], histPts=[], demoMode=false, demoTrendPts=[];
+function rawTrendPoints(){ return demoMode?demoTrendPts.slice():backupPts.concat(histPts); }
+function rebuildTrends(){
+  trends=buildTrends(rawTrendPoints());
+  $('tabTrendCount').textContent=trends.length||'';
+  if(activeTab==='trends'&&current) renderTrends(current);
+}
 async function setTrendsFromBuffers(list){
   // list: [{name, buf(ArrayBuffer)}]. Decrypt each read-only, extract a trend point.
   var pts=[];
   for(var i=0;i<list.length;i++){
     try{ pts.push(trendPoint(loadInner(await decryptSave(list[i].buf)))); }catch(e){ /* skip unreadable */ }
   }
-  trends=buildTrends(pts);
-  $('tabTrendCount').textContent=trends.length||'';
-  if(activeTab==='trends'&&current) renderTrends(current);
+  backupPts=pts;
+  rebuildTrends();
   return trends.length;
 }
+
+/* ---------- HUD snapshot history (IndexedDB, renderer-side) ----------
+   A lean trendPoint is appended on every save read, in a SEPARATE database from the connection-handle store
+   ('tbh-hud' / 'handles' is untouched). Loaded once at startup and merged into trends. Disconnect clears it —
+   same clean-slate rule as the loot timeline, so switching to a DIFFERENT save never mixes two players' history. */
+var HIST_DB='tbh-hud-history', HIST_STORE='points', HIST_MAX=2400;
+function histOpen(){return new Promise(function(res,rej){try{var r=indexedDB.open(HIST_DB,1);r.onupgradeneeded=function(){r.result.createObjectStore(HIST_STORE);};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};}catch(e){rej(e);}});}
+function historyLoad(){
+  return histOpen().then(function(db){return new Promise(function(res){
+    var tx=db.transaction(HIST_STORE,'readonly');var rq=tx.objectStore(HIST_STORE).getAll();
+    rq.onsuccess=function(){res(rq.result||[]);};rq.onerror=function(){res([]);};
+  });}).then(function(pts){
+    histPts=(pts||[]).filter(function(p){return p&&p.t;});
+    if(histPts.length) rebuildTrends();
+    return histPts.length;
+  }).catch(function(){return 0;});
+}
+var _histLastT=null;
+function historyAppend(tp){
+  if(!tp||!tp.t) return;                       // no lastSavedTime -> nothing to anchor on
+  if(_histLastT===tp.t) return;                // same save instant already recorded this session
+  _histLastT=tp.t;
+  if(!histPts.some(function(p){return p.t===tp.t&&p.lifeGold===tp.lifeGold;})){ histPts.push(tp); rebuildTrends(); }
+  histOpen().then(function(db){return new Promise(function(res){
+    var tx=db.transaction(HIST_STORE,'readwrite'), st=tx.objectStore(HIST_STORE);
+    st.put(tp,tp.t);                            // keyed by save time -> idempotent across reloads
+    var cnt=st.count();
+    cnt.onsuccess=function(){var extra=(cnt.result||0)-HIST_MAX;   // prune oldest beyond the cap
+      if(extra>0){var cur=st.openCursor();cur.onsuccess=function(){var c=cur.result;if(c&&extra-->0){c.delete();c.continue();}};}};
+    tx.oncomplete=function(){res();};tx.onerror=function(){res();};
+  });}).catch(function(){});
+}
+function historyClear(){ histPts=[]; _histLastT=null;
+  return histOpen().then(function(db){return new Promise(function(res){var tx=db.transaction(HIST_STORE,'readwrite');tx.objectStore(HIST_STORE).clear();tx.oncomplete=function(){res();};tx.onerror=function(){res();};});}).catch(function(){});
+}
+
+/* ---------- Per-stage farming rates (goal #2/#3, ban-safe) — mirror of saveEngine.perStageRates ----------
+   MEASURED from save snapshots over time. Attribution uses the CALIBRATED combat sub-counter (aggregate
+   Type 2/Sub 1): it grows 1:1 with farming while offline/Cube/misc gold lands in Sub 2/3, so a combat-gold
+   delta is gold earned at the active stage — offline gold excluded by construction, no guessing. Only CLEAN
+   intervals count (active stage `cur` unchanged across the pair); a stage-transition interval is ambiguous and
+   is omitted (honest). The rate includes idle time = the player's real average. */
+function perStageRates(points){
+  var pts=buildTrends(points), by={};
+  for(var i=1;i<pts.length;i++){ var a=pts[i-1], b=pts[i];
+    if(a.cur==null||b.cur==null||String(a.cur)!==String(b.cur)) continue;
+    var stg=Number(b.cur); if(!(stg>0)) continue;
+    var dPlay=(b.playH!=null&&a.playH!=null)?(b.playH-a.playH):null, dWall=(b.t-a.t)/3600000;
+    var h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; if(!(h>0.01)) continue;
+    var dC=(b.combat!=null&&a.combat!=null)?(b.combat-a.combat):null;
+    var dK=(b.kills!=null&&a.kills!=null)?(b.kills-a.kills):null;
+    if(dC==null||dC<0) continue;
+    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,hours:0,intervals:0};
+    by[stg].combat+=dC; by[stg].kills+=(dK>0?dK:0); by[stg].hours+=h; by[stg].intervals++;
+  }
+  var out=Object.keys(by).map(function(k){ var s=by[k];
+    return {stage:s.stage,label:stageLabel(s.stage),
+      goldPerHr:s.hours>0.01?Math.round(s.combat/s.hours):null,
+      killsPerHr:s.hours>0.01?Math.round(s.kills/s.hours):null,
+      hours:+s.hours.toFixed(2),combatGold:s.combat,kills:s.kills,intervals:s.intervals}; });
+  out.sort(function(x,y){return (y.goldPerHr||0)-(x.goldPerHr||0);});
+  return out;
+}
+function perStageData(){ return perStageRates(rawTrendPoints()); }
 
 /* ---------- lightweight SVG charts (no dependency; works in browser + Electron) ---------- */
 function miniLine(vals,opts){
@@ -1157,6 +1331,14 @@ function renderOverview(d){
     p.appendChild(strip);
   }
 
+  // best MEASURED farming stage — from the save-history per-stage rates (combat gold only; see Trends)
+  var psrOv=perStageData();
+  if(psrOv.length&&psrOv[0].goldPerHr!=null){
+    var bestLine=el('<div class="hint" style="margin:12px 0 0;cursor:pointer" title="See the full per-stage ranking on Trends">💰 <b>Best measured farming stage:</b> '+esc(psrOv[0].label)+' at ~'+fmt(psrOv[0].goldPerHr)+' gold/hr — measured from your own save history (combat gold only). Full ranking on the Trends tab →</div>');
+    bestLine.addEventListener('click',function(){setTab('trends');});
+    p.appendChild(bestLine);
+  }
+
   p.appendChild(el('<h3 class="sec">This session</h3>'));
   p.appendChild(el('<div class="grid cards">'+[
     card('Gold / hr',gph==null?'measuring…':fmt(gph),'green',measuring?'watching…':('<b>+'+fmt(earnedNow-session.earned0)+'</b> earned'),'📈'),
@@ -1242,12 +1424,16 @@ function breakdownPanel(h){
   var gearC=(s.gear||[]).map(function(x){return statChip(x);}).join('');
   var treeC=(s.tree||[]).map(function(x){return statChip(x);}).join('')+
     (s.treeSkills||[]).map(function(n){return '<span class="chip sk">'+n+'</span>';}).join('');
+  // Total = base + gear + tree summed per stat (same modtype kept separate — honest, no unit-mixing).
+  // Account-wide runes/pet apply on top and are listed in their own section below.
+  var totC=statTotals(s).map(function(x){return statChip(x);}).join('');
   var n=el('<div class="panel breakdown"></div>');
   n.appendChild(el('<div class="bd-hero">'+h.cls+' <span class="bd-lvl">Lvl '+h.level+'</span>'+
     '<span class="badge '+(h.deployed?'dep':'bench')+'">'+(h.deployed?'DEPLOYED':'BENCH')+'</span></div>'));
   n.appendChild(el(srcRow('Base','innate',baseC)));
   n.appendChild(el(srcRow('Gear',(s.gearCount||0)+' items',gearC)));
   n.appendChild(el(srcRow('Tree',(s.treeNodes||0)+' nodes',treeC)));
+  n.appendChild(el(srcRow('Total','summed',totC)));
   return n;
 }
 function renderParty(d){
@@ -1537,7 +1723,14 @@ function renderLifetime(d){
     }).join('');
     p.appendChild(el('<div class="panel"><div class="bars">'+kbars+'</div>'+
       (km.length>20?('<div style="color:var(--dim);font-size:11.5px;margin-top:12px">+ '+(km.length-20)+' more monster types</div>'):'')+'</div>'));
-    p.appendChild(el('<div class="hint" style="margin-top:8px">💰 <b>Best gold / XP farming stage?</b> The game doesn’t store gold or XP <i>per stage</i>, and a true rate would need live combat timing (which we never read — ban-safe). So instead of a fabricated "best stage", the honest signals are the <b>base gold/xp per kill</b> above (which monsters are worth most — later acts give more, but hit harder) and the <b>Trends</b> tab (your real gold/hr &amp; kills over time, from save backups).</div>'));
+    // Best farming stage — now MEASURED (v1.0.4): per-stage gold/hr from the HUD's save history, attributed
+    // via the calibrated combat-gold counter over clean single-stage intervals. Replaces the old deferral.
+    var psrLt=perStageData();
+    if(psrLt.length&&psrLt[0].goldPerHr!=null){ var bl=psrLt[0];
+      p.appendChild(el('<div class="hint" style="margin-top:8px">💰 <b>Best farming stage (measured): '+esc(bl.label)+'</b> at ~'+fmt(bl.goldPerHr)+' gold/hr'+(bl.killsPerHr!=null?(' and ~'+fmt(bl.killsPerHr)+' kills/hr'):'')+' — measured from '+bl.intervals+' clean interval'+(bl.intervals>1?'s':'')+' ('+bl.hours+'h) of your own save history. Combat gold only (offline rewards are excluded by construction); includes idle time, so it’s your real average. Full ranking on the <b>Trends</b> tab.</div>'));
+    } else {
+      p.appendChild(el('<div class="hint" style="margin-top:8px">💰 <b>Best gold / XP farming stage?</b> The HUD measures this from your own save history: each snapshot records your active stage and the calibrated combat-gold counter, and single-stage intervals yield real gold/hr per stage. Not enough history yet — keep the HUD connected while you play (it records every save change) and the answer appears here and on <b>Trends</b>. Until then, the <b>base gold/xp per kill</b> above shows which monsters are worth most.</div>'));
+    }
   }
 
   p.appendChild(el('<h3 class="sec">Notes</h3>'));
@@ -1553,12 +1746,29 @@ function fmtDay(ms){var d=new Date(ms);function z(n){return (n<10?'0':'')+n;}
 function renderTrends(d){
   var p=$('tab-trends');p.innerHTML='';
   var pts=trends||[];
-  p.appendChild(el('<h3 class="sec">History &amp; trends <span class="tag">from the game\'s rolling save backups (read-only)</span></h3>'));
+  p.appendChild(el('<h3 class="sec">History &amp; trends <span class="tag">game backups + the HUD\'s own snapshot history (read-only)</span></h3>'));
   if(pts.length<2){
     p.appendChild(el('<div class="empty">'+(pts.length?('Only '+pts.length+' snapshot loaded. '):'')+
       'Need at least 2 save snapshots to chart trends. Use <b>Connect folder</b> (Chrome / Edge) or the desktop app '+
-      'to read the game\'s rolling save backups (read-only) and chart gold/hr, kills and progression over time.</div>'));
+      'to read the game\'s rolling save backups (read-only) — and from then on the HUD also records its own snapshot '+
+      'on every save change, so your history keeps growing past the game\'s ~6 rolling backups.</div>'));
     return;
+  }
+
+  // ---- Farming rate by stage (v1.0.4) — measured per-stage gold/hr & kills/hr from the merged history ----
+  var psr=perStageData();
+  if(psr.length){
+    var maxRate=Math.max.apply(null,psr.map(function(r){return r.goldPerHr||0;}))||1;
+    p.appendChild(el('<h3 class="sec">Farming rate by stage <span class="tag">measured from your save history · combat gold only · best first</span></h3>'));
+    p.appendChild(el('<div class="hint">Each snapshot records your <b>active stage</b> and the save’s calibrated <b>combat-gold counter</b>. Over intervals where you stayed on one stage, the combat-gold delta ÷ hours = that stage’s real gold/hr. Offline rewards are excluded by construction (they land in a different counter), stage-transition intervals are skipped as ambiguous, and idle time counts — so this is your honest average, and it sharpens as more snapshots accumulate.</div>'));
+    var sbars=psr.map(function(r,i){
+      var pct=Math.round((r.goldPerHr||0)/maxRate*100);
+      var meta=(r.killsPerHr!=null?(fmt(r.killsPerHr)+' kills/hr · '):'')+r.hours+'h over '+r.intervals+' interval'+(r.intervals>1?'s':'');
+      return '<div class="bar"><div class="top"><span class="nm">'+(i===0?'🥇 ':'')+esc(r.label)+' <span style="color:var(--dim);font-weight:400">· '+meta+'</span></span>'+
+        '<span class="nv" style="color:var(--green)">'+(r.goldPerHr!=null?(fmt(r.goldPerHr)+' gold/hr'):'—')+'</span></div>'+
+        '<div class="track"><div class="fill" style="width:'+pct+'%;background:linear-gradient(90deg,var(--green),var(--blue))"></div></div></div>';
+    }).join('');
+    p.appendChild(el('<div class="panel"><div class="bars">'+sbars+'</div></div>'));
   }
   var first=pts[0], last=pts[pts.length-1];
   var spanH=(last.t-first.t)/3600000;
@@ -1595,6 +1805,257 @@ function renderTrends(d){
   }).join('');
   p.appendChild(el('<h3 class="sec">Snapshots <span class="tag">newest first · '+pts.length+'</span></h3>'));
   p.appendChild(el('<div class="panel"><table><thead><tr><th>Saved</th><th class="r">Gold</th><th class="r">Lifetime</th><th class="r">Gold/hr</th><th class="r">Kills</th><th class="r">Stage</th><th class="r">Played</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+}
+
+/* ============================================================================
+   Advisor — gear-gap (headline), rune plan, enchant ROI. Everything save-derived
+   and provable; the advisor never claims an upgrade the rules can't prove.
+   ========================================================================== */
+function advItem(it){
+  var n=el('<div class="advitem"></div>');
+  var m=el('<div class="mini" style="border-color:'+rvar(it.grade)+'"></div>');
+  m.appendChild(iconImg(it.icon)); n.appendChild(m);
+  n.appendChild(el('<div class="advn"><b>'+esc(it.name)+'</b><span style="color:'+rvar(it.grade)+'">'+cap(it.grade||'')+(it.lvl?(' · L'+it.lvl):'')+'</span></div>'));
+  return n;
+}
+function renderAdvisor(d){
+  var p=$('tab-advisor');p.innerHTML='';
+  var gaps=d.gearGaps||[];
+  p.appendChild(el('<h3 class="sec">Gear upgrades you already own <span class="tag">provable only — same gear type, strictly better</span></h3>'));
+  p.appendChild(el('<div class="hint">For each equipped item, the advisor looks for an <b>unequipped item you already own</b> of the <b>same gear type</b> that is strictly better — <b>higher rarity</b>, or same rarity at a <b>higher item level</b>. Sidegrades, cross-type swaps and stat judgement calls are never suggested (provable upgrades only), and each spare item is offered once.</div>'));
+  if(!gaps.length){
+    p.appendChild(el('<div class="empty">No provable upgrades sitting unused — everything better that you own is already equipped. 🎉<br><span style="font-size:11.5px">Checked every equipped item on every hero against your unequipped stash, matched by gear type.</span></div>'));
+  } else {
+    var panel=el('<div class="panel"></div>');
+    gaps.forEach(function(g){
+      var row=el('<div class="advrow"></div>');
+      row.appendChild(el('<div class="advhero">'+esc(g.hero)+'<small class="'+(g.deployed?'dep':'')+'">'+(g.deployed?'DEPLOYED':'BENCH')+' · '+esc(cap(g.gt))+'</small></div>'));
+      row.appendChild(advItem(g.cur));
+      row.appendChild(el('<span class="advarrow">→</span>'));
+      row.appendChild(advItem(g.up));
+      row.appendChild(el('<span class="advwhy">'+esc(g.reason)+'</span>'));
+      panel.appendChild(row);
+    });
+    panel.appendChild(el('<div class="advtotal"><span><b>'+gaps.length+'</b> free upgrade'+(gaps.length>1?'s':'')+' — equip them in the game (this tool is read-only and never changes anything).</span></div>'));
+    p.appendChild(panel);
+  }
+
+  // ---- Rune plan: greedy cheapest-first within current gold (all costs are GOLD, from the game's tables) ----
+  var plan=runePlanD((d.runes&&d.runes.list)||[], d.gold||0);
+  p.appendChild(el('<h3 class="sec">Rune plan <span class="tag">cheapest-first within your '+fmt(d.gold)+' gold · costs from the game\'s own tables</span></h3>'));
+  p.appendChild(el('<div class="hint">Runes are <b>account-wide</b> (every level boosts all heroes) and every level is paid in <b>gold</b> — so the cheapest affordable upgrades are the most certain value for spare gold. This plan walks the real per-level cost table, cheapest next step first.</div>'));
+  if(plan.steps.length){
+    var run=0;
+    var rows=plan.steps.map(function(s,i){ run+=s.cost;
+      return '<tr><td class="r" style="color:var(--dim)">'+(i+1)+'</td><td><b>'+esc(s.name)+'</b> <span style="color:var(--dim)">· '+esc(s.eff||'')+'</span></td>'+
+        '<td class="r">Lv '+s.from+' → '+s.to+' <span style="color:var(--dim)">/ '+s.max+'</span></td>'+
+        '<td class="r" style="color:var(--gold)">'+fmt(s.cost)+'</td><td class="r" style="color:var(--dim)">'+fmt(run)+'</td></tr>';
+    }).join('');
+    p.appendChild(el('<div class="panel"><table><thead><tr><th class="r">#</th><th>Rune</th><th class="r">Level</th><th class="r">Cost</th><th class="r">Running total</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="advtotal"><span>Spend <b>'+fmt(plan.spent)+'</b> of your '+fmt(plan.gold)+' gold → <b>'+fmt(plan.remaining)+'</b> left.</span>'+
+      (plan.cheapestNext?('<span>Then save for: <b>'+esc(plan.cheapestNext.name)+'</b> Lv '+(plan.cheapestNext.level+1)+' ('+fmt(plan.cheapestNext.cost)+'g)</span>'):'')+'</div></div>'));
+  } else {
+    p.appendChild(el('<div class="empty">'+(plan.cheapestNext?('No rune upgrade is affordable right now. Cheapest next: <b>'+esc(plan.cheapestNext.name)+'</b> Lv '+(plan.cheapestNext.level+1)+' for <b>'+fmt(plan.cheapestNext.cost)+'</b> gold — you have '+fmt(plan.gold)+'.'):'All runes are maxed — nothing left to buy. 👑')+'</div>'));
+  }
+
+  // ---- Enchant ROI: open enchant slots on the deployed party (fill state only; outcomes are game RNG) ----
+  var es=d.enchants||[];
+  p.appendChild(el('<h3 class="sec">Open enchant slots <span class="tag">deployed party · each item holds up to 3 enchants</span></h3>'));
+  p.appendChild(el('<div class="hint">Items your <b>active party</b> is wearing that still have <b>empty enchant slots</b> — free stat headroom you\'ve already earned. Emptiest first. What a reroll gives is the game\'s RNG; this tool only shows the slots (it never predicts outcomes).</div>'));
+  if(!es.length){
+    p.appendChild(el('<div class="empty">Every equipped item on your deployed party is fully enchanted (3/3). ✨</div>'));
+  } else {
+    var epanel=el('<div class="panel"></div>');
+    es.forEach(function(e2){
+      var row=el('<div class="advrow"></div>');
+      row.appendChild(el('<div class="advhero">'+esc(e2.hero)+'<small class="dep">DEPLOYED</small></div>'));
+      row.appendChild(advItem(e2));
+      var pips=''; for(var i=0;i<3;i++) pips+='<i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:'+(i<e2.used?'var(--amber)':'var(--surface3)')+';border:1px solid var(--line2)"></i>';
+      row.appendChild(el('<span style="margin-left:auto;font-size:12px;color:var(--muted)">'+pips+' '+e2.used+'/3 used · <b style="color:var(--green)">'+e2.open+' open</b></span>'));
+      epanel.appendChild(row);
+    });
+    p.appendChild(epanel);
+  }
+}
+
+/* ============================================================================
+   Crew — OPT-IN private friends leaderboard (goal #14). Privacy rules, enforced
+   client-side: nothing is ever sent unless "Share my progress" is ON; what's sent
+   is a small calibrated BRAG-STATS payload (never the save file, never items,
+   never anything not listed in the panel); turning it off stops pushes instantly.
+   Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
+   ========================================================================== */
+var APP_VERSION='1.0.4';
+var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
+var crewCfg={optin:false,code:'',name:'',id:'',rankBy:'maxStage'};
+try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','name','id','rankBy'].forEach(function(k){if(cc[k]!=null)crewCfg[k]=cc[k];});}catch(e){}
+function crewSave(){try{localStorage.setItem('tbh_crew',JSON.stringify(crewCfg));}catch(e){}}
+function crewId(){ if(!crewCfg.id){ crewCfg.id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('m'+Date.now()+Math.random().toString(36).slice(2,10)); crewSave(); } return crewCfg.id; }
+function crewCodeOk(c){return /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/.test(c||'');}
+// the COMPLETE brag-stats payload — every field calibrated, nothing else ever leaves the machine
+function crewStats(d){
+  var top=(d.heroes||[]).slice().sort(function(a,b){return (b.level||0)-(a.level||0);}).slice(0,3)
+    .map(function(h){return {cls:h.cls,level:h.level};});
+  return {maxStage:d.maxStage||0, maxStageLabel:stageActLabel(d.maxStage), lifeGold:d.lifeGold!=null?d.lifeGold:null,
+    kills:d.kills!=null?d.kills:null, gold:d.gold!=null?d.gold:null, topHeroes:top,
+    runesLeveled:d.runes?d.runes.leveled:0, runesTotal:d.runes?d.runes.total:0,
+    trophies:(d.trophies||[]).length, playHours:d.playHours!=null?d.playHours:null, ver:APP_VERSION};
+}
+var _crewLastPush=0,_crewBoard=null,_crewBoardAt=0,_crewErr=null,_crewTimer=null;
+function crewMsg(txt,color){var s2=$('crewStatus');if(s2){s2.textContent=txt;s2.style.color=color||'var(--dim)';}}
+function crewPush(d,force){
+  if(!crewCfg.optin||!crewCodeOk(crewCfg.code)||!crewCfg.name||!d||demoMode) return Promise.resolve(false);
+  var now=Date.now(); if(!force&&now-_crewLastPush<55000) return Promise.resolve(false);
+  _crewLastPush=now;
+  return fetch(CREW_API+'/progress',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({code:crewCfg.code.trim(),member:{id:crewId(),name:String(crewCfg.name).slice(0,24)},stats:crewStats(d)})})
+    .then(function(r){return r.json();})
+    .then(function(j){ _crewErr=j&&j.ok?null:((j&&j.error)||'share failed'); if(j&&j.ok)crewRefresh(true); return !!(j&&j.ok); })
+    .catch(function(e){ _crewErr='crew server unreachable'; return false; });
+}
+function crewRefresh(quiet){
+  if(!crewCodeOk(crewCfg.code)) return Promise.resolve(null);
+  if(!quiet) crewMsg('refreshing…');
+  return fetch(CREW_API+'/leaderboard?code='+encodeURIComponent(crewCfg.code.trim()))
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(j&&j.ok){_crewBoard=j.members||[];_crewBoardAt=Date.now();_crewErr=null;}
+      else {_crewErr=(j&&j.error)||'crew server error';}
+      if(activeTab==='crew') renderCrew(current);
+      return _crewBoard;
+    })
+    .catch(function(e){ _crewErr='crew server unreachable'; if(activeTab==='crew')renderCrew(current); return null; });
+}
+function crewStartPolling(){ if(_crewTimer)return; _crewTimer=setInterval(function(){ if(crewCodeOk(crewCfg.code)&&activeTab==='crew'&&!demoMode) crewRefresh(true); },30000); }
+function crewOnSaveRead(d){ crewPush(d,false); }
+var CREW_RANKS=[['maxStage','Max stage'],['lifeGold','Lifetime gold'],['kills','Total kills'],['gold','Gold balance'],['topHero','Top hero level'],['runesLeveled','Runes leveled'],['trophies','Legendary+ items']];
+function crewRankVal(st,key){ if(!st)return null;
+  if(key==='topHero'){var m2=0;(st.topHeroes||[]).forEach(function(h){if(h.level>m2)m2=h.level;});return m2;}
+  return st[key]!=null?st[key]:null; }
+function crewRankDisp(st,key){ var v=crewRankVal(st,key); if(v==null)return '—';
+  return key==='maxStage'?(st.maxStageLabel||stageActLabel(v)):fmt(v); }
+function fmtAgo(ms){ var s=Math.max(0,(Date.now()-ms)/1000);
+  if(s<90)return 'just now'; if(s<3600)return Math.round(s/60)+'m ago'; if(s<172800)return Math.round(s/3600)+'h ago'; return Math.round(s/86400)+'d ago'; }
+function renderCrew(d){
+  var p=$('tab-crew');p.innerHTML='';
+  var joined=crewCodeOk(crewCfg.code)&&!!crewCfg.name;
+  p.appendChild(el('<h3 class="sec">Crew leaderboard <span class="tag">private · opt-in · brag-stats only, never your save</span></h3>'));
+
+  // ---- setup / privacy panel ----
+  var setup=el('<div class="panel"></div>');
+  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes a few <b>brag-stats</b> — max stage, lifetime gold, kills, gold, top-3 hero levels, runes, Legendary+ count, play time — and sees everyone else\'s, live. <b>Nothing else ever leaves your device</b>: not your save file, not your items, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
+  var form=el('<div class="crewform"></div>');
+  var inCode=el('<input id="crewCode" maxlength="32" placeholder="Crew code (3-32 letters/numbers)" value="'+esc(crewCfg.code)+'">');
+  var inName=el('<input id="crewName" maxlength="24" placeholder="Your display name" value="'+esc(crewCfg.name)+'">');
+  form.appendChild(inCode);form.appendChild(inName);
+  var joinBtn=el('<button class="primary" type="button">'+(joined?'Update':'Join crew')+'</button>');
+  joinBtn.addEventListener('click',function(){
+    var code=inCode.value.trim(), nm=inName.value.trim();
+    if(!crewCodeOk(code)){crewMsg('crew code: 3-32 letters, numbers, - or _','var(--red)');return;}
+    if(!nm){crewMsg('pick a display name','var(--red)');return;}
+    crewCfg.code=code;crewCfg.name=nm;crewSave();crewId();
+    crewMsg('joined "'+code+'" — loading…');
+    crewRefresh().then(function(){renderCrew(current);});
+    if(crewCfg.optin&&current&&!demoMode)crewPush(current,true);
+  });
+  form.appendChild(joinBtn);
+  if(joined){
+    var shareBtn=el('<button class="ghost" type="button" title="Copy the crew code so friends can join">📋 Copy invite code</button>');
+    shareBtn.addEventListener('click',function(){
+      var txt=crewCfg.code;
+      function ok(){var o=shareBtn.textContent;shareBtn.textContent='Copied ✓';setTimeout(function(){shareBtn.textContent=o;},1500);}
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok,ok);
+      else{try{var t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);ok();}catch(e){}}
+    });
+    form.appendChild(shareBtn);
+  }
+  setup.appendChild(form);
+  // opt-in toggle — the ONLY thing that ever enables an upload
+  var optRow=el('<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px"></div>');
+  var optBtn=el('<button class="alertbtn'+(crewCfg.optin?' on':'')+'" type="button">'+(crewCfg.optin?'🟢 Share my progress: ON':'⚪ Share my progress: OFF')+'</button>');
+  optBtn.addEventListener('click',function(){
+    crewCfg.optin=!crewCfg.optin;crewSave();
+    if(crewCfg.optin&&current&&!demoMode&&joined){crewMsg('sharing on — pushing your stats…');crewPush(current,true);}
+    else if(!crewCfg.optin)crewMsg('sharing off — nothing is uploaded.');
+    renderCrew(current);
+  });
+  optRow.appendChild(optBtn);
+  optRow.appendChild(el('<span class="crewnote">'+(crewCfg.optin?'Your brag-stats update your crew on every save read (about once a minute).':'Off by default. Until you turn this on, nothing about you is uploaded — you can still watch the board.')+'</span>'));
+  setup.appendChild(optRow);
+  setup.appendChild(el('<div id="crewStatus" class="crewnote" style="margin-top:9px"></div>'));
+  p.appendChild(setup);
+  if(demoMode) p.appendChild(el('<div class="hint" style="margin-top:10px">⚠️ <b>Sample mode:</b> sharing is disabled so demo data can never reach a real crew. The board below is sample data.</div>'));
+  if(!d&&!demoMode) p.appendChild(el('<div class="hint" style="margin-top:10px">Connect your save to share your own stats — you can watch a crew without connecting.</div>'));
+
+  // ---- the board ----
+  var members=demoMode?demoCrewBoard():(_crewBoard||[]);
+  if(joined||demoMode){
+    var bar=el('<div class="cxbar" style="margin-top:18px"></div>');
+    bar.appendChild(el('<span style="font-size:12px;color:var(--dim)">Rank by</span>'));
+    bar.appendChild(cxSelect(CREW_RANKS,crewCfg.rankBy,function(v){crewCfg.rankBy=v;crewSave();renderCrew(current);}));
+    if(!demoMode){
+      var rf=el('<button type="button">↻ Refresh</button>');
+      rf.addEventListener('click',function(){crewRefresh();});
+      bar.appendChild(rf);
+      bar.appendChild(el('<span class="cxcount">'+(_crewBoardAt?('updated '+fmtAgo(_crewBoardAt)+' · auto-refreshes every 30s'):'')+'</span>'));
+    }
+    p.appendChild(bar);
+    if(_crewErr&&!demoMode){
+      p.appendChild(el('<div class="empty">⚠️ '+esc(_crewErr)+'<br><span style="font-size:11.5px">The board will retry automatically. Your game data is unaffected — the HUD keeps working offline.</span></div>'));
+    } else if(!members.length){
+      p.appendChild(el('<div class="empty">'+(_crewBoardAt?('No one in crew "'+esc(crewCfg.code)+'" has shared yet. Turn on <b>Share my progress</b> and you\'ll be the first — then send friends the invite code.'):'Loading the board…')+'</div>'));
+      if(!_crewBoardAt&&!demoMode) crewRefresh(true);
+    } else {
+      var key=crewCfg.rankBy;
+      var sorted=members.slice().sort(function(a,b){return (crewRankVal(b.stats,key)||0)-(crewRankVal(a.stats,key)||0);});
+      var meVal=null; sorted.forEach(function(m2){ if(m2.id===crewCfg.id) meVal=crewRankVal(m2.stats,key); });
+      var panel=el('<div class="panel"></div>');
+      sorted.forEach(function(m2,i){
+        var st=m2.stats||{}, isMe=m2.id===crewCfg.id;
+        var row=el('<div class="crewrow'+(isMe?' me':'')+'"></div>');
+        row.appendChild(el('<span class="crewrank">'+(i===0?'🥇':(i===1?'🥈':(i===2?'🥉':'#'+(i+1))))+'</span>'));
+        row.appendChild(el('<span class="crewname"><b>'+esc(m2.name||'?')+(isMe?' <span style="color:var(--blue2)">(you)</span>':'')+'</b><small>'+(m2.updatedAt?('updated '+fmtAgo(+new Date(m2.updatedAt))):'')+'</small></span>'));
+        row.appendChild(el('<span class="crewstat" style="color:var(--gold)">'+esc(crewRankDisp(st,key))+'</span>'));
+        var chips='';
+        chips+='<span class="chip">🗺️ <b>'+esc(st.maxStageLabel||stageActLabel(st.maxStage))+'</b></span>';
+        if(st.lifeGold!=null)chips+='<span class="chip">🪙 <b>'+fmt(st.lifeGold)+'</b></span>';
+        if(st.kills!=null)chips+='<span class="chip">💀 <b>'+fmt(st.kills)+'</b></span>';
+        if(st.topHeroes&&st.topHeroes.length)chips+='<span class="chip">🦸 <b>'+st.topHeroes.map(function(h){return esc(h.cls)+' '+h.level;}).join(' · ')+'</b></span>';
+        if(st.runesLeveled!=null)chips+='<span class="chip rune">🔮 <b>'+fmt(st.runesLeveled)+(st.runesTotal?('/'+st.runesTotal):'')+'</b></span>';
+        if(st.trophies!=null)chips+='<span class="chip">💎 <b>'+fmt(st.trophies)+'</b> Leg+</span>';
+        row.appendChild(el('<span class="crewchips">'+chips+'</span>'));
+        var achBits=[];
+        if(m2.achievement&&m2.achievement.text)achBits.push('🏅 '+esc(m2.achievement.text)+(m2.achievement.t?(' <span style="color:var(--dim)">· '+fmtAgo(+new Date(m2.achievement.t))+'</span>'):''));
+        if(!isMe&&meVal!=null){var tv=crewRankVal(st,key);
+          if(tv!=null&&tv!==meVal){var diff2=tv-meVal;
+            achBits.push('<span class="gap">'+(diff2>0?((key==='maxStage'?'ahead of you':('+'+fmt(diff2)+' ahead of you'))):(key==='maxStage'?'behind you':(fmt(-diff2)+' behind you')))+'</span>');}
+          else if(tv===meVal)achBits.push('<span class="gap">tied with you</span>');}
+        if(achBits.length)row.appendChild(el('<span class="crewach">'+achBits.join(' ')+'</span>'));
+        panel.appendChild(row);
+      });
+      p.appendChild(panel);
+      p.appendChild(el('<div class="crewnote" style="margin-top:10px">Latest achievements are derived from each member\'s own snapshots (new max stage, a new Legendary+, a hero level-up, a rune milestone) — never invented. Members appear when they share at least once; the board keeps the latest snapshot per member.</div>'));
+    }
+    if(!demoMode) crewStartPolling();
+  } else {
+    p.appendChild(el('<div class="connect-hint"><div class="ch-ico">🏆</div><div class="ch-title">Make a crew with your friends</div>'+
+      '<div class="ch-sub">Agree on any code — like <b>dads-of-tbh</b> — enter it above with a display name, and you all see one live board: who\'s deepest, richest, deadliest. Sharing your own stats is opt-in and only ever sends the brag-stats listed above.</div></div>'));
+  }
+}
+// sample crew for ?demo — clearly marked, never pushed anywhere (sharing is disabled in demo mode)
+function demoCrewBoard(){
+  var now=Date.now();
+  return [
+    {id:'demo-you',name:'You (sample)',updatedAt:new Date(now-60000).toISOString(),
+      stats:{maxStage:1210,maxStageLabel:'Act 2-10',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:2,playHours:34.4,ver:APP_VERSION},
+      achievement:{t:new Date(now-3600000).toISOString(),text:'Reached Act 2-10'}},
+    {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-300000).toISOString(),
+      stats:{maxStage:1208,maxStageLabel:'Act 2-8',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,playHours:41.2,ver:APP_VERSION},
+      achievement:{t:new Date(now-7200000).toISOString(),text:'Slayer hit Lv 22'}},
+    {id:'demo-3',name:'IdleQueen',updatedAt:new Date(now-7200000).toISOString(),
+      stats:{maxStage:1110,maxStageLabel:'Act 1-10',lifeGold:512000,kills:31000,gold:204000,topHeroes:[{cls:'Sorcerer',level:16},{cls:'Priest',level:15},{cls:'Hunter',level:14}],runesLeveled:30,runesTotal:197,trophies:1,playHours:18.5,ver:APP_VERSION},
+      achievement:{t:new Date(now-86400000).toISOString(),text:'Found a new Legendary+ item'}}
+  ];
 }
 
 /* ============================================================================
@@ -1813,9 +2274,9 @@ function openCodexDetail(e,owned){
 function closeCodexDetail(){if(!_cxModal)return;document.removeEventListener('keydown',_cxModal.onKey);if(_cxModal.ov.parentNode)_cxModal.ov.parentNode.removeChild(_cxModal.ov);_cxModal=null;}
 
 /* ---------- tab switching ---------- */
-var TABS=['overview','party','inventory','loot','runes','lifetime','trends','codex','tips'];
+var TABS=['overview','party','inventory','loot','runes','advisor','lifetime','trends','crew','codex','tips'];
 function showConnectHint(name){var p=$('tab-'+name);if(!p)return;
-  var nice={overview:'your overview',party:'your heroes',inventory:'your inventory',loot:'your loot timeline',runes:'your rune tree',lifetime:'your lifetime stats',trends:'your history & trends'};
+  var nice={overview:'your overview',party:'your heroes',inventory:'your inventory',loot:'your loot timeline',runes:'your rune tree',advisor:'your build advisor',lifetime:'your lifetime stats',trends:'your history & trends'};
   p.innerHTML='<div class="connect-hint">'+
     '<div class="ch-ico">🔌</div>'+
     '<div class="ch-title">Connect your save to see '+(nice[name]||'this view')+'</div>'+
@@ -1832,6 +2293,7 @@ function setTab(name){
   if(current)renderTab(name,current);
   else if(name==='codex')renderCodex(null);
   else if(name==='tips')renderTips(null);   // game tips apply with no save; suggestions show a connect prompt
+  else if(name==='crew'){renderCrew(null);crewRefresh(true);}   // watching a crew board needs no save
   else showConnectHint(name);
 }
 function renderTab(name,d){
@@ -1840,8 +2302,10 @@ function renderTab(name,d){
   else if(name==='inventory')renderInventory(d);
   else if(name==='loot')renderLoot(d);
   else if(name==='runes')renderRunes(d);
+  else if(name==='advisor')renderAdvisor(d);
   else if(name==='lifetime')renderLifetime(d);
   else if(name==='trends')renderTrends(d);
+  else if(name==='crew')renderCrew(d);
   else if(name==='codex')renderCodex(d);
   else if(name==='tips')renderTips(d);
 }
@@ -1858,6 +2322,8 @@ function render(d){
   $('tabRuneCount').textContent=(d.runes&&d.runes.leveled)?(d.runes.leveled+'/'+d.runes.total):'';
   $('tabCodexCount').textContent=fmt(catalogTotalCount());
   var nSugg=computeSuggestions(d).length; $('tabTipCount').textContent=nSugg||'';
+  $('tabAdvisorCount').textContent=(d.gearGaps&&d.gearGaps.length)||'';   // actionable free upgrades
+  $('tabCrewCount').textContent=(crewCfg.optin&&crewCodeOk(crewCfg.code))?'●':'';
   $('lastSaved').textContent=d.lastSaved?(' · save updated '+d.lastSaved.toLocaleString()):'';
   setConnectedUI(true);
   // Make the active tab VISIBLE — on first connect/demo the active tab-page is still .hidden (the gate was showing),
@@ -1884,11 +2350,14 @@ function disconnect(){
   if(dirTimer){clearInterval(dirTimer);dirTimer=null;}
   forgetHandles();   // clear the persisted handle so a later refresh doesn't silently re-attach this save
   handle=null;dirHandle=null;lastMod=0;liveMod=0;scanTick=0;lastSaveFileMs=null;
-  current=null;session=null;trends=[];
+  current=null;session=null;trends=[];backupPts=[];demoMode=false;demoTrendPts=[];
   // Change-folder = clean slate: reset loot tracking so a DIFFERENT save isn't diffed against the old one
   // (which would flood the timeline with false "drops") and no stale timeline bleeds across saves. Normal page
   // reloads don't call this, so the persisted loot timeline still survives reloads of the SAME save.
   lastUids=null;lootLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
+  // Same clean-slate rule for the HUD's own snapshot history: a DIFFERENT save must never inherit (or pollute)
+  // another save's trend history. Reloads of the same save don't pass here, so history survives refreshes.
+  historyClear();
   logData={offline:[],boxes:{}};
   TABS.forEach(function(t){var pg=$('tab-'+t);pg.innerHTML='';pg.classList.add('hidden');});
   $('tabs').classList.add('hidden');
@@ -1898,7 +2367,7 @@ function disconnect(){
   $('ver').textContent='not connected';
   $('dot').className='dot';$('statusText').textContent='no save';
   $('lastSaved').textContent='';
-  ['tabInvCount','tabLootCount','tabRuneCount','tabCodexCount','tabTipCount'].forEach(function(id){$(id).textContent='';});
+  ['tabInvCount','tabLootCount','tabRuneCount','tabCodexCount','tabTipCount','tabAdvisorCount','tabCrewCount','tabTrendCount'].forEach(function(id){$(id).textContent='';});
   setConnectedUI(false);
   try{window.scrollTo(0,0);}catch(e){}
 }
@@ -1906,11 +2375,16 @@ function disconnect(){
 /* ---------- input paths ---------- */
 async function onBytes(buf){
   try{
-    var d=analyze(loadInner(await decryptSave(buf)));
+    var psd=loadInner(await decryptSave(buf));
+    var d=analyze(psd);
+    demoMode=false;
+    // record this save state in the HUD's own history (IndexedDB) — feeds long-horizon trends + per-stage rates.
+    historyAppend(trendPoint(psd));
     // timestamp new items with the file's TRUE UTC mtime when available (the .es3 lastSavedTime field is LOCAL
     // ticks); falls back to ticks / now. This makes the loot timeline's local + UTC columns both accurate.
     processLoot(d.owned, lastSaveFileMs||(d.lastSaved?+d.lastSaved:Date.now()));
     render(d);
+    crewOnSaveRead(d);   // opt-in only: push brag-stats to the crew (no-op unless the user enabled sharing)
     $('dot').className='dot live';$('statusText').textContent='reading your save';
   }catch(e){
     $('dot').className='dot err';$('statusText').textContent='decrypt failed: '+(e.message||e);console.error(e);
@@ -2046,13 +2520,16 @@ function loadDemo(){
     demoItem(312031),demoItem(622031),
     demoItem(331041),demoItem(511051),
     demoItem(310003),demoItem(520003),
-    demoItem(190001),demoItem(140002),demoItem(110001)
+    demoItem(190001),demoItem(140002),demoItem(110001),
+    // unequipped spares that are STRICTLY better than equipped pieces -> showcase the Advisor's gear-gap finder
+    demoItem(343041),   // Complete Crossbow LEGENDARY L15 — beats the Hunter's RARE L15 (higher rarity)
+    demoItem(322051)    // Azure Staff RARE L20 — beats the Sorcerer's Witch Staff RARE L15 (same rarity, higher level)
   ];
   var byR={};owned.forEach(function(o){if(o.grade)byR[o.grade]=(byR[o.grade]||0)+1;});
   var dsk=function(keys){return keys.map(function(k){var d=DB.skills&&(DB.skills[k]||DB.skills[String(k)]);return d?d.n:null;}).filter(Boolean);};
   var heroes=[
     {key:'401',cls:'Priest',mw:'SCEPTER',level:20,exp:1981148,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(8,12),skills:dsk([40201,40101])},
-    {key:'301',cls:'Sorcerer',mw:'STAFF',level:20,exp:1445520,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(4,8),skills:dsk([30101,30301])},
+    {key:'301',cls:'Sorcerer',mw:'STAFF',level:20,exp:1445520,pts:20,unspent:0,gear:6,deployed:true,equipped:owned.slice(5,8),skills:dsk([30101,30301])},
     {key:'501',cls:'Hunter',mw:'CROSSBOW',level:20,exp:2895057,pts:20,unspent:0,gear:7,deployed:true,equipped:owned.slice(0,5),skills:dsk([50201,50301])},
     {key:'601',cls:'Slayer',mw:'AXE',level:15,exp:534655,pts:15,unspent:0,gear:1,deployed:false,equipped:[],skills:dsk([60201,60301])},
     {key:'201',cls:'Ranger',mw:'BOW',level:12,exp:133555,pts:12,unspent:0,gear:1,deployed:false,equipped:[],skills:dsk([20301])},
@@ -2069,6 +2546,20 @@ function loadDemo(){
   // seed a ~10-min session so the sample showcases live rates + per-hero level ETAs (deployed gain XP, bench don't)
   var demoXp0={}; heroes.forEach(function(h){demoXp0[h.key]=heroCumXp(h.level,h.exp)-(h.deployed?42000:0);});
   session={t0:Date.now()-600000,earned0:1574858-48000,kills0:72091-2600,heroXp0:demoXp0};
+  // sample save-history so Trends + the per-stage farming rates render in the demo (self-consistent rates;
+  // demoMode keeps this fully separate from any real history and disables crew sharing)
+  demoMode=true;
+  demoTrendPts=(function(){
+    var pts=[], t=Date.now()-9*7*3600000, playH=22, combat=900000, kills=40000;
+    var legs=[{cur:1106,maxStage:1109,rate:34000,kr:1900,n:3},{cur:1206,maxStage:1209,rate:56000,kr:1750,n:3},{cur:1208,maxStage:1210,rate:82000,kr:1700,n:3}];
+    legs.forEach(function(L){ for(var i=0;i<L.n;i++){
+      t+=7*3600000; playH+=4; combat+=L.rate*4; kills+=L.kr*4;
+      pts.push({t:t,gold:30000+Math.round(combat/40),lifeGold:combat+7858,combat:combat,kills:kills,
+        cur:L.cur,playH:+playH.toFixed(2),maxStage:L.maxStage,items:30+pts.length,runes:40+pts.length});
+    }});
+    return pts;
+  })();
+  rebuildTrends();
   render({version:'1.00.11 (sample)',stage:1208,wave:2,maxStage:1210,playHours:34.4,lastSaved:new Date(),
     pet:6003,gold:77298,heroes:heroes,inv:{owned:owned.length,stash:20,stashSlots:343,trade:0},
     owned:owned,byRarity:byR,
@@ -2076,6 +2567,7 @@ function loadDemo(){
     runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
     account:demoAccount,
     killsByMonster:[{name:'Orc',kills:7683,g:14,x:14},{name:'Slime',kills:7532,g:10,x:10},{name:'Orc Warrior',kills:7230,g:17,x:17},{name:'Skeleton',kills:5740,g:12,x:12},{name:'Scorpion',kills:5685,g:13,x:13},{name:'Bat',kills:5449,g:11,x:11},{name:'Giant Fly',kills:5023,g:15,x:15}],
+    gearGaps:gearGapsD(owned,heroes), enchants:enchantStatusD(heroes),
     kills:72091,lifeGold:1574858,goldBySource:{total:1574858,combat:1567000,other:7858,validated:true}});
   $('dot').className='dot demo';$('statusText').textContent='SAMPLE — not your data';
 }
@@ -2107,6 +2599,7 @@ document.addEventListener('drop',function(e){
   if(!/\.es3$/i.test(f.name)){$('statusText').textContent='drop a .es3 save file';return;}
   lastSaveFileMs=f.lastModified;var r=new FileReader();r.onload=function(){onBytes(r.result);};r.readAsArrayBuffer(f);
 });
+historyLoad();   // the HUD's own snapshot history (IndexedDB) feeds trends + per-stage rates from the first paint
 if(location.search.indexOf('demo')>=0)loadDemo();
 else if(location.search.indexOf('codex')>=0)browseCatalog();
 else if(!(window.tbhNative&&window.tbhNative.onSave))restoreHandle();  // re-attach last folder/file after a refresh

@@ -60,6 +60,18 @@ the keyring but is NOT active — don't switch to it. Live distribution: Release
   `aggregateSaveDatas` (lifetime counters, see below).
 - Backups: the game keeps rolling `SaveFile_Live_1..5.es3.bak` + timestamped `SaveFile_Live_backup_YYYYMMDD_HHMMSS.es3`
   (~every few hours) — useful as historical diff points for trend charts (goal #10).
+- **`equippedItemIds` are item UniqueIds, NOT ItemKeys** (verified: every equipped uid resolves to an owned instance).
+  **Slot map (verified on the live save):** 0 weapon, 1 offhand, 2 helmet, 3 armor, 4 gloves, 5 boots, 8 ring,
+  6/7/9 accessory. Gear matching must use **GEARTYPE (`gt`)**, never the slot index (the weapon type is class-specific).
+- **Per-stage farming rates are derivable SAVE-ONLY (v1.0.4; no memory lane):** delta the calibrated combat-gold
+  sub-counter (Type 2/Sub 1) between snapshots and attribute it to `currentStageKey`, counting only CLEAN intervals
+  (cur unchanged across the pair). Offline gold is excluded by construction (it lands in Sub 2/3). Verified vs
+  test/live.es3 + test/backups: Act 2-8 ≈ 84,911 gold/hr vs Act 1-6 ≈ 36,313. Engine fn: `perStageRates(points)`
+  (both engines); rate includes idle time = the player's real average; sharpens as snapshots accumulate.
+- **HUD-own snapshot history (v1.0.4):** the renderer persists a lean `trendPoint` per save read to IndexedDB db
+  **`tbh-hud-history`** (store `points`, keyed by save time, capped 2400) — SEPARATE from the `tbh-hud`/`handles`
+  connection store. Loaded on startup, merged with game backups into trends; cleared on Disconnect (same clean-slate
+  rule as the loot timeline so two different saves never mix).
 
 ### aggregateSaveDatas (lifetime — partially decoded; finish it)
 - Type 2 / SubKey 0 = lifetime **gold earned** (calibrated). **The Sub-keys are a SUM-VALIDATED gold-by-source
@@ -151,7 +163,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   `runes` (197, per-level effects+costs+tree). Rebuilt by `scripts/build_gamedata.py` from the game's own tables.
 - `src/engine/item_names_en.json` — 511 authoritative item names from the game.
 - `scripts/extract_icons.py` — read-only UnityPy extractor (Phase 2). Re-run to refresh icons after a game patch.
-- `dashboard.html` — premium multi-tab UI: **Overview / Party / Inventory / Loot / Runes / Lifetime / Trends / Codex / Tips**.
+- `dashboard.html` — premium multi-tab UI (11): **Overview / Party / Inventory / Loot / Runes / Advisor / Lifetime / Trends / Crew / Codex / Tips**.
   Animated hero GIFs, rarity-framed icon grid + enchant pips + tooltips (now incl. inherent stats + unique mods),
   per-hero equipped gear + skill chips, session gold/hr & kills/hr, rune tree (cheapest-next), lifetime stats +
   owned-by-rarity + kills-by-monster, History/Trends charts (SVG, from backups), Loot tab (boxes + offline rewards + save-diff drops).
@@ -163,7 +175,21 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
-**Last 24h — the v1.0.2 → v1.0.3 wave (sessions 7-12).** The 1.0.2 line was built but never published; next release = v1.0.3.
+- **S13 (v1.0.4) — 3 features + ship everywhere.** **F1 History + per-stage gold/hr:** HUD-own snapshot history
+  (IndexedDB `tbh-hud-history`; append in `onBytes`, load at startup, merge with backups, clear on Disconnect) +
+  `perStageRates` (combat counter Type 2/Sub 1 over CLEAN single-stage intervals; offline gold auto-excluded) →
+  Trends "Farming rate by stage" ranking + Lifetime measured "best farming stage" (replaces the deferral) + Overview
+  one-liner. **F2 Advisor tab (10th):** provable gear-gap upgrades (same GEARTYPE, strictly better — higher rarity or
+  same-rarity-higher-level; greedy 1:1; hand-verified vs the full gear dump), cheapest-first rune plan within gold
+  (real `DB.runes[].lv` costs + save-for), open enchant slots on the deployed party; Party breakdown gained a **Total**
+  row (`statTotals` = base+gear+tree summed). **F3 Crew tab (11th, goal #14) — OPT-IN:** crew code + display name, share
+  toggle OFF by default, pushes ONLY calibrated brag-stats (never the save), ~30s polling, rank-by, achievements from
+  snapshot deltas (server-derived), gap-to-you, copy invite; demo mode hard-disables sharing. Backend `api/progress.js`
+  + `api/leaderboard.js` (Vercel serverless + `@neondatabase/serverless`) + Neon `tbh_crew_*`, deployed as
+  **tbh-crew-api** (fusiondatacompany-projects; DATABASE_URL in Vercel env, never committed; CORS allowlist), verified
+  live end-to-end. **Engine parity verified in-browser** (inline == Node on the same save) + verify_save.js invariant
+  assertions for all new fns. 11 tabs, 0 console errors, 0 overflow @375; Electron clean; v1.0.4 released.
+**The v1.0.2 → v1.0.3 wave (sessions 7-12).** The 1.0.2 line was built but never published; v1.0.3 superseded it.
 - **S12 (v1.0.3)** — Lifetime **Gold by source** (Type 2 subs sum-validate; Sub1=combat, delta-confirmed → "combat 99.5% / other 0.5%"; "Cube gold" honestly inside the ~0.5% "other", not fabricated). **Per-monster base gold/xp** (MonsterInfoData → `DB.monsters {n,g,x}`). Honest **best-farming-STAGE** answer (not derivable — no stage→monster map + per-stage rate needs the memory lane). Bug fix: `el()` dropped-sibling had hidden Owned-by-rarity since S7 → `frag()`. **Electron smoke-tested** (`npm start` clean). `goldBySource` in both engines + a verify_save assertion.
 - **S11 (v1.0.2)** — **Per-hero "time to next level"** (XP remaining ÷ session-measured XP/hr; `heroCumXp`/`heroLevelEta`/`ensureSession`; cards + roster). **Fixed blank-first-paint** (render() now un-hides the active tab — affected browser + Electron). Keyboard `:focus-visible`. Suggestion-strip + snappier tabs. Visual audit (cohesive, responsive @375).
 - **S10 (v1.0.2)** — **Refresh-reconnect** (handle in IndexedDB; `restoreHandle`/`forgetHandles` + 1-click Reconnect). **Blocked-folder fix** ("contains system files"): "Trouble connecting?" help + universal **drag-drop** of the .es3 (bypasses the blocklist). **Flex card** + honest "no live DPS" Who's-carrying. "See a demo" + amber **SAMPLE** badge. Market-buy origin not isolable → honest note.
@@ -174,17 +200,28 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.3 desktop release is PUBLISHED** (the Latest release; installer + latest.yml + blockmap) → existing v1.0.0/v1.0.1
-   installs auto-update; direct download linked in the README. Web is current on every push. To ship the NEXT version:
+1. **v1.0.4 is SHIPPED everywhere** — desktop release (installer + latest.yml + blockmap; older installs auto-update),
+   GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from
+   the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project `tbh-crew-api`
+   under the fusiondatacompany team; Neon Postgres; DATABASE_URL in Vercel env only). To ship the NEXT version:
    bump `package.json` + the `?v=` cache-bust, `npm run dist`, then `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml dist/*.blockmap --latest`.
-2. **Optional:** Vercel deploy (repo is ready — owner 1-click import at vercel.com); sign the installer (cert) to remove the SmartScreen prompt; deepen the Codex (synthesis/crafting recipes, set bonuses, per-source drop rates).
+2. **Optional:** move the crew API under the owner's `taskbarheroburat` Vercel project (attach Neon storage there →
+   auto-injects DATABASE_URL → change the `CREW_API` constant in dashboard.html; ONE canonical API at a time or crews
+   split); sign the installer (cert); deepen the Codex (recipes, set bonuses, drop rates); Clerk auth on the crew API.
 
 ### Deferred / deliberately NOT built (golden rule — ban-safe / uncalibrated)
 - **Phase 4 live telemetry** — per-run DPS, clear-time, gold/hr & xp/hr PER ACT, per-hero DPS share — needs reading game memory (CodeStage `[ACTk]` anti-cheat). Don't build unless provably ban-safe; the save + log lanes cover what's safe.
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
-- **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); best-farming-STAGE (no stage→monster map); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
+- **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.3 · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.4 · fully responsive: phone/tablet/desktop)
+- **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
+  endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
+  `tbh-crew-api` (team fusiondatacompany-projects, CLI `vercel --scope fusiondatacompany-projects`); env var
+  `DATABASE_URL` = a Neon Postgres URL (NEVER committed — beware: piping it via PowerShell `|` adds a BOM that breaks
+  `neon()`; write to a temp file and `cmd /c "vercel env add ... < file"`). Tables `tbh_crew_members` /
+  `tbh_crew_history` auto-create on first request. The same /api files also deploy with the owner's site project —
+  harmless without a DATABASE_URL there (they return an honest 503).
 - Browser (no install): **https://revenantcabal-rgb.github.io/taskbarheroburat/** (GitHub Pages, HTTPS; bare URL works via
   index.html) -> Connect folder. Or open `dashboard.html` locally in Chrome/Edge. `?codex` browses the full catalog with no
   save; `?demo` loads sample data. NOTE: bump `?v=` on the `gamedata.min.js` script tag when the DB changes (cache-bust).

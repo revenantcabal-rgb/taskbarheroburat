@@ -132,7 +132,103 @@ function snapshotFromPsd(psd){ return {capturedAt:new Date().toISOString(),summa
 function snapshot(buffer){ return snapshotFromPsd(loadSave(buffer)); }
 function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev.summary.lastSaved); const h=ms/3600000; const d=(a,b)=>(a==null||b==null)?null:b-a; const ph=v=>(v==null||!h)?null:Math.round(v/h); const dg=d(prev.gold,cur.gold),dk=d(prev.aggregates.totalKills,cur.aggregates.totalKills); return {spanMinutes:+(ms/60000).toFixed(1),goldDelta:dg,goldPerHour:ph(dg),killsDelta:dk,killsPerHour:ph(dk)}; }
 // History/trends — mirror of the inline engine. Lean scalar snapshot + per-interval rates from backups.
-function trendPoint(psd){ const c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[]; const goldRow=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); const d=netTicksToDate(c.lastSavedTime); return {t:d?+d:null,gold:goldRow?goldRow.Quantity:0,lifeGold:pick(a,2,0),kills:pick(a,0,0),playH:c.playTime?+(c.playTime/3600).toFixed(2):null,maxStage:c.maxCompletedStage,items:(psd.itemSaveDatas||[]).length,runes:(psd.RuneSaveData||[]).filter(r=>(r.Level||0)>0).length}; }
+function trendPoint(psd){ const c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[]; const goldRow=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); const d=netTicksToDate(c.lastSavedTime); return {t:d?+d:null,gold:goldRow?goldRow.Quantity:0,lifeGold:pick(a,2,0),combat:pick(a,2,1),kills:pick(a,0,0),cur:c.currentStageKey,playH:c.playTime?+(c.playTime/3600).toFixed(2):null,maxStage:c.maxCompletedStage,items:(psd.itemSaveDatas||[]).length,runes:(psd.RuneSaveData||[]).filter(r=>(r.Level||0)>0).length}; }
 function buildTrends(points){ const seen={},pts=[]; (points||[]).filter(p=>p&&p.t).sort((a,b)=>a.t-b.t).forEach(p=>{const k=p.t+'/'+p.lifeGold; if(seen[k])return; seen[k]=1; pts.push(p);}); for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i]; const dPlay=(b.playH!=null&&a.playH!=null)?b.playH-a.playH:null; const dWall=(b.t-a.t)/3600000; const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; const dLife=(b.lifeGold!=null&&a.lifeGold!=null)?b.lifeGold-a.lifeGold:null; const dKills=(b.kills!=null&&a.kills!=null)?b.kills-a.kills:null; b.goldPerHr=(dLife!=null&&h>0.01)?Math.round(dLife/h):null; b.killsPerHr=(dKills!=null&&h>0.01)?Math.round(dKills/h):null; } return pts; }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+// ============================================================================
+// Per-stage farming rates (goal #2/#3, ban-safe). MEASURED from save snapshots over time — not derived from a
+// stage→monster table and not the live memory lane. Attribution uses the CALIBRATED combat sub-counter
+// (aggregate Type 2 / Sub 1): on the real save it grows 1:1 with farming while offline/Cube/misc gold lands in
+// Sub 2/3, so a combat-gold delta is, by construction, gold earned at the active stage — offline gold excluded
+// with no guessing. Only "clean" intervals (the active stage `cur` unchanged across the pair) are counted; an
+// interval where the stage changed is an ambiguous split and is omitted (honest). Rate includes idle time = the
+// player's real average. The finer the snapshot cadence (the HUD's own history), the sharper this gets.
+function perStageRates(points){
+  const pts=buildTrends(points); const by={};
+  for(let i=1;i<pts.length;i++){ const a=pts[i-1], b=pts[i];
+    if(a.cur==null||b.cur==null||String(a.cur)!==String(b.cur)) continue;   // clean (non-transition) intervals only
+    const stg=Number(b.cur); if(!(stg>0)) continue;
+    const dPlay=(b.playH!=null&&a.playH!=null)?(b.playH-a.playH):null, dWall=(b.t-a.t)/3600000;
+    const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; if(!(h>0.01)) continue;
+    const dC=(b.combat!=null&&a.combat!=null)?(b.combat-a.combat):null;
+    const dK=(b.kills!=null&&a.kills!=null)?(b.kills-a.kills):null;
+    if(dC==null||dC<0) continue;                                            // need calibrated combat-gold, monotonic
+    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,hours:0,intervals:0};
+    by[stg].combat+=dC; by[stg].kills+=(dK>0?dK:0); by[stg].hours+=h; by[stg].intervals++;
+  }
+  const out=Object.keys(by).map(k=>{ const s=by[k];
+    return {stage:s.stage,label:stageLabel(s.stage),
+      goldPerHr:s.hours>0.01?Math.round(s.combat/s.hours):null,
+      killsPerHr:s.hours>0.01?Math.round(s.kills/s.hours):null,
+      hours:+s.hours.toFixed(2),combatGold:s.combat,kills:s.kills,intervals:s.intervals}; });
+  out.sort((x,y)=>(y.goldPerHr||0)-(x.goldPerHr||0));
+  return out;
+}
+
+// ============================================================================
+// Build advisor (goal #6 deepened; beats tbh-copilot with authoritative data). All save-derived, no fabrication.
+
+// gearGaps: "you own better gear than you're wearing." Per hero, per equipped item, find an UNEQUIPPED owned item
+// of the SAME GEARTYPE that is strictly better — higher rarity, or equal rarity & higher item level. ONLY provable
+// upgrades are flagged (equal rarity+level is a sidegrade, never claimed better). Matching by gt keeps every
+// suggestion class-valid. Greedy one-to-one assignment so a single spare item is offered only once.
+function gearGaps(psd){
+  const owned=ownedItems(psd), byUid={}; owned.forEach(o=>byUid[o.uid]=o);
+  const party=((psd.commonSaveData||{}).arrangedHeroKey||[]).map(String);
+  const equippedUids={}, heroes_=[];
+  (psd.heroSaveDatas||[]).forEach(h=>{ const eq=(h.equippedItemIds||[]).filter(nz).map(u=>byUid[String(u)]).filter(Boolean);
+    eq.forEach(e=>equippedUids[e.uid]=1);
+    heroes_.push({key:String(h.heroKey),cls:heroClass(h.heroKey),level:h.HeroLevel,deployed:party.indexOf(String(h.heroKey))>=0,eq}); });
+  const freeByGt={};
+  owned.forEach(o=>{ if(equippedUids[o.uid]||!o.gt||o.mat) return; (freeByGt[o.gt]=freeByGt[o.gt]||[]).push(o); });
+  Object.keys(freeByGt).forEach(gt=>freeByGt[gt].sort((a,b)=>(rarityRank(b.grade)-rarityRank(a.grade))||((b.lvl||0)-(a.lvl||0))));
+  const cand=[];
+  heroes_.forEach(h=>h.eq.forEach(e=>{ const pool=freeByGt[e.gt]||[]; const er=rarityRank(e.grade), el=e.lvl||0;
+    for(let i=0;i<pool.length;i++){ const c=pool[i], cr=rarityRank(c.grade), cl=c.lvl||0;
+      if(cr>er||(cr===er&&cl>el)){ cand.push({hero:h.cls,heroKey:h.key,deployed:h.deployed,gt:e.gt,
+        cur:{name:e.name,grade:e.grade,lvl:e.lvl,icon:e.icon,uid:e.uid},
+        up:{name:c.name,grade:c.grade,lvl:c.lvl,icon:c.icon,uid:c.uid},
+        reason:(cr>er?'higher rarity':'higher level'),jump:(cr-er)*1000+(cl-el)}); break; } } }));
+  cand.sort((a,b)=>(b.deployed-a.deployed)||(b.jump-a.jump));
+  const usedUp={}, usedSlot={}, out=[];
+  cand.forEach(g=>{ if(usedUp[g.up.uid]) return; const sk=g.heroKey+'|'+g.cur.uid; if(usedSlot[sk]) return;
+    usedUp[g.up.uid]=1; usedSlot[sk]=1; out.push(g); });
+  return out;
+}
+
+// runePlan: greedy cheapest-first rune-upgrade path within a gold budget. Rune level costs are GOLD (verified:
+// all rune-level costs use the Gold currency). Walks the full per-level cost table (DB.runes[].lv) so multi-step
+// paths price correctly. Bounded to a short "next moves" list. Also returns the cheapest unaffordable next (save-for).
+function runePlan(psd,gold){
+  const lvlOf={}; (psd.RuneSaveData||[]).forEach(r=>lvlOf[String(r.RuneKey)]=r.Level||0);
+  const R=(DB&&DB.runes)||{}, runes=[];
+  Object.keys(R).forEach(k=>{ const d=R[k]; if(!d.max) return; runes.push({key:k,name:d.n,eff:d.eff,level:lvlOf[k]||0,max:d.max,lv:d.lv||[]}); });
+  const nextCost=r=>{ if(r.level>=r.max) return null; const nl=(r.lv||[]).filter(x=>x.l===r.level+1)[0]; return (nl&&nl.cost!=null)?nl.cost:null; };
+  let budget=(gold||0); const steps=[]; let guard=0;
+  while(guard++<60){ let best=null;
+    runes.forEach(r=>{ const c=nextCost(r); if(c==null||c>budget) return; if(best==null||c<best.c) best={r,c}; });
+    if(!best) break;
+    steps.push({name:best.r.name,from:best.r.level,to:best.r.level+1,max:best.r.max,cost:best.c,eff:best.r.eff});
+    budget-=best.c; best.r.level++; if(steps.length>=12) break; }
+  let cheapestNext=null;
+  runes.forEach(r=>{ const c=nextCost(r); if(c==null) return; if(cheapestNext==null||c<cheapestNext.cost) cheapestNext={name:r.name,level:r.level,max:r.max,cost:c,eff:r.eff}; });
+  return {gold:(gold||0),steps,spent:(gold||0)-budget,remaining:budget,cheapestNext};
+}
+
+// enchantStatus: equipped items on DEPLOYED heroes that still have open enchant slots (each item holds up to 3).
+// Honest — surfaces the fill state only; never claims a specific reroll outcome.
+function enchantStatus(psd){
+  const owned=ownedItems(psd), byUid={}; owned.forEach(o=>byUid[o.uid]=o);
+  const party=((psd.commonSaveData||{}).arrangedHeroKey||[]).map(String), out=[];
+  (psd.heroSaveDatas||[]).forEach(h=>{ if(party.indexOf(String(h.heroKey))<0) return;
+    (h.equippedItemIds||[]).filter(nz).forEach(u=>{ const o=byUid[String(u)]; if(!o||o.mat||!o.gt) return;
+      const used=o.ench||0; if(used<3) out.push({hero:heroClass(h.heroKey),name:o.name,grade:o.grade,gt:o.gt,lvl:o.lvl,icon:o.icon,used,open:3-used}); }); });
+  out.sort((a,b)=>a.used-b.used);
+  return out;
+}
+
+// statTotals: a hero's full computed stat sheet = base + gear + tree, summed per stat (reuses sumStats). The
+// account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
+function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
+
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,gearGaps,runePlan,enchantStatus,statTotals,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

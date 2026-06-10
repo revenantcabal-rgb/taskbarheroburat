@@ -6,16 +6,17 @@ It **never writes to, modifies, or injects into the game** — it only reads fil
 
 Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 
-## What it shows (9 tabs)
+## What it shows (11 tabs)
 - **Overview** — gold, current & max stage (shown as **"Act X-Y" + the real stage name**, never a raw key), total
-  kills, runes, session gold/hr & kills/hr, an **offline-rewards card** (live idle timer + last collection rate + cap
+  kills, runes, session gold/hr & kills/hr, your **best measured farming stage** (from your own save history), an
+  **offline-rewards card** (live idle timer + last collection rate + cap
   learned from your own logs), deployed party, active pet, a plain-language **"who's carrying"** gear-strength ranking
   (labeled bar + tooltips, no jargon), and your best trophies.
 - **Party** — every hero with level, **real XP-to-next-level progress** (calibrated from the game's level curve),
   a **"time to next level"** estimate (XP remaining ÷ the XP/hour you're *actually* gaining this session — your real
   pace, never a guessed number), equipped gear (hover for stats), equipped skill names, and a **full "who's carrying"
   source breakdown**: each deployed
-  hero's stats attributed to Base / Gear / Tree, plus account-wide runes & pet.
+  hero's stats attributed to Base / Gear / Tree **plus a summed Total row**, and account-wide runes & pet.
 - **Inventory** — every owned item with its real name, rarity (color-framed), real icon, level, enchants, **inherent
   gear stats and unique-mod effects** (hover tooltip). Filter by rarity / materials.
 - **Loot** — Steam boxes held, offline-reward gold, and a **"new items" timeline** (each entry timestamped in **both
@@ -23,17 +24,31 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   New gear is shown whether it dropped or was crafted/synthesized in the Cube — the game records no origin, so the
   tool honestly doesn't guess which.
 - **Runes** — the 197-node rune tree with real names/effects, leveled status, and cheapest-next-upgrade recommendations.
+- **Advisor** — provable, save-derived build advice. **Gear upgrades you already own:** for every equipped item it
+  finds an *unequipped* item of the *same gear type* that is strictly better (higher rarity, or same rarity at a higher
+  level) — sidegrades and judgement calls are never suggested. **Rune plan:** a cheapest-first upgrade path priced from
+  the game's own per-level cost tables against your current gold (plus a "save for" target). **Open enchant slots:**
+  every equipped item on your deployed party with free enchant headroom (it shows the slots, never predicts RNG outcomes).
 - **Lifetime** — total kills, gold earned, max stage (as "Act X-Y"), a **gold-by-source split** (sum-validated:
-  *from combat* vs *other — offline, Cube, misc*), owned-by-rarity, and a calibrated **kills-by-monster** breakdown
-  with each monster's **base gold/XP per kill** (the per-monster counts sum exactly to total kills). Only counters
-  whose meaning is calibrated are shown — uncalibrated save aggregates are omitted rather than guessed. *Note:* a true
-  "best gold/XP farming **stage**" isn't shown because the save stores no per-stage rate (that needs live combat data
-  we don't read) — the honest signals are the per-monster base rewards here and the gold/hr-over-time on **Trends**.
-- **Trends** — gold/kills/stage progression and gold-per-hour over time, charted from the game's own rolling save backups.
+  *from combat* vs *other — offline, Cube, misc*), owned-by-rarity, a calibrated **kills-by-monster** breakdown
+  with each monster's **base gold/XP per kill** (the per-monster counts sum exactly to total kills), and your
+  **best farming stage — measured** from your own save history (see Trends below). Only counters
+  whose meaning is calibrated are shown — uncalibrated save aggregates are omitted rather than guessed.
+- **Trends** — gold/kills/stage progression and gold-per-hour over time — **and a per-stage farming ranking**
+  (real gold/hr & kills/hr for each stage you've farmed). Sources: the game's rolling save backups **plus the HUD's
+  own snapshot history** — it records a tiny snapshot on every save change (locally, in your browser/app), so your
+  history keeps growing past the game's ~6 rolling backups. Per-stage rates use the save's calibrated *combat-gold*
+  counter over single-stage intervals, so offline gold is excluded by construction and nothing is guessed.
 - **Codex** — a browsable, virtualized grid of the game's **entire catalog** (5,944 items + 197 runes + 36 skills),
   independent of ownership (owned marked ✓). Filter by type / rarity / gear type, search by name or ID, sort, owned-only.
   Click any entry for full detail: description, inherent stats + unique mod, material socket effects, rune per-level
   table, **what a stage box can contain**, **where an item drops from**, and marketable/Steam flags.
+- **Crew** — an **optional, opt-in private leaderboard** for you and your friends. Agree on any shared **crew code**
+  (like a private room name), pick a display name, and everyone who opts in sees one live board: rank by max stage /
+  lifetime gold / kills / top hero / runes, each member's latest brag-stats, their **latest achievement** (derived from
+  their own snapshots — new max stage, new Legendary+, a hero level-up, a rune milestone), and your gap to them.
+  **Off by default; nothing is uploaded unless you flip "Share my progress" ON — and even then only the small
+  brag-stats payload shown on the tab, never your save file.** See the FAQ below.
 - **Tips** — **personalized suggestions** built live from your save (unspent ability points, empty gear slots, the
   cheapest rune upgrade you can afford, a nearly-full stash, bench heroes falling behind, farming stagnation) plus
   **game tips** worth knowing. Every suggestion is calibrated from your save; it never invents "do X for +Y" numbers
@@ -61,7 +76,7 @@ No save handy? Click **Preview sample** for a demo, or **Browse the full item ca
 it at vercel.com for a one-click second deployment.
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.3.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.3/TBH-HUD-Setup-1.0.3.exe)** (direct, ~79 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.4.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.4/TBH-HUD-Setup-1.0.4.exe)** (direct, ~79 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and
@@ -74,7 +89,18 @@ shortcuts and **registers in Windows "Add or remove programs," so you can uninst
 *your* save on *your* own device — there's **no account, no sign-in, and no server** that stores anything. You and a
 friend can each open the same link and connect your own saves completely independently; neither of you can see the
 other's data. (Hosting it on GitHub Pages or Vercel only decides *where the page lives* — end users never "log in" to
-anything.)
+anything.) The one **opt-in** exception is the Crew leaderboard below.
+
+**How do I set up a Crew leaderboard with my friends?** Open the **Crew** tab. (1) Agree on any shared **crew code**
+— e.g. `dads-of-tbh` (3–32 letters/numbers/dashes; treat it like a private room name, anyone who knows it can join).
+(2) Each friend enters the same code + their own display name and clicks **Join crew**. (3) Flip **"Share my
+progress" ON** to appear on the board — it updates as you play and refreshes every ~30 seconds. The **📋 Copy invite
+code** button makes inviting easy. You can watch a board without sharing; sharing is per-device and instant to turn off.
+
+**What exactly does the Crew feature upload?** Only if you opt in, and only these brag-stats: display name, max stage,
+lifetime gold, total kills, gold balance, your top-3 hero levels, runes leveled, Legendary+ count, and play hours.
+**Never your save file, never your items, never anything else.** With sharing OFF (the default), nothing is uploaded
+at all — exactly as before. The board lives behind your crew code on a small serverless API (Vercel + Neon Postgres).
 
 **Does the installer come with an uninstaller?** Yes. It shows up in Windows **Settings → Apps → "Add or remove
 programs"** as *TBH HUD* — click **Uninstall** like any other app. (It installs per-user and never touches the game.)
@@ -123,4 +149,5 @@ Produces `dist\TBH-HUD-Setup-<version>.exe`. Hand that file to your friends.
 ## Safety
 Read-only by design: never writes to the game, never injects code, never modifies files or saves. The game uses
 CodeStage anti-cheat — reading files on disk is safe; this tool never touches the running game process. Your save is
-decrypted and read locally — nothing is uploaded anywhere.
+decrypted and read locally — nothing is uploaded anywhere, unless you explicitly opt in to the Crew leaderboard
+(which then shares only the small brag-stats listed in the FAQ, never the save).

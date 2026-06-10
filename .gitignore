@@ -1,6 +1,8 @@
 node_modules/
 dist/
 *.log
+.vercel/
+.env*
 
 # never commit player saves or extraction intermediates
 *.es3
@@ -9,3 +11,5 @@ dist/
 test/
 scripts/_gamedata_raw/
 !improvement.log
+
+.vercel

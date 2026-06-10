@@ -100,9 +100,80 @@ if (gs) {
   if (gs.combat + gs.other !== gs.total) problems.push('goldBySource ' + gs.combat + '+' + gs.other + ' != total ' + gs.total);
   else console.log('gold sources  ', 'combat ' + gs.combat.toLocaleString() + ' + other ' + gs.other.toLocaleString() + ' == lifetime ' + gs.total.toLocaleString() + ' ✓ (combat ' + Math.round(gs.combat / gs.total * 100) + '%; "other" bundles offline+Cube+misc, not split)');
 }
+// --- v1.0.4 engine fns: invariant assertions (work on ANY save, not just the committed test one) ---
+console.log('--- v1.0.4 ---');
+// trendPoint: lean history point must carry the calibrated combat counter + the active stage.
+const tp = eng.trendPoint(psd);
+if (tp.t == null) problems.push('trendPoint.t is null (no lastSavedTime)');
+if (tp.combat != null && tp.lifeGold != null && tp.combat > tp.lifeGold) problems.push('trendPoint.combat > lifeGold (partition broken)');
+if (String(tp.cur) !== String(snap.summary.currentStage)) problems.push('trendPoint.cur != currentStageKey');
+console.log('trendPoint    ', JSON.stringify(tp));
+
+// perStageRates: combat-gold deltas over CLEAN intervals from backups (sibling backups/ dir, or the save\'s own folder).
+const bdirs = [path.join(path.dirname(SAVE), 'backups'), path.dirname(SAVE)];
+let bfiles = [];
+for (const d of bdirs) {
+  try { bfiles = fs.readdirSync(d).filter(f => /\.es3(\.bak)?$/i.test(f)).map(f => path.join(d, f)); } catch (e) { continue; }
+  if (bfiles.length) break;
+}
+const tpoints = [tp];
+for (const f of bfiles) { try { tpoints.push(eng.trendPoint(eng.loadSave(fs.readFileSync(f)))); } catch (e) {} }
+const psr = eng.perStageRates(tpoints);
+psr.forEach(r => {
+  // r.hours is display-rounded to 2dp; the engine divides by the exact hours -> compare with 1% tolerance.
+  if (r.hours > 0.01 && Math.abs(r.goldPerHr - r.combatGold / r.hours) > Math.max(1, r.goldPerHr * 0.01)) problems.push('perStageRates ' + r.stage + ': goldPerHr inconsistent with combatGold/hours');
+  if (!(r.intervals > 0)) problems.push('perStageRates ' + r.stage + ': no intervals');
+});
+console.log('perStageRates ', psr.length + ' stage(s) measured over ' + (tpoints.length - 1) + ' backup(s):');
+psr.forEach(r => console.log('   ', String(r.label || r.stage).padEnd(32), (r.goldPerHr != null ? r.goldPerHr.toLocaleString() : '—') + ' gold/hr,', (r.killsPerHr != null ? r.killsPerHr.toLocaleString() : '—') + ' kills/hr', '(' + r.hours + 'h, ' + r.intervals + ' clean interval(s))'));
+
+// gearGaps: every suggestion must be PROVABLE — same GEARTYPE, strictly better, the upgrade not equipped by
+// anyone, and each spare offered at most once (greedy 1:1).
+const gg = eng.gearGaps(psd);
+const eqUidSet = {};
+(psd.heroSaveDatas || []).forEach(h => (h.equippedItemIds || []).forEach(u => { if (u && u !== 0 && u !== '0') eqUidSet[String(u)] = 1; }));
+const rr = g => eng.RARITY.indexOf(g);
+const upSeen = {};
+gg.forEach(g => {
+  if (g.gt == null) problems.push('gearGaps: missing gt on a suggestion');
+  if (eqUidSet[g.up.uid]) problems.push('gearGaps: suggested upgrade ' + g.up.name + ' is already equipped');
+  if (upSeen[g.up.uid]) problems.push('gearGaps: spare ' + g.up.name + ' offered twice');
+  upSeen[g.up.uid] = 1;
+  const better = rr(g.up.grade) > rr(g.cur.grade) || (rr(g.up.grade) === rr(g.cur.grade) && (g.up.lvl || 0) > (g.cur.lvl || 0));
+  if (!better) problems.push('gearGaps: ' + g.up.name + ' is not strictly better than ' + g.cur.name);
+});
+console.log('gearGaps      ', gg.length + ' provable upgrade(s)' + (gg.length ? ':' : ''));
+gg.forEach(g => console.log('   ', g.hero.padEnd(9), (g.deployed ? 'DEPLOYED' : 'bench').padEnd(8), g.cur.name + ' (' + g.cur.grade + ' L' + g.cur.lvl + ') -> ' + g.up.name + ' (' + g.up.grade + ' L' + g.up.lvl + ') [' + g.reason + ']'));
+
+// runePlan: steps must price from the rune cost table, never exceed the budget, and sum exactly to spent.
+const rp = eng.runePlan(psd, snap.gold);
+const stepSum = rp.steps.reduce((s, x) => s + x.cost, 0);
+if (stepSum !== rp.spent) problems.push('runePlan: step costs ' + stepSum + ' != spent ' + rp.spent);
+if (rp.spent > snap.gold) problems.push('runePlan: spent ' + rp.spent + ' > gold ' + snap.gold);
+if (rp.cheapestNext && rp.cheapestNext.cost <= rp.remaining) problems.push('runePlan: save-for is already affordable');
+console.log('runePlan      ', rp.steps.length + ' affordable step(s), spend ' + rp.spent.toLocaleString() + ' of ' + snap.gold.toLocaleString() +
+  (rp.cheapestNext ? (' | save for: ' + rp.cheapestNext.name + ' L' + (rp.cheapestNext.level + 1) + ' (' + rp.cheapestNext.cost.toLocaleString() + 'g)') : ''));
+
+// enchantStatus: only DEPLOYED heroes' equipped gear, only open slots (used < 3).
+const es = eng.enchantStatus(psd);
+es.forEach(e => { if (!(e.used < 3) || e.open !== 3 - e.used) problems.push('enchantStatus: bad slot math on ' + e.name); });
+console.log('enchantStatus ', es.length + ' equipped item(s) with open enchant slots on the deployed party');
+
+// statTotals: must equal base+gear+tree re-summed per stat (no fabricated composite).
+const dep = (psd.heroSaveDatas || []).find(h => ((psd.commonSaveData || {}).arrangedHeroKey || []).map(String).indexOf(String(h.heroKey)) >= 0);
+if (dep) {
+  const byUid2 = {}; owned.forEach(o => byUid2[o.uid] = o);
+  const eq2 = (dep.equippedItemIds || []).filter(v => v && v !== 0 && v !== '0').map(u => byUid2[String(u)]).filter(Boolean);
+  const src2 = eng.heroSources(dep, eq2, psd.attributeSaveDatas);
+  const tot2 = eng.statTotals(src2);
+  const expect = eng.sumStats([].concat(src2.base || [], src2.gear || [], src2.tree || []));
+  if (JSON.stringify(tot2) !== JSON.stringify(expect)) problems.push('statTotals != sum(base,gear,tree)');
+  console.log('statTotals    ', eng.heroClass(dep.heroKey) + ': ' + tot2.length + ' summed stat line(s) == base+gear+tree ✓');
+}
+
 if (problems.length) {
   console.error('FAIL data honesty:\n  - ' + problems.join('\n  - '));
   process.exitCode = 1;
 } else {
-  console.log('PASS          ', 'only calibrated aggregates surfaced; no per-difficulty claim; stages decoded to "Act X-Y".');
+  console.log('PASS          ', 'only calibrated aggregates surfaced; no per-difficulty claim; stages decoded to "Act X-Y"; v1.0.4 fns hold their invariants.');
 }

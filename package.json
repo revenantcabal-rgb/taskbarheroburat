@@ -1,6 +1,6 @@
 {
   "name": "tbh-hud",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Read-only companion HUD for TBH: Task Bar Hero",
   "main": "src/main.js",
   "scripts": {
@@ -9,6 +9,9 @@
   },
   "author": "revenantcabal",
   "license": "MIT",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  },
   "devDependencies": {
     "electron": "^31.7.6",
     "electron-builder": "^24.13.3",
@@ -23,7 +26,8 @@
     "files": [
       "src/**/*",
       "dashboard.html",
-      "package.json"
+      "package.json",
+      "!**/node_modules/@neondatabase/**"
     ],
     "publish": [
       {
