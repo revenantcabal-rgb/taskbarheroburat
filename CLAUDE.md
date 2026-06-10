@@ -20,9 +20,9 @@ or have him supply a token for that account.
 - **The plan:** `docs/PRD.md` — goal list (§3), phased roadmap + acceptance criteria (§6).
 - **Status vs the plan:** `docs/PROGRESS.md` — every goal/phase mapped to ✅/🟡/🔵/⛔ with reasons. The single
   source of truth for "where are we." **Update it at the end of every session.**
-- **Trace over time:** `docs/CHANGELOG.md` — what shipped each session, by commit. **Add an entry every session.**
+- **Trace over time:** `improvement.log` (repo root) — narrative status + what shipped each session. **Add an entry every session.**
 - **Current goal:** `docs/SESSION-GOAL.md` — the paste-ready autonomous brief for the next run.
-- End-of-session ritual: update `PROGRESS.md` + append to `CHANGELOG.md` + refresh the DONE/Next sections below.
+- End-of-session ritual: update `improvement.log` + `docs/PROGRESS.md` + refresh the DONE/Next sections below.
 
 ## Golden rules (do not break)
 1. READ-ONLY. Never write to the game, its save, or its memory.

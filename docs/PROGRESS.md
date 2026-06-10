@@ -1,7 +1,7 @@
 # TBH HUD — Progress vs. the plan
 
 Living status tracker. **The plan** is [PRD.md](PRD.md) (goal list + phased roadmap + acceptance criteria).
-**The current goal** is [SESSION-GOAL.md](SESSION-GOAL.md). **The trace over time** is [CHANGELOG.md](CHANGELOG.md).
+**The current goal** is [SESSION-GOAL.md](SESSION-GOAL.md). **The trace over time** is [improvement.log](../improvement.log).
 Keep this file honest and current — update it at the end of every working session.
 
 Legend: ✅ done · 🟡 partial · 🔵 next (planned in SESSION-GOAL) · ⛔ deferred/blocked (reason given)
