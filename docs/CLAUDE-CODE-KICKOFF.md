@@ -1,6 +1,6 @@
-# Kickoff prompt for Claude Code
+# Kickoff prompt for Claude Code  — HISTORICAL
 
-> **Historical (Phases 2-3 are DONE).** This was the original kickoff. For current status see `docs/PROGRESS.md`
+> **Historical (long superseded; app is now v1.0.3, 9 tabs).** This was the original kickoff. For current status see `docs/PROGRESS.md`
 > + `improvement.log`; for the next autonomous run see `docs/SESSION-GOAL.md`. Kept for reference.
 
 This prompt is a FOCUSED starting point (Phases 2-3). The COMPLETE goal list, competitive matrix, and

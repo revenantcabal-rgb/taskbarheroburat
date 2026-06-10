@@ -1,5 +1,5 @@
-> HISTORICAL � this #2 / #3 session brief is DONE (shipped: full who's-carrying source breakdown + loot/lifetime depth + rune panel).
-> The CURRENT goal is docs/GOAL.md (next pending: Phase A full-catalog Codex, then B offline-cap timer, then 7 packaging).
+> **HISTORICAL** — this #2 / #3 session brief is long DONE, as are all later briefs (incl. GOAL.md = Session 7).
+> Current state / what's next: `improvement.log` + `docs/PROGRESS.md` + CLAUDE.md §Next (app is at **v1.0.3**, 9 tabs).
 > Kept only as a trace of a completed session.
 
 Pick up TBH HUD - READ-ONLY companion for "TBH: Task Bar Hero". Work autonomously 2-3h, no stopping; don't ask unless truly blocked. Commit + push continuously; keep local = remote.

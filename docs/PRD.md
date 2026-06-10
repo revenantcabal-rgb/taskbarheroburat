@@ -26,8 +26,9 @@ Player-facing:
 7. **Loot timeline** — every drop, timestamped, with rarity + source (stage/act/mode); **rare-drop alerts**.
 8. **Steam Market value** — for tradeable drops (trade-stash items via the Steam Inventory Service); show live
    market value per item and total.
-9. **Lifetime stats** — total kills, total gold earned, per-difficulty completions (Normal/Nightmare/Hell/Torment),
-   plus the other aggregate counters (decode the remaining aggregate Types — see CLAUDE.md).
+9. **Lifetime stats** — total kills (+ per-monster), total gold earned (+ by-source: combat vs other), and any other
+   aggregate counters **only where calibrated**. (UPDATE: "per-difficulty completions" was tried and REMOVED — aggregate
+   Type 16 is uncalibrated and disproven by a Normal-only save; never show it. Golden rule: calibrate or omit. See CLAUDE.md.)
 10. **History / trends** — sessions over time: DPS progression as you level/gear, gold/hr trend, drop-luck
     tracking, "this gear swap raised DPS X%".
 11. **Runes** — the 197-node rune tree with real rune names, leveled status, cheapest-next recommendations.

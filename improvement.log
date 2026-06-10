@@ -1,218 +1,67 @@
 # TBH HUD — improvement.log
-Updated 2026-06-11 (cowork, session 12). Read-only companion for "TBH: Task Bar Hero" (v1.00.11). App version 1.0.3.
-Repo: revenantcabal-rgb/taskbarheroburat. Source of truth for detail: CLAUDE.md, docs/PRD.md, docs/PROGRESS.md.
-NOTE: the 1.0.2 line (sessions 7-11) was built but never published; the next release is 1.0.3 (all of sessions 7-12).
+Updated 2026-06-11 (cowork, session 12 · app v1.0.3). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-~47 commits. Read-only, calibrated (web SHIPPED on push; next desktop release = v1.0.3). All 9 tabs render vs the live save with 0 console errors.
-- Session 12 — gold-by-source + farming insights + Electron verified (answers "gold from Cube" / "best farming stage"):
-  • GOLD BY SOURCE (calibrated): aggregate Type 2 sub-keys are a SUM-VALIDATED partition of lifetime gold
-    (Sub0 == Sub1+Sub2+Sub3). Sub1 = combat gold — DELTA-CONFIRMED on the live save (Sub1 grew 1:1 with the total
-    during active farming while Sub2/Sub3 stayed flat). New Lifetime "Gold by source" panel: From combat 99.5% /
-    Other (offline+Cube+misc) 0.5%. HONEST: the tiny "other" bucket isn't split, so NO fabricated standalone "Cube
-    gold" — the truthful takeaway is cube/offline gold is a ~0.5% sliver. verify_save asserts combat+other==lifetime.
-  • PER-MONSTER BASE REWARDS + honest "best farming STAGE": MonsterInfoData has RewardGold/RewardExp -> baked into
-    DB.monsters {n,g,x}; kills-by-monster shows "Ng/Nxp each (base, before buffs)". Best-stage answered truthfully:
-    no StageInfoData (no monster->stage map) and a real per-stage rate needs the memory lane (not read) -> no
-    fabricated best-stage; honest signals = per-monster base rewards + Trends gold/hr. (Σ(kills×baseGold) ≈ 49% of
-    Sub1 because gold buffs multiply base -> values labeled "base", never "actual earned".)
-  • BUG FIX (latent since session 7): el(html) returns only the FIRST element, so el('<h3>…</h3>'+'<div class=panel>…')
-    silently DROPPED the panel — the Owned-by-rarity bar+legend had been missing on Lifetime. Switched it + the new
-    gold panel to frag(); audited the rest (other multi-line el() calls are single-root wrappers, fine).
-  • ELECTRON SMOKE TEST (closed the gap the owner flagged): ran npm start — clean launch (4 procs, 0 stderr,
-    electron-updater no-ops in dev); closed the window after. Renderer = same dashboard.html verified in-browser.
-  • Version -> 1.0.3 (cache-bust ?v=1.0.3; DB gained monster rewards). Installer rebuilt as 1.0.3.
-- Session 11 — styling + solidifying UX + per-hero level ETA (visual audit across all 9 tabs + connect screen):
-  • PER-HERO "TIME TO NEXT LEVEL" (Party cards + a "Time to next" roster column): honest = XP remaining (calibrated)
-    ÷ XP/hr MEASURED from this session (cumulative-XP delta since connect, so it survives a mid-session level-up).
-    States: "measuring…" (~2min warm-up), "not gaining XP right now" (idle/benched — measured 0, we don't assert the
-    mechanic), else "≈ 4h 21m to Level 21" + an "N XP/hr measured this session" tooltip. fmtEta → min/Xh Ym/X days.
-    ensureSession() baselines gold+kills+per-hero XP once at connect. Demo seeds a ~10-min session to showcase it.
-    NEVER a fabricated combat number (a live xp/sec would need the memory lane we don't read).
-  • FIX (significant first-impression bug): on first connect/demo the active tab-page stayed `.hidden` (the gate had
-    been showing), so the FIRST paint was a BLANK page until the user clicked a tab. render() now makes the active tab
-    visible — affects browser AND Electron. Verified a fresh ?demo load shows the Overview immediately.
-  • ACCESSIBILITY: added a clear `:focus-visible` outline on every interactive element (links/buttons/tabs/summary/
-    inputs) so keyboard users can see focus on the dark theme (mouse clicks stay ring-free). prefers-reduced-motion already honored.
-  • STYLING: fixed the Overview suggestion strip (title+body were inline spans mashed together → now block-level with
-    spacing + 2-line clamp); snappier tab transition (rise .35s→.26s). Visual audit confirmed a cohesive premium look
-    across Overview/Party/Inventory/Loot/Runes/Lifetime/Trends/Codex/Tips + the connect screen, desktop + mobile.
-  • RESPONSIVE re-verified at 375: 0 horizontal overflow; flex card 2-up; suggestion strip clamps; connect steps + trouble note wrap.
-- Session 10 — connection blockers + flex + honest "no DPS" (owner's friend was blocked from using it at all):
-  • REFRESH NO LONGER BOOTS YOU OUT: the picked folder/file handle is persisted in IndexedDB and re-attached on reload
-    — auto-resumes if permission is still granted, else a one-click "Reconnect" box on the connect screen. Disconnect
-    clears the stored handle. (Restore is browser-only; Electron auto-connects via the native bridge.)
-  • BLOCKED FOLDER ("this folder contains system files" = Chrome's File System Access blocklist on AppData): added a
-    "Trouble connecting?" help section (use Connect file / drag-and-drop / desktop app; pick TaskbarHero itself) AND
-    universal DRAG-AND-DROP of SaveFile_Live.es3 anywhere on the page (classic File API, not subject to the blocklist)
-    — a blocked folder is no longer a dead end.
-  • FLEX (honest, no fabricated DPS): new "Flex card" on the Overview — shareable bragging rights from calibrated save
-    stats (furthest stage, top hero, best rarity owned, kills, lifetime gold, runes) + a "Copy to share with friends"
-    button (Discord-ready text). Reframed "Who's carrying" to directly answer "who hits hardest": there is NO live DPS
-    meter on purpose (needs reading game memory = CodeStage ban risk) — it ranks by equipped gear power as the honest proxy.
-  • DEMO CLARITY: "Preview sample" -> "See a demo" (+ tooltip); demo shows an amber "SAMPLE — not your data" status (not
-    the green live dot) so it's never confused with a real save.
-  • MARKET ITEMS: investigated — "purchased from market" has NO calibrated signal (no per-item origin flag; trade stash
-    empty; Steam inventory throttled/empty this build). Extended the honest Loot note: new items can't be split into
-    drop vs Cube-craft vs Market-buy, so we don't guess.
-- Session 9 — TIPS + LOOT honesty + session correctness (calibrated, never fabricated):
-  • NEW "Tips" tab (9th) + an Overview top-suggestion strip + a tab badge. "Suggestions for you" are derived ONLY
-    from the current save and refresh each read — every number calibrated: unspent ability points per hero; deployed
-    heroes with empty gear slots; the cheapest AFFORDABLE rune upgrade vs your gold (VERIFIED: all 663 rune-level costs
-    are paid in Gold, CostItemKey 100001); stash near full; bench heroes far behind your mains; stagnation (max-stage
-    flat across your last 3 save-backup snapshots). "Game tips" = 10 general-knowledge cards incl. the owner's two
-    (pets help even when not deployed; ACT bosses != STAGE bosses) + data-grounded ones. HONEST LIMIT note: live
-    "clears 32s faster" / "farm 3-1 vs 3-4 for better gold/hr" optimizations are NOT shown — they need in-combat timing
-    from game memory (never read; ban-safe). Trends is the closest honest efficiency signal. No fabricated numbers.
-  • LOOT crafted-vs-dropped: INVESTIGATED and found it is NOT calibratable — a cube CRAFT and a chest DROP both create a
-    new gear UniqueId, the save stores no origin flag, Player.log logs neither (CraftingRecipeInfoData &
-    SynthesisRecipeInfoData both output Gear). So renamed "Drop timeline" -> "New items" with an honest note that drops
-    AND Cube crafts both land there and can't be split; surfaced the real Cube level (cubeSaveLevelData) as context.
-  • LOOT dual timestamps: added "Your time" (local) + "UTC" columns to the new-items timeline AND the offline-rewards
-    table; new items are stamped with the save file's true UTC mtime so both columns are accurate.
-  • SESSION STALENESS (owner's question): verified every read re-parses the FULL save -> nothing displayed accumulates
-    stale data; a newly-joined hero appears correctly next read (heroes rebuilt from heroSaveDatas each time). Only the
-    "This session" baseline is session-scoped (reset on Disconnect). FIXED: gold/hr now uses LIFETIME gold earned
-    (monotonic) not the balance, so spending gold on upgrades never makes it go negative.
-- Session 8 — UX + the owner's 3 questions answered concretely (multi-user / uninstall / auto-update):
-- Session 8 — UX + the owner's 3 questions answered concretely (multi-user / uninstall / auto-update):
-  • MULTI-USER (it already is — made it obvious + robust): the app is a STATIC CLIENT-SIDE reader. Each visitor
-    connects their OWN local save in their OWN browser via the File System Access API — nothing uploaded, no account,
-    no shared backend → anyone can use it independently and no one can see anyone else's data. Hosting (Pages/Vercel)
-    only decides where the page lives; end users never "log in." Added a "👥 No account, no sign-in — anyone can open
-    it and connect their own save; your data never leaves your device" line to the connect screen. ROBUSTNESS: Disconnect
-    now resets the loot tracking (lastUids + lootLog + clears persisted tbh_loot + logData) so switching to a DIFFERENT
-    save on the same browser is a clean slate (was: diffed against the old save → false-flood the timeline). Normal page
-    reloads don't disconnect, so the timeline still survives reloads of the SAME save. Verified headless (2→0, storage removed).
-  • AUTO-UPDATE — now VISIBLE (it worked, but silently): main.js wires electron-updater events
-    (update-available/download-progress/update-downloaded/error) → renderer; preload exposes onUpdate + restartToUpdate;
-    a friendly bottom banner shows "Downloading update… N%" then "Update ready · vX — restart to apply" + a Restart button
-    (quitAndInstall). autoInstallOnAppQuit=true also applies on next quit without a click. Web never fires these (the hosted
-    page is always current on load). Verified the banner states headless (downloading/ready/dismiss). When we publish a new
-    release, installed apps auto-download + offer restart.
-  • UNINSTALL — confirmed + polished: NSIS oneClick:false already builds an uninstaller (builder-debug.yml shows
-    WriteUninstaller + uninstaller.nsh) + an Add/Remove Programs entry. Added uninstallDisplayName "TBH HUD", desktop +
-    Start-Menu shortcuts, runAfterFinish, deleteAppDataOnUninstall:false. Rebuilt the 1.0.2 installer (valid; new latest.yml).
-  • README: added a 3-question FAQ (multi-user / uninstaller / auto-update) in plain language.
-- Session 7 — DATA HONESTY + UX (owner found these by REAL use; #1 rule: show ONLY what is TRUE in a user's own save):
-  • P1 REMOVED A SHIPPED FABRICATION — the Lifetime "Difficulty completions" panel read aggregate Type 16 as
-    Normal/Nightmare/Hell/Torment. That mapping is UNCALIBRATED and DISPROVEN by the live save: the account is
-    Normal-only (maxCompletedStage 1210 = Act 2-10, the first difficulty band) yet Type 16 = [263,179,83,1] would
-    claim Nightmare 179 / Hell 83 / Torment 1. Removed from both engines, the renderer, and the demo. aggregates()
-    now surfaces ONLY calibrated counters: lifetime gold (Type 2/Sub0, delta-matched) + total kills (Type 0/Sub0,
-    sum-validated by per-monster). Lifetime "Notes" now states WHY the per-difficulty reading is omitted. README
-    fixed too (it had claimed "per-difficulty completions"). verify_save.js extended with DATA-HONESTY ASSERTIONS:
-    fails if perDifficultyCompletions is exposed or any non-whitelisted aggregate leaks; asserts kills-by-monster
-    sum == totalKills; prints the Type-16 disproof. Live save: PASS.
-  • P2 STAGE DISPLAY — never show the raw stageKey. New stageLabel/stageActLabel/stageName decode
-    act=floor(k/100)-10, stage=k%100 (VERIFIED 1208->Act 2-8 "Sacred Tomb"; 1101->Act 1-1 "Pasture";
-    1210->Act 2-10 "Pharaoh's Underchannel") + the real StageName_<key> where present, else just "Act X-Y".
-    build_gamedata.py bakes DB.stages (30 names from localization). Fixed Overview, Lifetime, Trends (chart + table).
-    Headless: no raw stage-key leak anywhere.
-  • P3 OVERVIEW CLARITY — "Who's carrying" no longer prints "NN Σlvl · N gear · Rarity". Plain words ("Total gear
-    level NN · N items · best <Rarity>") + a hint line ("each bar = total equipped gear level, relative to your
-    strongest hero") + per-bar tooltips. No Σ / abbreviations / unexplained bars.
-  • P4 CONNECT + DISCONNECT — rewrote the connect screen as 3 numbered steps (click Connect folder → paste the
-    exact path with a one-click Copy button → Allow), privacy note kept/strengthened. Added a header "↩ Disconnect"
-    (logout): clears the loaded save + file/dir handles + live watchers + session/trends and returns to the connect
-    screen so a user can disconnect or switch saves. setConnectedUI() swaps pickers ↔ Disconnect; hidden in Electron.
-  • P5 FIRST-VISIT POLISH — friendly "no save yet" placeholder on data tabs (icon + per-tab message + Connect/Browse
-    buttons); cleaner gate (step cards, kbd chips, copy-path); styled gate links; reusable .hint class. Responsive:
-    0 horizontal overflow at 375px (mobile path wraps). Version -> 1.0.2; cache-bust gamedata.min.js?v=1.0.2 (DB gained stages).
-- Session 5 — verify + polish + responsiveness + uniqueness:
-  • VERIFIED prior work is real (git clean/synced, audit 100%, live save parses, NO fabricated placeholders — the
-    only grep hits are a real search-input placeholder attr + the 404 icon-fallback comment + the honest "type-15
-    placeholders" game data).
-  • RESPONSIVE: measured real mobile overflow (page was 549px wide @375 due to the non-wrapping header) and fixed it —
-    header wraps (status+buttons in .actions; ≤680px the header is static and the tab bar sticks to top); wide tables
-    scroll INSIDE their panel via `.panel:has(> table){overflow-x:auto}`; mobile breakpoints (2-up cards, 1-up <380px,
-    66vh Codex). Verified 0 horizontal overflow on all 8 tabs at 375/768/1280; Codex cols 2/4/7.
-  • REAL hero XP-to-next (killed a placeholder): the hero progress bar was `level/20*100` (fake — L22→110% capped).
-    Calibrated LevelInfoData(Level,ExpForLevelUp) vs the live save — HeroExp is per-level progress (all 6 heroes have
-    HeroExp < ExpForLevelUp[L]); so xpToNext = ExpForLevelUp[L] - HeroExp. Real bar + "<pct>% → L<n+1> · <rem> XP" label
-    + roster "XP to next" column. DB.levels baked (100); mirrored in saveEngine + inline; verify_save prints it.
-    Calibration: Knight L1 → 30 XP to L2 (==ExpForLevelUp[1]); Ranger L12 58%; live bars 15/77/92% (not fake 100%).
-  • DISTRIBUTION: bumped to 1.0.1, rebuilt installer (winCodeSign fix held), PUBLISHED Release v1.0.1 (installer +
-    latest.yml + blockmap) → auto-update chain v1.0.0→v1.0.1 live. Cache-bust `gamedata.min.js?v=1.0.1` so browsers
-    never serve a stale catalog. Pages verified live with the new DB (levels) + ?v=1.0.1.
-  • VERCEL-READY (2nd free host): added vercel.json (static, cleanUrls, cache headers) + root index.html (bare URL ->
-    dashboard, query/hash preserved) — now the short URL works on Pages too. NOT auto-deployed: the Vercel MCP only
-    returns CLI/git-integration instructions, and the only Vercel team is "Fusion Data Company" (work account; repo is
-    on personal GitHub). Owner: 1-click import the repo on Vercel to deploy. Browser access is already LIVE via Pages.
-- Phase 7 DONE — real run + packaging + distribution:
-  • Real `npm start` smoke-tested: Electron launches clean (main + 4 procs, 0 stderr); electron-updater loads and
-    correctly no-ops in dev. Electron now sends the save file's true UTC mtime so the offline timer is authoritative there too.
-  • NSIS installer built: dist/TBH-HUD-Setup-1.0.0.exe (76 MB, valid PE/MZ). The winCodeSign symlink failure (no admin /
-    Developer Mode on this box) was fixed WITHOUT signing via win.signAndEditExecutable=false + verifyUpdateCodeSignature=false
-    (lossless: unsigned + no .ico) — skips the winCodeSign fetch entirely.
-  • electron-updater wired + LIVE: GitHub publish provider; build emits latest.yml; GitHub Release v1.0.0 published with the
-    installer + latest.yml + blockmap → auto-update works from revenantcabal-rgb/taskbarheroburat releases.
-  • GitHub Pages LIVE over HTTPS: https://revenantcabal-rgb.github.io/taskbarheroburat/dashboard.html (+ .nojekyll). Verified:
-    dashboard.html/gamedata.min.js/sprites all HTTP 200 with correct MIME (.js = application/javascript). Connect-folder works (HTTPS).
-- Phase B DONE — offline-rewards card (Overview): live-ticking idle since last save + last collection (gold + rate
-  from Player.log) + cap countdown. HONEST: dumped OfflineRewardInfoData (per-StageLevel yield params, NOT a cap);
-  no game table holds the offline cap, so we DON'T assume 8h — the cap+rate are LEARNED from the user's own
-  Player.log [OfflineReward] events (reward plateaus where reward<delta). TZ calibration: the .es3 lastSavedTime is
-  LOCAL .NET ticks (verified 8h ahead of the file's UTC mtime), so idle is anchored on the file's true UTC mtime
-  (file.lastModified / fs.mtime), TZ-corrected ticks as fallback. parseOfflineEvents+offlineStatus mirrored in
-  saveEngine.js; verify_save.js prints offline status + a tz check. Calibration: +739g/93s (~7.95 g/s) reproduced exactly.
-- Phase A DONE — full-catalog CODEX (owner's #1 ask): new virtualized "Codex" tab browsing the game's ENTIRE
-  catalog (5944 items + 197 runes + 36 skills = 6177 entries), independent of ownership; owned marked ✓.
-  Filters (category/rarity/gearType/search/sort) + owned-only toggle; windowed grid (renders only visible rows).
-  Per-entry detail modal: desc (or honest "defined by stats" for gear), inherent stats + unique mod, material
-  socket effects, rune per-level value/cost table, marketable/Steam flags, DROP SOURCES + BOX CONTENTS. The drop
-  chain is calibrated from the game's DropInfoData -> ItemGroupInfoData (DB.drops, 41 box DropKeys, 5554 member
-  refs, all resolve); Korean ItemGroup names omitted. Works with NO save loaded (?codex / gate link). New audit
-  scripts/audit_catalog.js asserts 100% name + 100% icon across all 6177 (name 99.83% from the game + 10 honest
-  fallbacks). Verified vs the live save: owned markers reconcile exactly (37 items + 56 runes + 9 named skills).
-- Phase 2 — full game art: 535 item icons + 39 rune icons; 100% of owned items resolve a real icon.
-- Phase 3 — premium dashboard: Overview / Party / Inventory / Loot / Runes / Lifetime / Trends. Animated hero GIFs,
-  rarity-framed icon grid + enchant pips + tooltips (inherent gear stats + unique mods), per-hero gear + skill chips.
-- Authoritative DB (NO guessing) from the game's own CSV TextAssets, built by scripts/build_gamedata.py ->
-  src/engine/gamedata.min.json: 5944 items, 5440 gear, 62 stats, 36 skills, 6 heroes (+base stats), 132 attributes,
-  108 passives, 8 pets, 61 monsters, 197 runes. en-US localization at src/engine/localization.min.json.
-- Phase 5 — Player.log loot: Steam boxes held (real names), offline-reward gold (real timestamps), save-diff drop
-  timeline (timestamped). Rare-drop alerts: Legendary+ ★ highlight + opt-in silent desktop Notification (OFF by default).
-- Phase 6 — History/Trends: charts lifetime gold/kills/max-stage + gold/hr-by-interval from the game's own backups
-  (browser Connect-folder dir picker + Electron backup IPC).
-- #2 DONE — full "who's carrying" source breakdown on Party: per deployed hero, factual stat contributions by source
-  (Base HeroInfoData / Gear inherent+enchants / Tree leveled passives + active skills) + account-wide runes & pet.
-  Labeled gear/build power, NOT live DPS. No fabricated composite %.
-- #3 DONE — loot & lifetime depth: active-pet card (PetInfoData, e.g. Dragon), rare-drop alerts, and a calibrated
-  "Kills by monster" breakdown on Lifetime (aggregate Type-0 sub-counters = per-MonsterKey kills; VALIDATED: they sum
-  EXACTLY to total kills, 26 types e.g. Orc 7683 / Slime 7532, 0 unnamed).
-- Read-only re-audited: zero writes/injection to game/save/memory. verify_save.js passes (0 unresolved names, 100% icons).
+Read-only, calibrated. WEB ships on every push (GitHub Pages); next DESKTOP release = v1.0.3 (installer built in dist/,
+unpublished — owner's call; existing installs stay on v1.0.1 until then). 9 tabs (Overview / Party / Inventory / Loot /
+Runes / Lifetime / Trends / Codex / Tips) render vs the LIVE save with 0 console errors. verify_save.js PASSES (now Act 3).
 
-## NEXT GOAL (owner's full per-phase roadmap is docs/GOAL.md)
-Session 7 P1-P5 (data honesty + UX) SHIPPED to web (Pages) on push. Remaining/optional:
-1. PUBLISH the v1.0.2 desktop release so the data-honesty fix reaches existing Electron installs via auto-update:
-   `npm run dist` then `gh release create v1.0.2 dist/TBH-HUD-Setup-1.0.2.exe dist/latest.yml dist/*.blockmap`.
-   (Web is already current; desktop users on 1.0.0/1.0.1 still see the old build until 1.0.2 is published.)
-2. VERCEL DEPLOY (owner, 1 click): import revenantcabal-rgb/taskbarheroburat at vercel.com (repo is Vercel-ready:
-   vercel.json + index.html). Couldn't auto-deploy (no interactive Vercel auth). Pages is already live.
-3. Sign the installer with a real cert (WIN_CSC_LINK + re-enable win.signAndEditExecutable/verifyUpdateCodeSignature,
-   build with Dev-Mode/elevation) to remove the SmartScreen "unknown publisher" prompt. Currently unsigned by design.
-4. Deepen the Codex (synthesis/crafting recipes via SynthesisRecipeInfoData/CraftingRecipeInfoData, set bonuses,
-   per-source drop rates) — optional uniqueness.
-5. (deferred/caution) per-act gold/hr + live DPS / clear-time need the memory lane — don't build unless provably ban-safe.
+## CHANGELOG — last 24h (sessions 7-12 = the v1.0.2 → v1.0.3 wave). The 1.0.2 line was built but never published.
+Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S12 (v1.0.3)** — **Gold by source** on Lifetime: Type 2 sub-keys sum-validate (Sub0 == Sub1+Sub2+Sub3); Sub1 = combat
+  (delta-confirmed live) → "From combat 99.5% / Other 0.5%". "Cube gold" honestly left inside the ~0.5% "other" bucket,
+  not fabricated. **Per-monster base gold/xp per kill** (MonsterInfoData → DB.monsters {n,g,x}). Honest **"best farming
+  STAGE"** answer (not derivable: no stage→monster map + per-stage rate needs the memory lane → use per-monster rewards +
+  Trends). **Bug fix:** an `el()` dropped-sibling bug had hidden the Owned-by-rarity panel since S7 → `frag()`. **Electron
+  smoke-tested** (`npm start` clean: 4 procs, 0 stderr). Version → 1.0.3 (cache-bust `?v=1.0.3`; DB gained monster rewards).
+- **S11 (v1.0.2)** — **Per-hero "time to next level"** (XP remaining ÷ XP/hr MEASURED this session; "measuring…" / "not
+  gaining XP" states; cards + roster). **Fixed blank-first-paint** (active tab stayed `.hidden` on first connect/demo).
+  Keyboard `:focus-visible` rings. Suggestion-strip layout fix; snappier tabs. Full visual audit (cohesive, responsive @375).
+- **S10 (v1.0.2)** — **Refresh no longer boots you out** (handle persisted in IndexedDB + 1-click Reconnect; Disconnect
+  clears it). **Blocked-folder fix** ("contains system files"): "Trouble connecting?" help + universal **drag-and-drop** of
+  the .es3 (bypasses the browser blocklist). **Flex card** (shareable brag + Copy) + honest "no live DPS" Who's-carrying.
+  "See a demo" + amber **SAMPLE** badge. Market-buy origin not isolable → honest note.
+- **S9 (v1.0.2)** — **NEW Tips tab (9th):** calibrated suggestions (unspent points, empty gear slots, cheapest AFFORDABLE
+  rune vs gold [verified: all 663 rune costs = Gold], stash near full, bench heroes behind, stagnation) + 10 game tips +
+  an honest limit note. **Loot:** craft-vs-drop not separable → "New items" + note; dual **local + UTC** timestamps.
+  **Session:** every read re-parses the full save (no stale data); gold/hr now uses lifetime gold (spend-proof).
+- **S8 (v1.0.2)** — Answered the 3 owner questions: **multi-user** (static client-side reader — no account/server; anyone
+  uses their own save independently; + clean-slate Disconnect); **auto-update made VISIBLE** (in-app "Update ready · Restart"
+  banner); **uninstall** confirmed (Add/Remove Programs + display name + shortcuts). README FAQ.
+- **S7 (v1.0.2)** — **DATA HONESTY:** removed the SHIPPED fabrication — Lifetime "per-difficulty completions" (Type 16,
+  disproven by the Normal-only save) — from engines/renderer/demo/README; verify_save asserts it. **Stages** decode to
+  "Act X-Y" + real names (DB.stages). Plain-language Overview (no Σ). Baby-simple 3-step connect + **Disconnect**. Polish.
 
-## DEFERRED — golden rule, leave a note not a guess
-Live DPS / combat memory reading (CodeStage [ACTk] ban risk); per-act gold/hr & clear-time (need memory); Steam Market
-value (Inventory Service throttled/empty this build); 12-min blue-chest timer (no 720s in DropCooldown); stage-box drop
-contents (ItemGroup GroupNames Korean); hero XP-to-next/ETA (no level curve in the tables). Unconfirmed aggregate
-counters shown only if calibrated; otherwise omitted.
+## FOUNDATION (sessions ≤6, v1.0.0 → v1.0.1) — full detail in CLAUDE.md
+Authoritative DB from the game's own CSV TextAssets (build_gamedata.py → gamedata.min.json): 5944 items, 5440 gear,
+62 stats, 36 skills, 6 heroes, 132 attributes, 108 passives, 8 pets, 61 monsters, 197 runes, 100 levels, 30 stages,
+drop chain; en-US localization. 535 item + 39 rune icons. Premium dashboard; full-catalog **Codex** (owned-marked,
+drop sources/box contents, audit 100% / 6177); Party "who's carrying" source breakdown; real hero XP-to-next
+(LevelInfoData calibrated); Loot/Player.log (boxes, offline rewards, rare alerts); **History/Trends** from save backups;
+offline-rewards card (cap LEARNED from logs, TZ-corrected). Packaging: NSIS installer + electron-updater + GitHub Pages
+(HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive. Vercel-ready (vercel.json + index.html).
+
+## DEFERRED — golden rule (leave a note, never guess)
+Live DPS / per-act gold-hr / clear-time (need game memory = CodeStage [ACTk] ban risk); Steam Market value (Inventory
+Service throttled/empty this build); 12-min blue-chest (no 720s in DropCooldown); per-item origin — craft vs drop vs
+market-buy (no flag, not logged); "Cube gold" alone (bundled in the ~0.5% "other" gold bucket); best-farming STAGE (no
+stage→monster map); uncalibrated aggregate Types 16/4/5/7/9/10/15; Korean ItemGroup names; per-item drop %.
+Optional follow-ups: Codex recipes/set bonuses; sign the installer (cert); Vercel deploy.
 
 ## GOLDEN RULE
-An additional helper, never game-breaking. Read-only always (CodeStage [ACTk] anti-cheat). No fabricated data — every
-label calibrated from the game's own tables/localization; honest fallback or omit. Verify EVERY change vs the LIVE save
-(Node + headless browser, all 8 tabs, 0 console errors). QoL only.
+A helper, never game-breaking. Read-only always (CodeStage anti-cheat). No fabricated data — every label calibrated from
+the game's own tables/localization; honest fallback or omit. Verify EVERY change vs the LIVE save (Node + headless, all
+9 tabs, 0 console errors).
+
+## NEXT
+Web is current on push. To ship desktop (reaches existing installs via auto-update):
+`gh release create v1.0.3 dist/TBH-HUD-Setup-1.0.3.exe dist/latest.yml dist/TBH-HUD-Setup-1.0.3.exe.blockmap` (owner's call).
+Optional: Vercel deploy; sign the installer; deepen the Codex.
 
 ## CONFIDENCE 9/10
-Session-7 P1-P5 shipped & verified: verify_save.js PASS vs the LIVE save with new data-honesty assertions (no
-perDifficultyCompletions; only calibrated aggregates; kills-by-monster sum == totalKills == 99,744; Type-16 disproof
-printed); stages decode 1101->Act 1-1 Pasture / 1208->Act 2-8 Sacred Tomb / 1210->Act 2-10 Pharaoh's Underchannel, no raw
-key leaks; headless demo + synthetic trends across all 8 tabs = 0 console errors; connect→disconnect→reconnect state
-transitions correct; gate/connect-hint responsive (0 horizontal overflow @375). DB rebuilt (audit 100% over 6177; +stages).
-Deduction (-1): the v1.0.2 desktop installer/release is NOT yet built+published, so existing Electron installs keep the old
-(fabricated) build until auto-update sees a 1.0.2 release — the WEB build (Pages) is current on push; native Connect-folder
-dialog is exercised by code + a real-save fixture, not a hand-driven OS picker session; installer unsigned (SmartScreen).
+Everything save-facing is verified against the LIVE save (now Act 3): verify_save.js PASS — kills-by-monster sum == total
+(41 types); gold combat+other == lifetime; no per-difficulty claim; stages decode (1101 Pasture / 1208 Sacred Tomb /
+1306 Burning Ravine). All 9 tabs 0 console errors (demo + headless); Electron launches clean. −1: the v1.0.3 desktop
+release isn't published yet (web is current); the native folder picker, refresh-reconnect and drag-drop are
+logic-+-demo-verified, not driven on real hardware here (need the owner/friend to confirm in the wild); installer unsigned.

@@ -1,10 +1,10 @@
 # TBH HUD — Progress vs. the plan
 
 Living status tracker. **The plan** is [PRD.md](PRD.md) (goal list + phased roadmap + acceptance criteria).
-**The current goal** is [SESSION-GOAL.md](SESSION-GOAL.md). **The trace over time** is [improvement.log](../improvement.log).
+**The trace over time** is [improvement.log](../improvement.log); **what's next** is CLAUDE.md §Next. (GOAL.md / SESSION-GOAL.md are historical.)
 Keep this file honest and current — update it at the end of every working session.
 
-Legend: ✅ done · 🟡 partial · 🔵 next (planned in SESSION-GOAL) · ⛔ deferred/blocked (reason given)
+Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
 _Last updated: 2026-06-11, after session 12 (v1.0.3) — gold-by-source (calibrated, combat vs other), per-monster base rewards + honest "best farming stage" answer, per-hero level ETA, connection fixes (refresh-reconnect, blocked-folder drag-drop), Tips tab, Flex card, blank-paint fix, Electron verified. NOTE: the 1.0.2 line (sessions 7-11) was built but never published; next release = v1.0.3. (Session 7 began the data-honesty work: removed the fabricated per-difficulty completions, stage decode, plain Overview, connect/disconnect.)_
 
@@ -50,7 +50,7 @@ _Last updated: 2026-06-11, after session 12 (v1.0.3) — gold-by-source (calibra
 - **Steam Market value** — Steam Inventory Service is throttled/empty in this build.
 - **12-min blue-chest timer** — cadence not in the tables (DropCooldown has no 720s). Box counts shown instead.
 - **Stage-box drop contents** — ✅ now SHIPPED in the Codex: DropKey→DropInfoData→ItemGroupInfoData→member EN names ("Box can contain […]") + reverse "Drops from […]". The Korean ItemGroup `GroupName` is deliberately omitted (never guessed); per-source drop *rates* still not shown (weighted/conditional, optional).
-- **Hero XP-to-next-level** — ✅ BUILT (session 5): `LevelInfoData` curve calibrated vs the live save (HeroExp is per-level). Only the *time*-ETA remains deferred (needs xp/hr from the memory lane).
+- **Hero XP-to-next-level + time-to-next-level** — ✅ BUILT: `LevelInfoData` curve calibrated (session 5) + a **time-ETA** (session 11) from the XP/hr **measured this session** (not the memory lane). Only per-*act* xp/hr (which stage XP came from) stays deferred.
 
 ## Phased roadmap addendum (owner's GOAL.md)
 | Phase | Status | Notes |
@@ -77,12 +77,11 @@ _Last updated: 2026-06-11, after session 12 (v1.0.3) — gold-by-source (calibra
 - **Auto-update:** desktop app checks GitHub releases on launch, auto-downloads a newer version, and shows an in-app "Update ready — Restart" banner (applies on next quit regardless). Publishing a release pushes it to everyone. Web is always current on load.
 - **Uninstall:** the NSIS installer registers in Windows Add/Remove Programs as "TBH HUD" (confirmed via builder-debug: WriteUninstaller + uninstaller.nsh); per-user, never touches the game.
 - **Distribution:** WEB is current on push — Pages serves the new build + DB at `?v=1.0.3`. The **v1.0.3 desktop installer is rebuilt + ready in `dist/`** (gold-by-source, per-hero ETA, Tips, Flex, connection fixes, blank-paint fix) **but NOT yet published as a release** (owner's choice; existing Electron installs stay on v1.0.1 until a release is published). **Electron app smoke-tested this session** (`npm start` clean: 4 procs, 0 stderr). Vercel-ready (not yet deployed). The 1.0.2 line was built but never published; next release = v1.0.3.
-- **Confidence: 9/10.** Deduction: the v1.0.2 installer/release isn't published yet (web is); native Connect-folder dialog exercised by code + a real-save fixture, not a hand-driven OS picker; installer unsigned (SmartScreen).
+- **Confidence: 9/10.** Deduction: the v1.0.3 desktop release isn't published yet (web is current on push); the native folder picker / refresh-reconnect / drag-drop are logic-+-demo-verified, not driven on real hardware here (need owner/friend to confirm); installer unsigned (SmartScreen).
 
 ## Next step
-**P1-P5 shipped to the web (Pages) on push.** Follow-ups (highest value first):
-- **Publish the v1.0.2 desktop release** so the data-honesty fix reaches existing installs via auto-update: `npm run dist` → `gh release create v1.0.2 dist/TBH-HUD-Setup-1.0.2.exe dist/latest.yml dist/*.blockmap`.
-- **Vercel (owner, 1 click):** import `revenantcabal-rgb/taskbarheroburat` at vercel.com — repo is Vercel-ready. (No interactive Vercel auth here; Pages is already live.)
-- **Sign the installer** (cert) to drop the SmartScreen prompt.
-- **Deepen the Codex:** synthesis/crafting recipes, set bonuses, per-source drop rates (optional uniqueness).
-See [improvement.log](../improvement.log) · [GOAL.md](GOAL.md).
+**Everything shipped to the web (Pages) on push.** Follow-ups (highest value first):
+- **Publish the v1.0.3 desktop release** so existing installs auto-update: `gh release create v1.0.3 dist/TBH-HUD-Setup-1.0.3.exe dist/latest.yml dist/TBH-HUD-Setup-1.0.3.exe.blockmap`.
+- **Vercel (owner, 1 click):** import `revenantcabal-rgb/taskbarheroburat` at vercel.com — repo is Vercel-ready. (Pages is already live.)
+- **Sign the installer** (cert) to drop the SmartScreen prompt. **Deepen the Codex:** synthesis/crafting recipes, set bonuses, per-source drop rates.
+See [improvement.log](../improvement.log) · CLAUDE.md.
