@@ -65,6 +65,9 @@
   button.primary{background:linear-gradient(145deg,var(--blue),#3a63e6);border-color:transparent;font-weight:600;
     box-shadow:0 6px 16px -8px rgba(75,125,255,.9)}
   button.ghost{background:transparent}
+  /* accessibility: a clear keyboard focus ring on every interactive element (mouse clicks stay ring-free) */
+  a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,[tabindex]:focus-visible{
+    outline:2px solid var(--blue2);outline-offset:2px;border-radius:8px}
   .hidden{display:none!important}
 
   /* ---------- tabs ---------- */
@@ -79,8 +82,8 @@
   nav.tabs .count{font-size:10.5px;color:var(--dim);margin-left:6px;font-weight:600}
 
   main{max-width:1180px;margin:0 auto;padding:24px}
-  .tab-page{animation:rise .35s ease both}
-  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .tab-page{animation:rise .26s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
   .gate{text-align:center;padding:56px 22px 72px;max-width:600px;margin:0 auto}
   .gate .logo{width:64px;height:64px;font-size:32px;margin:0 auto 20px;border-radius:18px}
@@ -330,8 +333,9 @@
   .suggstrip:hover{border-color:var(--blue);transform:translateY(-1px)}
   .suggstrip .ss-ic{font-size:21px;line-height:1}
   .suggstrip .ss-txt{flex:1;min-width:0}
-  .suggstrip .ss-t{font-size:13.5px;font-weight:600;color:var(--text)}
-  .suggstrip .ss-b{font-size:12px;color:var(--muted);margin-top:2px}
+  .suggstrip .ss-t{display:block;font-size:13.5px;font-weight:600;color:var(--text)}
+  .suggstrip .ss-b{display:-webkit-box;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45;
+    overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .suggstrip .ss-go{font-size:12px;color:var(--blue2);font-weight:600;white-space:nowrap}
   /* Flex card — shareable brag panel */
   .flexcard{background:linear-gradient(160deg,rgba(176,114,255,.12),rgba(75,125,255,.06),var(--surface));
@@ -1786,6 +1790,9 @@ function render(d){
   var nSugg=computeSuggestions(d).length; $('tabTipCount').textContent=nSugg||'';
   $('lastSaved').textContent=d.lastSaved?(' · save updated '+d.lastSaved.toLocaleString()):'';
   setConnectedUI(true);
+  // Make the active tab VISIBLE — on first connect/demo the active tab-page is still .hidden (the gate was showing),
+  // so without this the very first paint is a blank page until the user clicks a tab. (Bug fix.)
+  TABS.forEach(function(t){$('tab-'+t).classList.toggle('hidden',t!==activeTab);});
   renderTab(activeTab,d);
 }
 /* ---------- connect / disconnect UI state (P4) ---------- */
