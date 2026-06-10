@@ -38,11 +38,15 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   with each monster's **base gold/XP per kill** (the per-monster counts sum exactly to total kills), and your
   **best farming stage — measured** from your own save history (see Trends below). Only counters
   whose meaning is calibrated are shown — uncalibrated save aggregates are omitted rather than guessed.
-- **Trends** — gold/kills/stage progression and gold-per-hour over time — **and a per-stage farming ranking**
-  (real gold/hr & kills/hr for each stage you've farmed). Sources: the game's rolling save backups **plus the HUD's
-  own snapshot history** — it records a tiny snapshot on every save change (locally, in your browser/app), so your
-  history keeps growing past the game's ~6 rolling backups. Per-stage rates use the save's calibrated *combat-gold*
-  counter over single-stage intervals, so offline gold is excluded by construction and nothing is guessed.
+- **Trends** — gold/kills/stage progression and gold-per-hour over time — **a per-stage farming ranking**
+  (real gold/hr, kills/hr & XP/hr for each stage you've farmed) — and an **Online vs offline** split: hours
+  playing vs hours away, gold from farming vs gold from offline rewards, your recent away-gaps with what each
+  brought, and the exact per-collection record from the game's own log. Sources: the game's rolling save backups
+  **plus the HUD's own snapshot history** — it records a tiny snapshot on every save change (locally, in your
+  browser/app), so your history keeps growing past the game's ~6 rolling backups. Per-stage rates use the save's
+  calibrated *combat-gold* counter over single-stage intervals — offline gold lives in a separate counter (proven
+  against real collections), and intervals spanning closed-game time are excluded from XP/kill rates, so offline
+  progress never masquerades as farming.
 - **Codex** — a browsable, virtualized grid of the game's **entire catalog** (5,944 items + 197 runes + 36 skills),
   independent of ownership (owned marked ✓). Filter by type / rarity / gear type, search by name or ID, sort, owned-only.
   Click any entry for full detail: description, inherent stats + unique mod, material socket effects, rune per-level
@@ -80,7 +84,7 @@ No save handy? Click **Preview sample** for a demo, or **Browse the full item ca
 it at vercel.com for a one-click second deployment.
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.8.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.8/TBH-HUD-Setup-1.0.8.exe)** (direct, ~79 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.9.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.9/TBH-HUD-Setup-1.0.9.exe)** (direct, ~79 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and

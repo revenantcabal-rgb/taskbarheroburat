@@ -10,6 +10,20 @@ Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S16 (v1.0.9) — offline vs online, researched + productized.** RESEARCH on both real histories: saves only
+  exist while the game runs, so offline progress arrives as ONE lump at reopen; continuous-play pairs show
+  wall-vs-played jitter of 0.0–0.15h while pairs containing a real restart show 0.49h+ AND their "other"-bucket
+  gold delta matched Player.log offline collections EXACTLY (+235 == gold=235) → (a) offline gold provably lands
+  in Sub2/3 and never touches the combat counter (per-stage GOLD/hr was already offline-proof), (b) wall−played
+  > 0.25h is a calibrated closed-game detector. ADJUSTMENTS: per-stage rates now EXCLUDE offline-spanning
+  intervals from XP and kill attribution (the reopen lump-sum — possibly containing offline XP, unverifiable —
+  can't masquerade as farming; gold attribution kept, it's the proven-immune counter; kills/hr now uses its own
+  hour base). NEW Trends section **"Online vs offline"**: played vs away hours + farming gold vs offline-reward
+  gold (measured over the history window) + recent away gaps with the gold each brought + the exact per-collection
+  table from Player.log. Crew: rows older than 24h are dimmed + a note that a member's row freezes while their
+  HUD is offline and catches up (offline gains included) when they return. Honesty fix: the "offline rewards"
+  game tip claimed gold AND XP — only gold is verified (Player.log records only gold) → reworded. Demo gained a
+  realistic night-away gap; verify_save asserts the new summary's invariants (still PASS on both saves).
 - **S15 (v1.0.8) — owner's next 4.** (1) **Crew shows play hours** (chip on every member + a "Play hours" rank
   option; the payload already carried it). (2) **Per-tier gear breakdown** — crew chips + Flex card now show
   "2 Immortal · 6 Legendary"-style counts; `trophies`/`tierCounts` are explicitly GEAR-ONLY in both engines so

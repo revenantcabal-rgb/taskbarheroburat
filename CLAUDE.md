@@ -71,6 +71,13 @@ the keyring but is NOT active — don't switch to it. Live distribution: Release
   Verified 4/4 applied enchants in both saves (MaterialKey→stone, rolled stat == category effect). Tier/value roll is
   RNG. gt→category mapping is calibrated ONLY for: weapon types (= the hero table's MainWeapon values → WEAPON;
   observed STAFF+CROSSBOW) and HELMET/ARMOR (observed → ARMOR); other gts get no category claim (golden rule).
+- **OFFLINE vs ONLINE (v1.0.9, calibrated):** saves only exist while the game runs → offline progress arrives as
+  one lump at reopen. Continuous-play snapshot pairs show wall−played jitter ≤0.15h; pairs containing a real
+  closed-game gap show ≥0.49h and their OTHER-bucket gold delta matches Player.log offline collections EXACTLY
+  (+235 == gold=235). So: wall−played > **0.25h** (OFFLINE_GAP_H, both engines) = closed-game detector; offline
+  gold goes to Sub2/3 only (combat counter immune); offline XP/kills are UNVERIFIED (Player.log records only
+  gold) → per-stage rates exclude offline-spanning intervals from XP/kill attribution, and the "offline grants
+  XP" claim is never made.
 - **Per-stage farming rates are derivable SAVE-ONLY (v1.0.4; no memory lane):** delta the calibrated combat-gold
   sub-counter (Type 2/Sub 1) between snapshots and attribute it to `currentStageKey`, counting only CLEAN intervals
   (cur unchanged across the pair). Offline gold is excluded by construction (it lands in Sub 2/3). Verified vs
@@ -183,6 +190,10 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S16 (v1.0.9)** — offline/online research (see VERIFIED facts) → per-stage rates exclude offline-spanning
+  intervals from XP/kills (gold counter proven immune, kept); Trends "Online vs offline" section (played vs away
+  hours, farming vs offline gold, away gaps, exact Player.log collections); crew stale rows dimmed + freeze note;
+  "offline grants XP" claim removed (only gold verified).
 - **S15 (v1.0.8)** — Crew play-hours chip + rank option; per-tier GEAR-ONLY breakdown (crew chips + Flex:
   "2 Immortal · 6 Legendary"; `tierCounts` both engines; rarity-NAMED stones can never count; server `tiers`
   whitelist; tbh-crew-api redeployed). **Loot origin inference:** the tracker remembers per-instance

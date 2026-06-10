@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBH HUD — Task Bar Hero companion</title>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.8"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.9"></script>
 <style>
   :root{
     --bg:#080a13; --bg2:#0b0e1a; --surface:#121728; --surface2:#171d33; --surface3:#1f2742;
@@ -1041,6 +1041,10 @@ function historyClear(){ histPts=[]; _histLastT=null;
    delta is gold earned at the active stage — offline gold excluded by construction, no guessing. Only CLEAN
    intervals count (active stage `cur` unchanged across the pair); a stage-transition interval is ambiguous and
    is omitted (honest). The rate includes idle time = the player's real average. */
+// An interval whose wall-clock exceeds its PLAYED time by more than this spans closed-game ("offline") time.
+// Calibrated: continuous-play pairs show 0.0-0.15h jitter; pairs containing a real restart (their other-gold
+// matches Player.log offline collections exactly) show 0.49h+. Mirror of saveEngine.OFFLINE_GAP_H.
+var OFFLINE_GAP_H=0.25;
 function perStageRates(points){
   var pts=buildTrends(points), by={};
   for(var i=1;i<pts.length;i++){ var a=pts[i-1], b=pts[i];
@@ -1048,24 +1052,50 @@ function perStageRates(points){
     var stg=Number(b.cur); if(!(stg>0)) continue;
     var dPlay=(b.playH!=null&&a.playH!=null)?(b.playH-a.playH):null, dWall=(b.t-a.t)/3600000;
     var h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; if(!(h>0.01)) continue;
+    // offline-spanning interval: combat gold stays safe (offline gold lands in Sub2/3 — proven), but XP/kill
+    // deltas may include the reopen collection -> never attributed to a stage.
+    var offline=(dPlay!=null)&&((dWall-dPlay)>OFFLINE_GAP_H);
     var dC=(b.combat!=null&&a.combat!=null)?(b.combat-a.combat):null;
     var dK=(b.kills!=null&&a.kills!=null)?(b.kills-a.kills):null;
     var dX=(b.xp!=null&&a.xp!=null)?(b.xp-a.xp):null;          // older stored points may lack xp -> null
     if(dC==null||dC<0) continue;
-    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,xp:0,xpHours:0,hours:0,intervals:0};
-    by[stg].combat+=dC; by[stg].kills+=(dK>0?dK:0); by[stg].hours+=h; by[stg].intervals++;
-    if(dX!=null&&dX>=0){ by[stg].xp+=dX; by[stg].xpHours+=h; }
+    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,killHours:0,xp:0,xpHours:0,hours:0,intervals:0};
+    by[stg].combat+=dC; by[stg].hours+=h; by[stg].intervals++;
+    if(!offline){ if(dK!=null&&dK>0){by[stg].kills+=dK;} by[stg].killHours+=h;
+      if(dX!=null&&dX>=0){ by[stg].xp+=dX; by[stg].xpHours+=h; } }
   }
   var out=Object.keys(by).map(function(k){ var s=by[k];
     return {stage:s.stage,label:stageLabel(s.stage),
       goldPerHr:s.hours>0.01?Math.round(s.combat/s.hours):null,
-      killsPerHr:s.hours>0.01?Math.round(s.kills/s.hours):null,
+      killsPerHr:s.killHours>0.01?Math.round(s.kills/s.killHours):null,
       xpPerHr:s.xpHours>0.01?Math.round(s.xp/s.xpHours):null,
       hours:+s.hours.toFixed(2),combatGold:s.combat,kills:s.kills,xp:s.xp,intervals:s.intervals}; });
   out.sort(function(x,y){return (y.goldPerHr||0)-(x.goldPerHr||0);});
   return out;
 }
 function perStageData(){ return perStageRates(rawTrendPoints()); }
+// onlineOffline (mirror of saveEngine): ONLINE vs OFFLINE progress measured across the snapshot history.
+// played time = the save's own playTime delta; "away" = wall minus played beyond the jitter threshold;
+// gold splits by the calibrated partition (combat Sub1 = active farming; other Sub2/3 = offline rewards land
+// here — proven: the bucket's delta matched Player.log collections exactly).
+function onlineOfflineD(points){
+  var pts=buildTrends(points);
+  var out={playedH:0,awayH:0,goldCombat:0,goldOther:0,gaps:[],intervals:0};
+  for(var i=1;i<pts.length;i++){ var a=pts[i-1], b=pts[i];
+    var dWall=(b.t-a.t)/3600000;
+    var dPlay=(b.playH!=null&&a.playH!=null)?(b.playH-a.playH):null;
+    if(dPlay==null||dWall<=0) continue;
+    var dC=(b.combat!=null&&a.combat!=null)?Math.max(0,b.combat-a.combat):0;
+    var dLife=(b.lifeGold!=null&&a.lifeGold!=null)?Math.max(0,b.lifeGold-a.lifeGold):0;
+    var dOther=Math.max(0,dLife-dC);
+    out.playedH+=Math.max(0,dPlay); out.goldCombat+=dC; out.goldOther+=dOther; out.intervals++;
+    var away=dWall-dPlay;
+    if(away>OFFLINE_GAP_H){ out.awayH+=away; out.gaps.push({t:b.t,awayH:+away.toFixed(2),otherGold:dOther}); }
+  }
+  out.playedH=+out.playedH.toFixed(2); out.awayH=+out.awayH.toFixed(2);
+  out.gaps.sort(function(x,y){return y.t-x.t;});
+  return out;
+}
 
 /* ---------- lightweight SVG charts (no dependency; works in browser + Electron) ---------- */
 function miniLine(vals,opts){
@@ -1744,7 +1774,7 @@ var GAME_TIPS=[
   {ic:'⚒️',t:'The Cube crafts AND synthesizes gear',b:'Crafting builds a specific weapon type from set materials; synthesis combines 9 materials into a piece of gear of a chosen grade. Both are great material sinks. (Verified.)'},
   {ic:'💎',t:'Materials show their tier in the name',b:'e.g. “Soulstone - Normal” or “Minor Ruby”. Higher-tier materials unlock better enchant and synthesis results — hold onto the good ones.'},
   {ic:'🧬',t:'Each item holds up to 3 enchants',b:'The colored pips on an item are its enchant slots. Higher enchant tiers give bigger stat bonuses. (Verified — from the item’s enchant data.)'},
-  {ic:'😴',t:'Offline rewards scale with your stage',b:'While away you bank gold and XP based on the stage you’re farming. Hop back in to collect — the Overview shows your idle time and last collection rate.'},
+  {ic:'😴',t:'Offline rewards scale with your stage',b:'While away you bank gold based on the stage you’re farming (your own Player.log records each collection — the Overview shows your idle time and last rate, and Trends shows online vs offline earnings). Hop back in to collect.'},
   {ic:'🧱',t:'Fill all 10 gear slots',b:'Every hero has 10 equipment slots plus an ability tree. An empty slot is wasted power — even a low-level item beats nothing.'}
 ];
 var _tipIdx=0;
@@ -1862,7 +1892,7 @@ function renderTrends(d){
   if(psr.length){
     var maxRate=Math.max.apply(null,psr.map(function(r){return r.goldPerHr||0;}))||1;
     p.appendChild(el('<h3 class="sec">Farming rate by stage <span class="tag">measured from your save history · combat gold only · best first</span></h3>'));
-    p.appendChild(el('<div class="hint">Each snapshot records your <b>active stage</b> and the save’s calibrated <b>combat-gold counter</b>. Over intervals where you stayed on one stage, the combat-gold delta ÷ hours = that stage’s real gold/hr. Offline rewards are excluded by construction (they land in a different counter), stage-transition intervals are skipped as ambiguous, and idle time counts — so this is your honest average, and it sharpens as more snapshots accumulate.</div>'));
+    p.appendChild(el('<div class="hint">Each snapshot records your <b>active stage</b> and the save’s calibrated <b>combat-gold counter</b>. Over intervals where you stayed on one stage, the combat-gold delta ÷ hours played = that stage’s real gold/hr. <b>Offline progress never pollutes these numbers:</b> offline gold lands in a separate counter (excluded by construction), and intervals that span closed-game time are dropped from the XP and kill rates entirely (the reopen lump-sum can’t masquerade as farming). Stage-transition intervals are skipped as ambiguous; in-game idle time counts — your honest average, sharpening as snapshots accumulate.</div>'));
     var sbars=psr.map(function(r,i){
       var pct=Math.round((r.goldPerHr||0)/maxRate*100);
       var meta=(r.killsPerHr!=null?(fmt(r.killsPerHr)+' kills/hr · '):'')+(r.xpPerHr!=null?(fmt(r.xpPerHr)+' xp/hr · '):'')+r.hours+'h over '+r.intervals+' interval'+(r.intervals>1?'s':'');
@@ -1871,6 +1901,31 @@ function renderTrends(d){
         '<div class="track"><div class="fill" style="width:'+pct+'%;background:linear-gradient(90deg,var(--green),var(--blue))"></div></div></div>';
     }).join('');
     p.appendChild(el('<div class="panel"><div class="bars">'+sbars+'</div></div>'));
+  }
+
+  // ---- Online vs offline (v1.0.9): played vs away time + where the gold came from, measured ----
+  var oo=onlineOfflineD(rawTrendPoints());
+  if(oo.intervals>0&&(oo.playedH>0.01||oo.awayH>0.01)){
+    p.appendChild(el('<h3 class="sec">Online vs offline <span class="tag">measured across this history window</span></h3>'));
+    p.appendChild(el('<div class="hint">The save\'s own play-timer separates <b>time in game</b> from <b>time away</b>, and its calibrated gold partition separates <b>farming gold</b> (the combat counter — only grows while playing) from <b>offline-reward gold</b> (a separate bucket; verified against your Player.log collections to the exact gold). Saves only happen while the game runs, so offline progress arrives as one lump when you come back — the HUD books it here, never into a stage\'s farming rate.</div>'));
+    var totH=oo.playedH+oo.awayH, pPct=totH>0?Math.round(oo.playedH/totH*100):100;
+    var totG=oo.goldCombat+oo.goldOther, gPct=totG>0?Math.round(oo.goldCombat/totG*100):100;
+    p.appendChild(el('<div class="panel"><div class="bars">'+
+      '<div class="bar"><div class="top"><span class="nm">⏱ Time — <b>'+fmt(Math.round(oo.playedH*10)/10)+'h playing</b> vs '+fmt(Math.round(oo.awayH*10)/10)+'h away</span><span class="nv">'+pPct+'% online</span></div>'+
+      '<div class="track"><div class="fill" style="width:'+pPct+'%"></div></div></div>'+
+      '<div class="bar"><div class="top"><span class="nm">🪙 Gold — <b>'+fmt(oo.goldCombat)+' farming</b> vs '+fmt(oo.goldOther)+' offline rewards & misc</span><span class="nv">'+gPct+'% farmed</span></div>'+
+      '<div class="track"><div class="fill" style="width:'+gPct+'%;background:linear-gradient(90deg,var(--gold),var(--amber))"></div></div></div>'+
+      '</div>'+
+      (oo.gaps.length?('<div class="advtotal"><span>Recent time away: '+oo.gaps.slice(0,4).map(function(g){return '<b>'+(g.awayH>=1?(Math.round(g.awayH*10)/10+'h'):Math.round(g.awayH*60)+'m')+'</b>'+(g.otherGold>0?(' → +'+fmt(g.otherGold)+' gold'):'');}).join(' · ')+'</span></div>'):'')+
+      '</div>'));
+    // exact offline collections from Player.log (folder mode / desktop) — the authoritative per-collection record
+    if(logData.offline&&logData.offline.length){
+      var orows2=logData.offline.slice(0,6).map(function(o2){
+        return '<tr><td class="loot-time">'+new Date(o2.t).toLocaleString()+'</td><td class="r">'+fmtDur(o2.delta||0)+'</td><td class="r"><b style="color:var(--gold)">+'+fmt(o2.gold)+'</b></td><td class="r">'+(o2.rate?(o2.rate.toFixed(1)+'/s'):'—')+'</td></tr>';
+      }).join('');
+      p.appendChild(el('<div class="panel" style="margin-top:12px"><table><thead><tr><th>Collected</th><th class="r">Away</th><th class="r">Offline gold</th><th class="r">Rate</th></tr></thead><tbody>'+orows2+'</tbody></table>'+
+        '<div class="crewnote" style="margin-top:8px">Each row is a real offline collection from your Player.log — the exact gold the game granted for time away.</div></div>'));
+    }
   }
   var first=pts[0], last=pts[pts.length-1];
   var spanH=(last.t-first.t)/3600000;
@@ -2044,7 +2099,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.8';
+var APP_VERSION='1.0.9';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 var crewCfg={optin:false,code:'',name:'',id:'',rankBy:'maxStage'};
 try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','name','id','rankBy'].forEach(function(k){if(cc[k]!=null)crewCfg[k]=cc[k];});}catch(e){}
@@ -2174,7 +2229,10 @@ function renderCrew(d){
       var panel=el('<div class="panel"></div>');
       sorted.forEach(function(m2,i){
         var st=m2.stats||{}, isMe=m2.id===crewCfg.id;
-        var row=el('<div class="crewrow'+(isMe?' me':'')+'"></div>');
+        // a member whose HUD has been offline >24h keeps their last shared stats — dim them so the freshness
+        // difference is visible at a glance (the timestamp under the name says exactly how old)
+        var stale=m2.updatedAt&&(Date.now()-(+new Date(m2.updatedAt)))>86400000;
+        var row=el('<div class="crewrow'+(isMe?' me':'')+'"'+(stale?' style="opacity:.55"':'')+'></div>');
         row.appendChild(el('<span class="crewrank">'+(i===0?'🥇':(i===1?'🥈':(i===2?'🥉':'#'+(i+1))))+'</span>'));
         row.appendChild(el('<span class="crewname"><b>'+esc(m2.name||'?')+(isMe?' <span style="color:var(--blue2)">(you)</span>':'')+'</b><small>'+(m2.updatedAt?('updated '+fmtAgo(+new Date(m2.updatedAt))):'')+'</small></span>'));
         row.appendChild(el('<span class="crewstat" style="color:var(--gold)">'+esc(crewRankDisp(st,key))+'</span>'));
@@ -2200,7 +2258,7 @@ function renderCrew(d){
         panel.appendChild(row);
       });
       p.appendChild(panel);
-      p.appendChild(el('<div class="crewnote" style="margin-top:10px">Latest achievements are derived from each member\'s own snapshots (new max stage, a new Legendary+, a hero level-up, a rune milestone) — never invented. Members appear when they share at least once; the board keeps the latest snapshot per member.</div>'));
+      p.appendChild(el('<div class="crewnote" style="margin-top:10px">Latest achievements are derived from each member\'s own snapshots (new max stage, a new Legendary+, a hero level-up, a rune milestone) — never invented. Members appear when they share at least once; the board keeps the latest snapshot per member. <b>A member\'s row updates while their HUD is running</b> — when they (or their HUD) go offline, the row freezes at their last share and catches up the moment they\'re back, offline gains included (dimmed rows haven\'t shared in over a day).</div>'));
     }
     if(!demoMode) crewStartPolling();
   } else {
@@ -2743,13 +2801,20 @@ function loadDemo(){
   // demoMode keeps this fully separate from any real history and disables crew sharing)
   demoMode=true;
   demoTrendPts=(function(){
-    var pts=[], t=Date.now()-9*7*3600000, playH=22, combat=900000, kills=40000, xp=20000000;
+    var pts=[], t=Date.now()-10*7*3600000, playH=22, combat=900000, kills=40000, xp=20000000, other=7858;
     var legs=[{cur:1106,maxStage:1109,rate:34000,kr:1900,xr:160000,n:3},{cur:1206,maxStage:1209,rate:56000,kr:1750,xr:700000,n:3},{cur:1208,maxStage:1210,rate:82000,kr:1700,xr:2400000,n:3}];
-    legs.forEach(function(L){ for(var i=0;i<L.n;i++){
-      t+=7*3600000; playH+=4; combat+=L.rate*4; kills+=L.kr*4; xp+=L.xr*4;
-      pts.push({t:t,gold:30000+Math.round(combat/40),lifeGold:combat+7858,combat:combat,kills:kills,xp:xp,
+    legs.forEach(function(L,li){ for(var i=0;i<L.n;i++){
+      // continuous play: wall ≈ played (the real pattern — the game only saves while running)
+      t+=4.1*3600000; playH+=4; combat+=L.rate*4; kills+=L.kr*4; xp+=L.xr*4;
+      pts.push({t:t,gold:30000+Math.round(combat/40),lifeGold:combat+other,combat:combat,kills:kills,xp:xp,
         cur:L.cur,playH:+playH.toFixed(2),maxStage:L.maxStage,items:30+pts.length,runes:40+pts.length});
-    }});
+    }
+    // a night away after the 2nd leg: 9h wall, ~0 played, offline gold lands in the OTHER bucket -> showcases
+    // the Online-vs-offline section (and proves the gap never pollutes a stage's farming rate)
+    if(li===1){ t+=9*3600000; playH+=0.1; other+=15400; combat+=900; kills+=30; xp+=52000;
+      pts.push({t:t,gold:30000+Math.round(combat/40)+15400,lifeGold:combat+other,combat:combat,kills:kills,xp:xp,
+        cur:L.cur,playH:+playH.toFixed(2),maxStage:L.maxStage,items:30+pts.length,runes:40+pts.length}); }
+    });
     return pts;
   })();
   rebuildTrends();

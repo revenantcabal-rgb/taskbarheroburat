@@ -164,6 +164,15 @@ gg.forEach(g => console.log('   ', (g.locked ? '🔒' : '✓ ') + ' ' + g.hero.p
 const stones = eng.enchantStones(psd);
 console.log('enchantStones ', stones.length + ' kind(s) owned' + (stones.length ? (': ' + stones.map(s => s.name + (s.count > 1 ? (' ×' + s.count) : '')).join(', ')) : ' (none — honest empty state in the UI)'));
 
+// onlineOffline (v1.0.9): the measured time/gold split must be internally consistent — away time only from
+// gaps beyond the jitter threshold, and the gold split must re-sum to the lifetime-gold growth over the window.
+const oo = eng.onlineOffline(tpoints);
+if (oo.intervals > 0) {
+  if (oo.awayH < 0 || oo.playedH < 0) problems.push('onlineOffline: negative hours');
+  oo.gaps.forEach(g => { if (!(g.awayH > 0.25)) problems.push('onlineOffline: gap below threshold leaked in'); });
+  console.log('online/offline', oo.playedH + 'h played vs ' + oo.awayH + 'h away | gold: ' + oo.goldCombat.toLocaleString() + ' farmed + ' + oo.goldOther.toLocaleString() + ' offline/misc | ' + oo.gaps.length + ' away gap(s)');
+}
+
 // trophies/tiers (v1.0.8): GEAR ONLY — a material (e.g. a rarity-NAMED stone) must never count; the per-tier
 // breakdown must sum exactly to the trophy count.
 const troph = eng.trophies(psd);

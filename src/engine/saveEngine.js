@@ -153,6 +153,10 @@ function buildTrends(points){ const seen={},pts=[]; (points||[]).filter(p=>p&&p.
 // with no guessing. Only "clean" intervals (the active stage `cur` unchanged across the pair) are counted; an
 // interval where the stage changed is an ambiguous split and is omitted (honest). Rate includes idle time = the
 // player's real average. The finer the snapshot cadence (the HUD's own history), the sharper this gets.
+// An interval whose wall-clock exceeds its PLAYED time by more than this spans closed-game ("offline") time.
+// Calibrated: continuous-play pairs in both real histories show wall-played jitter of 0.0-0.15h; pairs that
+// contained a real game restart (their "other" gold matches Player.log offline collections exactly) show 0.49h+.
+const OFFLINE_GAP_H=0.25;
 function perStageRates(points){
   const pts=buildTrends(points); const by={};
   for(let i=1;i<pts.length;i++){ const a=pts[i-1], b=pts[i];
@@ -160,18 +164,23 @@ function perStageRates(points){
     const stg=Number(b.cur); if(!(stg>0)) continue;
     const dPlay=(b.playH!=null&&a.playH!=null)?(b.playH-a.playH):null, dWall=(b.t-a.t)/3600000;
     const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; if(!(h>0.01)) continue;
+    // offline-spanning interval: the game was closed for part of it. Combat gold stays safe to attribute
+    // (PROVEN immune — offline gold lands in Sub2/3, matching Player.log collections exactly), but the XP and
+    // kill deltas may include the offline collection granted at reopen -> never attribute those to a stage.
+    const offline=(dPlay!=null)&&((dWall-dPlay)>OFFLINE_GAP_H);
     const dC=(b.combat!=null&&a.combat!=null)?(b.combat-a.combat):null;
     const dK=(b.kills!=null&&a.kills!=null)?(b.kills-a.kills):null;
     const dX=(b.xp!=null&&a.xp!=null)?(b.xp-a.xp):null;                      // older stored points may lack xp -> null
     if(dC==null||dC<0) continue;                                            // need calibrated combat-gold, monotonic
-    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,xp:0,xpHours:0,hours:0,intervals:0};
-    by[stg].combat+=dC; by[stg].kills+=(dK>0?dK:0); by[stg].hours+=h; by[stg].intervals++;
-    if(dX!=null&&dX>=0){ by[stg].xp+=dX; by[stg].xpHours+=h; }               // xp rate only over xp-bearing intervals
+    if(!by[stg]) by[stg]={stage:stg,combat:0,kills:0,killHours:0,xp:0,xpHours:0,hours:0,intervals:0};
+    by[stg].combat+=dC; by[stg].hours+=h; by[stg].intervals++;
+    if(!offline){ if(dK!=null&&dK>0){by[stg].kills+=dK;} by[stg].killHours+=h;
+      if(dX!=null&&dX>=0){ by[stg].xp+=dX; by[stg].xpHours+=h; } }
   }
   const out=Object.keys(by).map(k=>{ const s=by[k];
     return {stage:s.stage,label:stageLabel(s.stage),
       goldPerHr:s.hours>0.01?Math.round(s.combat/s.hours):null,
-      killsPerHr:s.hours>0.01?Math.round(s.kills/s.hours):null,
+      killsPerHr:s.killHours>0.01?Math.round(s.kills/s.killHours):null,
       xpPerHr:s.xpHours>0.01?Math.round(s.xp/s.xpHours):null,
       hours:+s.hours.toFixed(2),combatGold:s.combat,kills:s.kills,xp:s.xp,intervals:s.intervals}; });
   out.sort((x,y)=>(y.goldPerHr||0)-(x.goldPerHr||0));
@@ -219,6 +228,31 @@ function gearGaps(psd){
   const usedUp={}, usedSlot={}, out=[];
   cand.forEach(g=>{ if(usedUp[g.up.uid]) return; const sk=g.heroKey+'|'+g.cur.uid+'|'+(g.locked?'L':'E'); if(usedSlot[sk]) return;
     usedUp[g.up.uid]=1; usedSlot[sk]=1; out.push(g); });
+  return out;
+}
+
+// onlineOffline: ONLINE vs OFFLINE progress measured across the snapshot history (v1.0.9).
+// Per consecutive pair: played time comes from the save's own playTime; closed-game ("away") time =
+// wall-clock minus played where that exceeds the jitter threshold. Gold splits by the calibrated partition:
+// combat (Sub1, only grows in active play) vs other (Sub2/3 — offline rewards land here; PROVEN: the bucket's
+// delta matched Player.log offline collections exactly). Each away gap is reported with the other-gold that
+// arrived across it (the offline collection, possibly + small Cube/misc — labeled honestly).
+function onlineOffline(points){
+  const pts=buildTrends(points);
+  const out={playedH:0,awayH:0,goldCombat:0,goldOther:0,gaps:[],intervals:0};
+  for(let i=1;i<pts.length;i++){ const a=pts[i-1], b=pts[i];
+    const dWall=(b.t-a.t)/3600000;
+    const dPlay=(b.playH!=null&&a.playH!=null)?(b.playH-a.playH):null;
+    if(dPlay==null||dWall<=0) continue;
+    const dC=(b.combat!=null&&a.combat!=null)?Math.max(0,b.combat-a.combat):0;
+    const dLife=(b.lifeGold!=null&&a.lifeGold!=null)?Math.max(0,b.lifeGold-a.lifeGold):0;
+    const dOther=Math.max(0,dLife-dC);
+    out.playedH+=Math.max(0,dPlay); out.goldCombat+=dC; out.goldOther+=dOther; out.intervals++;
+    const away=dWall-dPlay;
+    if(away>OFFLINE_GAP_H){ out.awayH+=away; out.gaps.push({t:b.t,awayH:+away.toFixed(2),otherGold:dOther}); }
+  }
+  out.playedH=+out.playedH.toFixed(2); out.awayH=+out.awayH.toFixed(2);
+  out.gaps.sort((x,y)=>y.t-x.t);
   return out;
 }
 
@@ -281,4 +315,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
