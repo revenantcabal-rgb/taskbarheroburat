@@ -214,6 +214,11 @@
   footer{max-width:1180px;margin:0 auto;padding:22px 24px 50px;color:var(--dim);font-size:11.5px;
     border-top:1px solid var(--line);margin-top:30px}
   footer b{color:var(--muted)}
+  /* accessibility: honor reduced-motion — drop the looping pulse/shine/rise + bar/tooltip transitions */
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+      transition-duration:.001ms!important;scroll-behavior:auto!important}
+  }
 </style>
 </head>
 <body>
