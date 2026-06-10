@@ -116,6 +116,49 @@ def main():
             e["d"] = dd
         skills[r["SkillKey"]] = e
 
+    # ---- heroes: HeroInfoData -> class, localized name, main weapon, innate base stats ----
+    HERO_BASE = ["AttackDamage", "AttackSpeed", "CastSpeed", "CriticalChance", "CriticalDamage",
+                 "MaxHp", "Armor", "CooldownReduction", "MovementSpeed"]
+    heroes = {}
+    for r in rows("HeroInfoData.txt"):
+        base = []  # list of {sn (display), st (STATTYPE), v} — innate hero stats
+        for st in HERO_BASE:
+            raw = (r.get(st) or "").strip()
+            if raw and raw != "0":
+                try:
+                    fv = float(raw); v = int(fv) if fv.is_integer() else fv
+                    base.append({"sn": loc.get("StatName_" + st) or prettify(st), "st": st, "v": v})
+                except ValueError:
+                    pass
+        heroes[r["HeroKey"]] = {"cls": r.get("ClassType") or ("#" + r["HeroKey"]),
+                                "n": L(r.get("HeroNameKey")) or r.get("ClassType"),
+                                "mw": r.get("MainWeaponGearType") or None, "base": base}
+
+    # ---- passive skills: PassiveSkillKey -> the stat it grants per level (labeled) ----
+    passives = {}
+    for r in rows("PassiveSkillInfoData.txt"):
+        st = r.get("STATTYPE")
+        raw = (r.get("Value") or "0").strip()
+        try:
+            v = float(raw); v = int(v) if v.is_integer() else v
+        except ValueError:
+            v = raw
+        passives[r["PassiveSkillKey"]] = {"sn": loc.get("StatName_" + st) or prettify(st), "st": st,
+                                          "m": r.get("MODTYPE"), "v": v}
+
+    # ---- hero attribute tree: AttributeKey -> {hero, type, value(->passive/skill key), maxLevel} ----
+    # ATTRIBUTETYPE PASSIVESKILL -> Value is a PassiveSkillKey (stat); ACTIVESKILL -> Value is a SkillKey.
+    attributes = {}
+    for r in rows("AttributeInfoData.txt"):
+        attributes[r["AttributeKey"]] = {"h": r["HeroKey"], "type": r["ATTRIBUTETYPE"],
+                                         "val": r["Value"], "max": int(r["MaxLevel"]) if r.get("MaxLevel") else None}
+
+    # ---- pets: PetKey -> name + description ----
+    pets = {}
+    for r in rows("PetInfoData.txt"):
+        pets[r["PetKey"]] = {"n": L(r.get("NameKey")) or prettify((r.get("NameKey") or "").replace("PetName_", "")),
+                             "desc": L(r.get("DescriptionKey"))}
+
     # ---- rune per-level effects: LevelKey -> [{level, cost, value, stat}] ----
     rune_levels = {}
     for r in rows("RuneLevelInfoData.txt"):
@@ -194,11 +237,14 @@ def main():
     out = {
         "version": {"game": GAME_VERSION, "save": old.get("version", {}).get("save")},
         "grades": old.get("grades"),
-        "heroes": old.get("heroes"),
+        "heroes": heroes,
         "items": items,
         "stats": stats,
         "gear": gear,
         "skills": skills,
+        "attributes": attributes,
+        "passives": passives,
+        "pets": pets,
         "runes": runes,
         "_calibrated": {
             "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/GearInfoData/UniqueModInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
@@ -224,7 +270,7 @@ def main():
     print(f"items {len(items)} | names auth {name_resolved+name_literal}, fallback {name_fallback} | desc {desc_count} | mat-effects {mat_fx}")
     print(f"stats {len(stats)} | runes {len(runes)} (with per-level effects)")
     print(f"gear {len(gear)} | inherent-stat sets {gear_inh} | unique mods {gear_um}")
-    print(f"skills {len(skills)} (named, with descriptions)")
+    print(f"skills {len(skills)} | heroes {len(heroes)} (w/ base stats) | attributes {len(attributes)} | passives {len(passives)} | pets {len(pets)}")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 

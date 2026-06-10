@@ -29,6 +29,23 @@ function resolveMods(ench){ return (ench||[]).filter(m=>m&&m.StatModKey).map(m=>
 function iconId(key){ const s=String(key); if(s.length!==6) return s; const type=s.slice(0,2),rarity=s[2],suf=s.slice(3); if(rarity==='0') return s; return type+'00'+suf.slice(0,2); }
 function heroClass(key){ const h=DB&&DB.heroes&&(DB.heroes[key]||DB.heroes[String(key)]); return h?h.cls:('#'+key); }
 function skillName(key){ const s=DB&&DB.skills&&(DB.skills[key]||DB.skills[String(key)]); return s?s.n:null; }
+// --- who's-carrying source breakdown (mirror of the inline engine) ---
+function sumStats(list){ const by={}; (list||[]).forEach(s=>{ if(s.v==null||s.v==='')return; const v=typeof s.v==='number'?s.v:parseFloat(s.v); if(isNaN(v))return; const k=(s.st||s.sn)+'|'+(s.m||''); if(!by[k])by[k]={sn:s.sn,st:s.st,m:s.m,v:0}; by[k].v+=v; }); return Object.values(by).filter(x=>x.v).sort((a,b)=>Math.abs(b.v)-Math.abs(a.v)); }
+function heroBase(key){ const h=DB&&DB.heroes&&(DB.heroes[key]||DB.heroes[String(key)]); return (h&&h.base)||[]; }
+function heroSources(hSave, equipped, attrSave){
+  const gearList=[]; (equipped||[]).forEach(it=>{ (it.base&&it.base.i||[]).forEach(s=>gearList.push({sn:s.sn,st:s.st,m:s.m,v:s.v})); (it.mods||[]).forEach(m=>gearList.push({sn:m.name,st:m.name,m:m.mod,v:m.value})); });
+  const treeList=[], treeSkills=[];
+  (attrSave||[]).forEach(n=>{ if(!(n.Level>0))return; const a=DB&&DB.attributes&&DB.attributes[n.Key]; if(!a||String(a.h)!==String(hSave.heroKey))return;
+    if(a.type==='PASSIVESKILL'){ const p=DB&&DB.passives&&DB.passives[a.val]; if(p&&p.v!=null)treeList.push({sn:p.sn,st:p.st,m:p.m,v:(typeof p.v==='number'?p.v:parseFloat(p.v)||0)*n.Level}); }
+    else { const sk=DB&&DB.skills&&DB.skills[a.val]; if(sk&&!treeSkills.includes(sk.n))treeSkills.push(sk.n); } });
+  return {base:heroBase(hSave.heroKey), gear:sumStats(gearList), tree:sumStats(treeList), treeSkills};
+}
+function accountBuffs(psd){
+  const runes=[]; (psd.RuneSaveData||[]).forEach(r=>{ const lv=r.Level||0; if(lv<=0)return; const d=DB&&DB.runes&&DB.runes[r.RuneKey]; if(!d)return; const cur=(d.lv||[]).find(x=>x.l===lv); runes.push({n:d.n,eff:d.eff,level:lv,val:cur?cur.val:null}); });
+  runes.sort((a,b)=>b.level-a.level);
+  const pk=(psd.commonSaveData||{}).ArrangedPetKey; const p=(pk&&DB&&DB.pets)?(DB.pets[pk]||DB.pets[String(pk)]):null;
+  return {runes, pet:p?{key:pk,n:p.n,desc:p.desc}:(pk?{key:pk,n:'#'+pk}:null)};
+}
 const rarityRank=g=>{const i=RARITY.indexOf(g);return i<0?-1:i;};
 
 function gold(psd){ const c=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); return c?c.Quantity:0; }
@@ -50,4 +67,4 @@ function rates(prev,cur){ const ms=new Date(cur.summary.lastSaved)-new Date(prev
 function trendPoint(psd){ const c=psd.commonSaveData||{}, a=psd.aggregateSaveDatas||[]; const goldRow=(psd.currenySaveDatas||[]).find(x=>x.Key===GOLD_KEY); const d=netTicksToDate(c.lastSavedTime); return {t:d?+d:null,gold:goldRow?goldRow.Quantity:0,lifeGold:pick(a,2,0),kills:pick(a,0,0),playH:c.playTime?+(c.playTime/3600).toFixed(2):null,maxStage:c.maxCompletedStage,items:(psd.itemSaveDatas||[]).length,runes:(psd.RuneSaveData||[]).filter(r=>(r.Level||0)>0).length}; }
 function buildTrends(points){ const seen={},pts=[]; (points||[]).filter(p=>p&&p.t).sort((a,b)=>a.t-b.t).forEach(p=>{const k=p.t+'/'+p.lifeGold; if(seen[k])return; seen[k]=1; pts.push(p);}); for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i]; const dPlay=(b.playH!=null&&a.playH!=null)?b.playH-a.playH:null; const dWall=(b.t-a.t)/3600000; const h=(dPlay!=null&&dPlay>0.01)?dPlay:dWall; const dLife=(b.lifeGold!=null&&a.lifeGold!=null)?b.lifeGold-a.lifeGold:null; const dKills=(b.kills!=null&&a.kills!=null)?b.kills-a.kills:null; b.goldPerHr=(dLife!=null&&h>0.01)?Math.round(dLife/h):null; b.killsPerHr=(dKills!=null&&h>0.01)?Math.round(dKills/h):null; } return pts; }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,iconId,statName,resolveMods,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,sumStats,iconId,statName,resolveMods,GOLD_KEY};

@@ -130,6 +130,23 @@
   .hero .skill{font-size:10.5px;color:var(--blue2);background:rgba(75,125,255,.12);
     border:1px solid rgba(75,125,255,.25);border-radius:6px;padding:2px 7px;white-space:nowrap}
 
+  /* ---------- who's-carrying source breakdown ---------- */
+  .breakdown{margin-bottom:12px}
+  .bd-hero{font-weight:700;font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:9px}
+  .bd-hero .bd-lvl{font-size:11.5px;color:var(--muted);font-weight:500}
+  .bd-hero .badge{margin-left:auto}
+  .bd-row{display:flex;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+  .bd-row:first-of-type{border-top:none}
+  .bd-src{flex:0 0 78px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);font-weight:700;padding-top:3px}
+  .bd-src small{display:block;color:var(--line2);font-weight:600;font-size:9px;letter-spacing:0}
+  .bd-stats{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+  .chip{font-size:11.5px;background:var(--surface2);border:1px solid var(--line);border-radius:7px;padding:2px 8px;color:var(--muted);white-space:nowrap}
+  .chip b{color:var(--text);font-weight:600}
+  .chip .mt{opacity:.5;font-size:9.5px;margin-left:2px}
+  .chip.sk{color:var(--blue2);border-color:rgba(75,125,255,.28);background:rgba(75,125,255,.10)}
+  .chip.rune{color:var(--purple);border-color:rgba(176,114,255,.28);background:rgba(176,114,255,.08)}
+  .bd-empty{color:var(--dim);font-size:11.5px;padding-top:3px}
+
   /* ---------- inventory grid ---------- */
   .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px}
   .filters button{padding:6px 12px;font-size:12.5px;border-radius:20px}
@@ -314,7 +331,46 @@ function runeDetail(save){
   });
   return {total:list.length,leveled:leveled,list:list};
 }
-function heroInfo(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h||{cls:'#'+k,mw:null};}
+function heroInfo(k){var h=DB.heroes[k]||DB.heroes[String(k)];return h||{cls:'#'+k,mw:null,base:[]};}
+// sumStats: group a list of {sn,st,m,v} by stat+modtype and sum — for honest per-source attribution.
+function sumStats(list){
+  var by={};
+  (list||[]).forEach(function(s){
+    if(s.v==null||s.v==='')return; var v=(typeof s.v==='number')?s.v:parseFloat(s.v); if(isNaN(v))return;
+    var k=(s.st||s.sn)+'|'+(s.m||''); if(!by[k])by[k]={sn:s.sn,st:s.st,m:s.m,v:0}; by[k].v+=v;
+  });
+  return Object.keys(by).map(function(k){return by[k];}).filter(function(x){return x.v;})
+    .sort(function(a,b){return Math.abs(b.v)-Math.abs(a.v);});
+}
+// heroSources: factual per-hero stat contributions by source (base / gear / tree). No fabricated composite.
+function heroSources(hSave, equipped, attrSave){
+  var gearList=[];
+  (equipped||[]).forEach(function(it){
+    (it.base&&it.base.i||[]).forEach(function(s){gearList.push({sn:s.sn,st:s.st,m:s.m,v:s.v});});
+    (it.mods||[]).forEach(function(m){gearList.push({sn:m.name,st:m.name,m:m.mod,v:m.value});});
+  });
+  var treeList=[], treeSkills=[];
+  (attrSave||[]).forEach(function(n){
+    if(!(n.Level>0))return; var a=DB.attributes&&DB.attributes[n.Key]; if(!a||String(a.h)!==String(hSave.heroKey))return;
+    if(a.type==='PASSIVESKILL'){var p=DB.passives&&DB.passives[a.val]; if(p&&p.v!=null)treeList.push({sn:p.sn,st:p.st,m:p.m,v:(typeof p.v==='number'?p.v:parseFloat(p.v)||0)*n.Level});}
+    else{var sk=DB.skills&&DB.skills[a.val]; if(sk&&treeSkills.indexOf(sk.n)<0)treeSkills.push(sk.n);}
+  });
+  return {base:(heroInfo(hSave.heroKey).base||[]), gear:sumStats(gearList), gearCount:(equipped||[]).length,
+    tree:sumStats(treeList), treeSkills:treeSkills, treeNodes:(attrSave||[]).filter(function(n){return n.Level>0&&DB.attributes&&DB.attributes[n.Key]&&String(DB.attributes[n.Key].h)===String(hSave.heroKey);}).length};
+}
+// accountBuffs: runes + active pet (apply to ALL heroes — account-wide, shown once).
+function accountBuffs(psd){
+  var runes=[];
+  (psd.RuneSaveData||[]).forEach(function(r){
+    var lv=r.Level||0; if(lv<=0)return; var d=DB.runes&&DB.runes[r.RuneKey]; if(!d)return;
+    var cur=(d.lv||[]).filter(function(x){return x.l===lv;})[0];
+    runes.push({n:d.n,eff:d.eff,level:lv,max:d.max,val:cur?cur.val:null});
+  });
+  runes.sort(function(a,b){return (b.level-a.level);});
+  var pk=(psd.commonSaveData||{}).ArrangedPetKey;
+  var p=(pk&&DB.pets)?(DB.pets[pk]||DB.pets[String(pk)]):null;
+  return {runes:runes, pet:p?{key:pk,n:p.n,desc:p.desc}:(pk?{key:pk,n:'#'+pk}:null)};
+}
 /* structural icon resolver — see saveEngine.iconId */
 function iconId(key){var s=String(key);if(s.length!==6)return s;var t=s.slice(0,2),r=s[2],suf=s.slice(3);if(r==='0')return s;return t+'00'+suf.slice(0,2);}
 
@@ -354,7 +410,8 @@ function analyze(psd){
       var d=DB.skills&&(DB.skills[sk]||DB.skills[String(sk)]);return d?d.n:null;}).filter(Boolean);
     return {key:String(h.heroKey),cls:hi.cls,mw:hi.mw,level:h.HeroLevel,exp:Math.round(h.HeroExp||0),
       pts:h.AllocatedHeroAbilityPoint,unspent:h.AbilityPoint,gear:(h.equippedItemIds||[]).filter(nz).length,
-      equipped:equipped,skills:skills,deployed:party.indexOf(String(h.heroKey))>=0};
+      equipped:equipped,skills:skills,sources:heroSources(h,equipped,psd.attributeSaveDatas),
+      deployed:party.indexOf(String(h.heroKey))>=0};
   }).sort(function(x,y){return (y.deployed-x.deployed)||(y.level-x.level);});
   return {
     version:c.version, stage:c.currentStageKey, wave:c.currentStageWave, maxStage:c.maxCompletedStage,
@@ -364,7 +421,7 @@ function analyze(psd){
       trade:occ('tradingStashSaveDatas')},
     owned:owned, byRarity:byR,
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
-    runes:runeDetail(psd.RuneSaveData||[]),
+    runes:runeDetail(psd.RuneSaveData||[]), account:accountBuffs(psd),
     kills:pick(0,0), lifeGold:pick(2,0), perDiff:[0,1,2,3].map(function(d){return pick(16,d);})
   };
 }
@@ -634,6 +691,29 @@ function itemTile(it){
   return n;
 }
 
+// stat chip — raw value + modtype tag (honest; never asserts a % for non-PERCENT modtypes)
+function statChip(s,cls){
+  var tag=(s.m&&s.m!=='FLAT'&&s.m!=='PERCENT')?(' <span class="mt">'+s.m.toLowerCase().slice(0,4)+'</span>'):'';
+  return '<span class="chip'+(cls?(' '+cls):'')+'">'+s.sn+' <b>'+fmt(s.v)+(s.m==='PERCENT'?'%':'')+'</b>'+tag+'</span>';
+}
+function srcRow(label,sub,chips){
+  return '<div class="bd-row"><span class="bd-src">'+label+(sub?('<small>'+sub+'</small>'):'')+'</span>'+
+    '<div class="bd-stats">'+(chips||'<span class="bd-empty">—</span>')+'</div></div>';
+}
+function breakdownPanel(h){
+  var s=h.sources||{base:[],gear:[],tree:[],treeSkills:[]};
+  var baseC=(s.base||[]).map(function(x){return statChip(x);}).join('');
+  var gearC=(s.gear||[]).map(function(x){return statChip(x);}).join('');
+  var treeC=(s.tree||[]).map(function(x){return statChip(x);}).join('')+
+    (s.treeSkills||[]).map(function(n){return '<span class="chip sk">'+n+'</span>';}).join('');
+  var n=el('<div class="panel breakdown"></div>');
+  n.appendChild(el('<div class="bd-hero">'+h.cls+' <span class="bd-lvl">Lvl '+h.level+'</span>'+
+    '<span class="badge '+(h.deployed?'dep':'bench')+'">'+(h.deployed?'DEPLOYED':'BENCH')+'</span></div>'));
+  n.appendChild(el(srcRow('Base','innate',baseC)));
+  n.appendChild(el(srcRow('Gear',(s.gearCount||0)+' items',gearC)));
+  n.appendChild(el(srcRow('Tree',(s.treeNodes||0)+' nodes',treeC)));
+  return n;
+}
 function renderParty(d){
   var p=$('tab-party');p.innerHTML='';
   p.appendChild(el('<h3 class="sec">Heroes <span class="tag">'+d.heroes.length+' unlocked · '+
@@ -648,6 +728,23 @@ function renderParty(d){
       '</td><td class="r">'+h.level+'</td><td class="r">'+fmt(h.exp)+'</td><td class="r">'+h.gear+'/10</td><td class="r">'+h.pts+(h.unspent?(' (+'+h.unspent+')'):'')+'</td><td style="color:var(--blue2)">'+sk+'</td></tr>';
   }).join('');
   p.appendChild(el('<div class="panel"><table><thead><tr><th>Hero</th><th>Status</th><th class="r">Lvl</th><th class="r">Exp</th><th class="r">Gear</th><th class="r">Ability pts</th><th>Equipped skills</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+
+  // Who's carrying — honest per-deployed-hero stat attribution by source (base / gear / tree)
+  var deployed=d.heroes.filter(function(h){return h.deployed;});
+  if(deployed.length){
+    p.appendChild(el('<h3 class="sec">Build sources <span class="tag">where each deployed hero\'s power comes from · gear/build, not live DPS</span></h3>'));
+    deployed.forEach(function(h){p.appendChild(breakdownPanel(h));});
+  }
+  // Account-wide buffs (runes + pet) — apply to ALL heroes, shown once
+  var acc=d.account||{};
+  if((acc.runes&&acc.runes.length)||acc.pet){
+    p.appendChild(el('<h3 class="sec">Account-wide buffs <span class="tag">apply to all heroes</span></h3>'));
+    var rchips=(acc.runes||[]).slice(0,40).map(function(r){return '<span class="chip rune">'+r.n+' <b>Lv'+r.level+'</b></span>';}).join('');
+    var petc=acc.pet?('<span class="chip">Pet <b>'+acc.pet.n+'</b></span>'):'';
+    p.appendChild(el('<div class="panel">'+
+      srcRow('Runes',(acc.runes?acc.runes.length:0)+' leveled',rchips)+
+      srcRow('Pet','',petc)+'</div>'));
+  }
 }
 
 var invFilter='ALL';
@@ -965,6 +1062,11 @@ function loadDemo(){
     {key:'201',cls:'Ranger',mw:'BOW',level:12,exp:133555,pts:12,unspent:0,gear:1,deployed:false,equipped:[],skills:dsk([20301])},
     {key:'101',cls:'Knight',mw:'SWORD',level:1,exp:0,pts:0,unspent:1,gear:0,deployed:false,equipped:[],skills:[]}
   ];
+  // demo source breakdown: real base+gear; a few real leveled tree nodes per class so the panel showcases tree too
+  var demoAttr=[{Key:401001,Level:5},{Key:401002,Level:5},{Key:401003,Level:5},{Key:301001,Level:3},{Key:301002,Level:8},{Key:301012,Level:3},{Key:501001,Level:5},{Key:501002,Level:5}];
+  heroes.forEach(function(h){if(h.deployed)h.sources=heroSources({heroKey:h.key},h.equipped,demoAttr);});
+  var demoAccount={runes:Object.keys(DB.runes||{}).slice(0,8).map(function(k,i){return {n:DB.runes[k].n,eff:DB.runes[k].eff,level:(i%3)?5:10};}),
+    pet:(DB.pets&&DB.pets['6003'])?{key:6003,n:DB.pets['6003'].n,desc:DB.pets['6003'].desc}:{key:6003,n:'Dragon'}};
   lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15},
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15}];
   render({version:'1.00.11 (sample)',stage:1208,wave:2,maxStage:1210,playHours:34.4,lastSaved:new Date(),
@@ -972,6 +1074,7 @@ function loadDemo(){
     owned:owned,byRarity:byR,
     trophies:owned.filter(function(o){return rrank(o.grade)>=3;}).sort(function(x,y){return rrank(y.grade)-rrank(x.grade);}),
     runes:runeDetail(Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};})),
+    account:demoAccount,
     kills:72091,lifeGold:1574858,perDiff:[200,127,72,1]});
   $('dot').className='dot live';$('statusText').textContent='sample data';
 }
