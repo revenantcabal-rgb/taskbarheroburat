@@ -11,6 +11,15 @@ notes: CHANGELOG.md + in-app "What's new".
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S18b (v1.0.12) — dark theme redesigned (owner feedback).** v1.0.11's dark had carried the legacy navy palette
+  over almost unchanged — the owner correctly flagged "no difference in dark mode." New dark = a real counterpart of
+  the light design: slate-indigo ground lifted off black (#10141f vs the old #080a13), clearly elevated cards
+  (#1c2235 ramp), stronger borders, periwinkle accent ramp (#7d96ff/#a3b4ff, alt #bd8cff), mint good/refreshed
+  warn-bad; rarity hues untouched; ONE theme block changed (the token system paid off). WCAG AA re-verified
+  programmatically (test/_contrast.js ALL PASS); 11 tabs × both themes × 375/1280 re-checked = 0 overflow,
+  0 console errors. ALSO verified on this machine that the v1.0.11 DESKTOP auto-update genuinely worked: the
+  installed app downloaded TBH-HUD-Setup-1.0.11.exe at 08:13 and relaunched on 1.0.11 at 08:14 (the "installer not
+  updated" impression was the unchanged dark palette, not a failed update). Shipped as v1.0.12 (web + release).
 - **S18 (v1.0.11) — visual revamp (light/dark themes) + the game's grouped Stat List + patch notes.**
   **Design system:** one SEMANTIC token contract (`--surface/--border/--text-*/--accent*/--good/--warn/--bad` + spacing
   `--s1..7`, radii, grid-track tokens) under `:root[data-theme=light|dark]`; **light is the default** (set pre-paint in

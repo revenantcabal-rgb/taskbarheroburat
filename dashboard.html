@@ -9,7 +9,7 @@
 <script>(function(){var t=null;try{t=localStorage.getItem('tbh_theme');}catch(e){}
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.11"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.12"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -45,27 +45,30 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
     --glow-accent:rgba(48,86,216,.30);
   }
   :root[data-theme="dark"]{
-    --bg:#080a13; --bg-2:#0b0e1a;
-    --surface:#121728; --surface-2:#171d33; --surface-3:#1f2742;
-    --border:#262f4d; --border-strong:#36426b;
-    --text:#eef2fc; --text-muted:#9aa7c8; --text-dim:#8491b6;
+    /* v1.0.12 fresh dark — slate-indigo ground lifted off black, clearly elevated cards,
+       periwinkle accent ramp. A NEW counterpart of the light design (the owner flagged that
+       v1.0.11 dark still looked like the old navy theme), not the legacy palette. */
+    --bg:#10141f; --bg-2:#151a29;
+    --surface:#1c2235; --surface-2:#232a42; --surface-3:#2c3552;
+    --border:#36405f; --border-strong:#4b5880;
+    --text:#f2f5ff; --text-muted:#aeb9da; --text-dim:#99a6ca;
     --on-accent:#ffffff; --on-good:#04140d;
-    --accent:#4b7dff; --accent-2:#6a93ff; --accent-alt:#b072ff;
-    --accent-deep:#3454cf; --accent-deep-2:#2a44ad; --accent-alt-deep:#7d41c8;
-    --good:#19c98b; --warn:#f9a826; --bad:#ff3e6b; --gold:#f2b441;
+    --accent:#7d96ff; --accent-2:#a3b4ff; --accent-alt:#bd8cff;
+    --accent-deep:#3a53cf; --accent-deep-2:#2e42ab; --accent-alt-deep:#7d41c8;
+    --good:#27d39c; --warn:#fcae38; --bad:#ff5c84; --gold:#f5b942;
     --r-COMMON:#aab3c5; --r-UNCOMMON:#5fd35f; --r-RARE:#4aa3f0; --r-LEGENDARY:#f2b441;
     --r-IMMORTAL:#f0568a; --r-ARCANA:#c07bf0; --r-BEYOND:#3ed8c8; --r-CELESTIAL:#9aa6ff;
     --r-DIVINE:#ffd76e; --r-COSMIC:#ff7ad9;
-    --bg-glow-1:radial-gradient(1200px 600px at 80% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%);
-    --bg-glow-2:radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, var(--accent-alt) 8%, transparent), transparent 55%);
-    --header-1:rgba(18,23,40,.92); --header-2:rgba(11,14,26,.86);
-    --tabs-bg:rgba(11,14,26,.6);
-    --overlay:rgba(4,6,12,.66);
-    --tile-pill-bg:rgba(8,10,19,.78); --tile-pill-ink:#ffffff;
+    --bg-glow-1:radial-gradient(1300px 640px at 82% -12%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 62%);
+    --bg-glow-2:radial-gradient(1000px 560px at -12% 112%, color-mix(in srgb, var(--accent-alt) 10%, transparent), transparent 58%);
+    --header-1:rgba(28,34,53,.92); --header-2:rgba(16,20,31,.88);
+    --tabs-bg:rgba(16,20,31,.64);
+    --overlay:rgba(7,9,16,.7);
+    --tile-pill-bg:rgba(10,13,22,.8); --tile-pill-ink:#ffffff;
     --img-shadow:rgba(0,0,0,.5);
-    --sheen:rgba(255,255,255,.16); --sheen-strong:rgba(255,255,255,.25);
-    --shadow:0 10px 30px -12px rgba(0,0,0,.6); --shadow-sm:0 4px 14px -8px rgba(0,0,0,.45);
-    --glow-accent:color-mix(in srgb, var(--accent) 55%, transparent);
+    --sheen:rgba(255,255,255,.14); --sheen-strong:rgba(255,255,255,.24);
+    --shadow:0 12px 32px -12px rgba(0,0,0,.55); --shadow-sm:0 4px 14px -8px rgba(0,0,0,.4);
+    --glow-accent:color-mix(in srgb, var(--accent) 50%, transparent);
   }
   :root{
     /* structural scales — theme-independent */
@@ -2268,7 +2271,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.11';
+var APP_VERSION='1.0.12';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -2278,6 +2281,10 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.12',d:'2026-06-11',sec:{
+    Changed:[
+      'Dark theme redesigned — a genuinely new dark counterpart of the light design: slate-indigo ground lifted off black, clearly elevated cards with stronger definition, and a periwinkle accent ramp. (v1.0.11 dark still looked like the old navy theme.)',
+      'Rarity colors and all readability guarantees unchanged: WCAG AA verified in the new dark, canonical rarity hues kept.']}},
   {v:'1.0.11',d:'2026-06-11',sec:{
     Added:[
       'Light theme — a fresh light-first design, now the default, with a 🌙/☀️ toggle in the header; your choice is remembered on your device.',

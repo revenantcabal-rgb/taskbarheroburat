@@ -4,6 +4,16 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.12 — 2026-06-11
+
+### Changed
+- **Dark theme redesigned** — a genuinely new dark counterpart of the light design: slate-indigo
+  ground lifted off black, clearly elevated cards with stronger definition, and a periwinkle accent
+  ramp. (v1.0.11's dark had carried the old navy palette over almost unchanged — it was supposed to
+  feel new too.)
+- Rarity colors and all readability guarantees unchanged: WCAG AA re-verified programmatically in
+  the new dark; canonical rarity hues kept.
+
 ## v1.0.11 — 2026-06-11
 
 ### Added
