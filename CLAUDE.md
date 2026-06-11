@@ -213,6 +213,13 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S23b (v1.0.18)** — **adversarial-review patch (4 confirmed findings, fixed same-day).** KEY DISCOVERY:
+  `cubeRecipeSaveDatas[].MaxUnlockRecipeKey` = the save's REAL per-category Cube unlock state (0 = none; keys
+  ascend within a category) — calibrated by a committed backup showing ENGRAVING locked at Cube 17 despite its
+  level-15 gate → **unlocking is a PURCHASE**. `cubeUnlocks()` in BOTH engines; the Advisor Cube panel's ✓/🔒
+  now use the real records (no records → no claims); verify_save asserts validity + level-gate consistency.
+  Also: synthesis bands display BOTH requirement columns (min material tier + avg level); grade-identity is now
+  a HARD bake-time assert in build_gamedata; target-picker focus survives save-driven re-renders.
 - **S23 (v1.0.17)** — **GOAL-v1.0.16 P5+P6 → the wave is COMPLETE (P1–P6).** (P5a) **Codex recipes:** dumped the
   5 recipe tables the original whitelist skipped (CubeRecipe/CubeSubRecipe/CubeLevel/SynthesisDrop/ExtractionCost;
   install verified byte-identical to the v1.00.11 dump first); build_gamedata bakes DB.crafting(56)/synth(203)/
@@ -363,7 +370,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.17 is SHIPPED everywhere — the GOAL-v1.0.16 wave is COMPLETE (P1–P6)** — desktop release (installer +
+1. **v1.0.18 is SHIPPED everywhere — the GOAL-v1.0.16 wave is COMPLETE (P1–P6) + the adversarial-review patch** — desktop release (installer +
    latest.yml; **no blockmap since v1.0.15** — differential updates disabled for speed; auto-update WORKS from
    v1.0.6 on — older installs need one manual reinstall, see S13c), GitHub Pages on push, the owner's Vercel
    project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from the repo, and the **crew API is live**
@@ -386,7 +393,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.17 · light/dark themes · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.18 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (separate Vercel team — CLI scope recorded in `OPS-PRIVATE.local.md`, gitignored); env var
