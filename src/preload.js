@@ -12,5 +12,15 @@ contextBridge.exposeInMainWorld('tbhNative', {
   onUpdate: (cb) => ipcRenderer.on('update-status', (_e, payload) => cb(payload)),
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
   getVersion: () => ipcRenderer.invoke('app-version'),
-  restartToUpdate: () => ipcRenderer.send('quit-and-install')
+  restartToUpdate: () => ipcRenderer.send('quit-and-install'),
+  // v1.0.16 (P4) — mini-HUD bridge. The dashboard window uses the send/state half; the mini window uses the
+  // data/close half. Everything stays read-only: the payload is computed from the already-parsed save.
+  miniToggle: () => ipcRenderer.send('mini-toggle'),
+  miniClose: () => ipcRenderer.send('mini-close'),
+  miniSend: (payload) => ipcRenderer.send('mini-data', payload),
+  miniSetOpacity: (v) => ipcRenderer.send('mini-opacity', v),
+  miniStateRequest: () => ipcRenderer.send('mini-state-request'),
+  onMiniState: (cb) => ipcRenderer.on('mini-state', (_e, s) => cb(s)),
+  onMiniData: (cb) => ipcRenderer.on('mini-data', (_e, p) => cb(p)),
+  onMiniRequestData: (cb) => ipcRenderer.on('mini-request-data', () => cb())
 });

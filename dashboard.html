@@ -83,6 +83,11 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
     --blue:var(--accent); --blue2:var(--accent-2); --purple:var(--accent-alt);
     --green:var(--good); --amber:var(--warn); --red:var(--bad);
   }
+  /* v1.0.16 (P4) — settings: compact density re-scales the shared spacing tokens (every grid/card uses them,
+     so one override tightens the whole app); reduced motion kills transitions/animations app-wide. */
+  :root.compact{--s1:3px;--s2:6px;--s3:8px;--s4:11px;--s5:14px;--s6:17px;--s7:22px;
+    --radius-xs:6px;--radius-sm:8px;--radius:10px;--radius-lg:12px}
+  :root.no-motion *,:root.no-motion *::before,:root.no-motion *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
@@ -563,6 +568,15 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
   .wn-sec{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-dim);font-weight:700;margin:9px 0 3px}
   .wn-li{font-size:12.5px;color:var(--text-muted);line-height:1.5;padding:2px 0 2px 14px;position:relative}
   .wn-li::before{content:"";position:absolute;left:2px;top:9px;width:5px;height:5px;border-radius:2px;background:var(--accent)}
+  /* v1.0.16 (P4) — settings modal rows (reuses the cxmodal shell) */
+  .set-row{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .set-row:last-of-type{border-bottom:none}
+  .set-l{flex:1 1 170px;font-size:13px;font-weight:600}
+  .set-l small{display:block;font-weight:500;font-size:11px;color:var(--text-dim)}
+  .set-c{flex:0 0 auto}
+  .set-c select{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:6px 9px;font-size:12.5px}
+  .set-keys{display:flex;flex-wrap:wrap;gap:7px 18px;font-size:12px;color:var(--text-muted);padding:4px 0}
+  .set-keys b{color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:0 6px;font-family:ui-monospace,Consolas,monospace;font-size:11px}
 
   /* ---------- Advisor (gear-gap / rune plan / enchant ROI) ---------- */
   .advrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--border);flex-wrap:wrap}
@@ -659,6 +673,7 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
     <button class="ghost" id="connectBtn">Connect file</button>
     <button class="primary" id="connectFolderBtn">Connect folder</button>
     <button class="ghost" id="whatsNewBtn" title="What changed in this version">✨&nbsp;What's new<span class="wn-dot hidden" id="wnDot"></span></button>
+    <button class="ghost" id="settingsBtn" title="Settings — density, default tab, motion, shortcuts (and the mini-HUD on desktop)" aria-label="Settings">⚙</button>
     <button class="ghost" id="themeBtn" title="Switch between light and dark theme" aria-label="Switch theme">🌙</button>
     <button class="ghost hidden" id="disconnectBtn" title="Clear the loaded save and return to the connect screen">↩&nbsp;Disconnect</button>
   </div>
@@ -3436,6 +3451,29 @@ function render(d){
   // so without this the very first paint is a blank page until the user clicks a tab. (Bug fix.)
   TABS.forEach(function(t){$('tab-'+t).classList.toggle('hidden',t!==activeTab);});
   renderTab(activeTab,d);
+  miniRelay(d);   // v1.0.16 (P4): feed the desktop mini-HUD from this same save read (no-op in the browser)
+}
+/* v1.0.16 (P4) — mini-HUD payload: the SAME numbers the dashboard already computes (session gold/hr baseline,
+   offline anchor, cheapest rune step), packaged for the dumb mini window. Sent on every save read; the mini
+   only ticks its idle clock locally. Demo data is flagged so the mini shows a SAMPLE tag. */
+var lastMiniPayload=null;
+function miniPayload(d){
+  var now=Date.now();
+  var earnedNow=(d.lifeGold!=null?d.lifeGold:d.gold);
+  var hrs=session?((now-session.t0)/3600000):0;
+  var gph=(session&&hrs>=0.0167)?Math.round((earnedNow-session.earned0)/hrs):null;
+  var off=offlineStatus(lastSaveFileMs,(logData.offline||[]),now);
+  var plan=runePlanD((d.runes&&d.runes.list)||[],d.gold||0);
+  var next=plan.steps.length?{n:plan.steps[0].name,cost:plan.steps[0].cost,afford:true}
+    :(plan.cheapestNext?{n:plan.cheapestNext.name,cost:plan.cheapestNext.cost,afford:false}:null);
+  return {gold:d.gold,gph:gph,stage:stageActLabel(d.stage),stageName:stageName(d.stage)||'',wave:d.wave||null,
+    savedMs:lastSaveFileMs||null,capSec:off?off.capSec:null,rune:next,
+    theme:document.documentElement.dataset.theme||'light',sample:!!demoMode,v:APP_VERSION};
+}
+function miniRelay(d){
+  if(!(window.tbhNative&&window.tbhNative.miniSend)||!d)return;
+  lastMiniPayload=miniPayload(d);
+  window.tbhNative.miniSend(lastMiniPayload);
 }
 /* ---------- connect / disconnect UI state (P4) ---------- */
 // Toggle the header controls between "not connected" (pickers shown) and "connected" (Disconnect shown).
@@ -3601,6 +3639,21 @@ if(window.tbhNative&&window.tbhNative.onSave){
     var updBtn=el('<button class="ghost" id="updCheckBtn" title="Check GitHub for a newer version of this app">↻ Check for updates</button>');
     updBtn.addEventListener('click',function(){manualUpdateCheck=true;window.tbhNative.checkForUpdates();});
     document.querySelector('header .actions').appendChild(updBtn);
+  }
+  // v1.0.16 (P4): mini-HUD toggle (desktop only). The always-on-top strip the PRD wanted — save-based, ban-safe.
+  if(window.tbhNative.miniToggle){
+    var miniBtn=el('<button class="ghost" id="miniBtn" title="A compact always-on-top window with gold · session gold/hr · stage · offline timer · next rune — fed by the same read-only save watcher">🗗 Mini-HUD</button>');
+    miniBtn.addEventListener('click',function(){window.tbhNative.miniToggle();});
+    document.querySelector('header .actions').insertBefore(miniBtn,$('disconnectBtn'));
+    if(window.tbhNative.onMiniState)window.tbhNative.onMiniState(function(s){
+      miniBtn.classList.toggle('on',!!(s&&s.open));
+      miniBtn.textContent=(s&&s.open)?'🗗 Mini-HUD ●':'🗗 Mini-HUD';
+      var op=$('miniOpacity'); if(op&&s&&s.opacity!=null)op.value=Math.round(s.opacity*100);
+    });
+    if(window.tbhNative.onMiniRequestData)window.tbhNative.onMiniRequestData(function(){
+      if(lastMiniPayload)window.tbhNative.miniSend(lastMiniPayload);
+    });
+    if(window.tbhNative.miniStateRequest)window.tbhNative.miniStateRequest();
   }
   // the footer always shows app v<APP_VERSION> (set at startup for every platform). The installed shell's
   // version should be identical — surface it ONLY if it ever differs (a defensive, honest mismatch flag).
@@ -3781,7 +3834,103 @@ function applyTheme(t){
   try{localStorage.setItem('tbh_theme',t);}catch(e){}
   var b=$('themeBtn');
   if(b){ b.textContent=(t==='light')?'🌙':'☀️'; b.title=(t==='light')?'Switch to dark theme':'Switch to light theme'; }
+  // keep the mini-HUD's theme in step (desktop only; no-op elsewhere)
+  if(lastMiniPayload&&window.tbhNative&&window.tbhNative.miniSend){lastMiniPayload.theme=t;window.tbhNative.miniSend(lastMiniPayload);}
 }
+
+/* ---------- v1.0.16 (P4): settings — density, default tab, motion, alerts (+ mini-HUD on desktop) ---------- */
+// Persisted in localStorage tbh_settings; purely client-side presentation preferences (never touch the save).
+var settings={defaultTab:'overview',density:'comfortable',motion:'auto'};
+try{var st=JSON.parse(localStorage.getItem('tbh_settings')||'{}');
+  ['defaultTab','density','motion'].forEach(function(k){if(st[k]!=null)settings[k]=st[k];});}catch(e){}
+function settingsSave(){try{localStorage.setItem('tbh_settings',JSON.stringify(settings));}catch(e){}}
+function applySettings(){
+  document.documentElement.classList.toggle('compact',settings.density==='compact');
+  var noMotion=(settings.motion==='off')||(settings.motion==='auto'&&window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+  document.documentElement.classList.toggle('no-motion',noMotion);
+}
+applySettings();
+// default tab on launch: applied before anything renders (render() un-hides whatever activeTab points at)
+if(TABS.indexOf(settings.defaultTab)>=0&&settings.defaultTab!=='overview'){
+  activeTab=settings.defaultTab;
+  Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){b.classList.toggle('active',b.dataset.tab===activeTab);});
+}
+var _settingsModal=null;
+function closeSettings(){ if(!_settingsModal)return; document.removeEventListener('keydown',_settingsModal.onKey); if(_settingsModal.ov.parentNode)_settingsModal.ov.parentNode.removeChild(_settingsModal.ov); _settingsModal=null; }
+function openSettings(){
+  closeSettings();
+  var mo=el('<div class="cxmodal"></div>');
+  mo.appendChild(el('<button class="cxclose" title="Close (Esc)">×</button>'));
+  mo.appendChild(el('<div class="cxtn">⚙ Settings</div>'));
+  function row(label,ctrl,hint){var r=el('<div class="set-row"></div>');
+    r.appendChild(el('<div class="set-l">'+label+(hint?('<small>'+hint+'</small>'):'')+'</div>'));
+    var c=el('<div class="set-c"></div>');c.appendChild(ctrl);r.appendChild(c);return r;}
+  // appearance
+  mo.appendChild(el('<div class="wn-sec">Appearance</div>'));
+  mo.appendChild(row('Density',cxSelect([['comfortable','Comfortable'],['compact','Compact']],settings.density,
+    function(v){settings.density=v;settingsSave();applySettings();}),'compact tightens spacing everywhere'));
+  mo.appendChild(row('Motion',cxSelect([['auto','Follow system'],['on','Animations on'],['off','Reduced motion']],settings.motion,
+    function(v){settings.motion=v;settingsSave();applySettings();}),'reduced motion disables transitions'));
+  // behavior
+  mo.appendChild(el('<div class="wn-sec">Behavior</div>'));
+  mo.appendChild(row('Tab on launch',cxSelect(TABS.map(function(t){return [t,t.charAt(0).toUpperCase()+t.slice(1)];}),
+    (TABS.indexOf(settings.defaultTab)>=0?settings.defaultTab:'overview'),
+    function(v){settings.defaultTab=v;settingsSave();}),'which tab opens when the HUD starts'));
+  var alertsOn=rareAlerts&&('Notification'in window)&&Notification.permission==='granted';
+  var ab=el('<button class="ghost">'+(alertsOn?'🔔 On — click to turn off':'🔕 Off — click to enable')+'</button>');
+  ab.addEventListener('click',function(){toggleRareAlerts();closeSettings();openSettings();});
+  mo.appendChild(row('Rare-item alerts',ab,'silent desktop alert on a new Legendary+ (opt-in)'));
+  // desktop-only (Electron): the mini-HUD
+  if(window.tbhNative&&window.tbhNative.miniToggle){
+    mo.appendChild(el('<div class="wn-sec">Desktop · mini-HUD</div>'));
+    var mb=el('<button class="ghost">🗗 Open / close mini-HUD</button>');
+    mb.addEventListener('click',function(){window.tbhNative.miniToggle();});
+    mo.appendChild(row('Always-on-top strip',mb,'gold · gold/hr · stage · offline timer · next rune'));
+    var op=el('<input type="range" id="miniOpacity" min="30" max="100" value="100" style="width:160px">');
+    op.addEventListener('input',function(){if(window.tbhNative.miniSetOpacity)window.tbhNative.miniSetOpacity(op.value/100);});
+    mo.appendChild(row('Mini-HUD opacity',op,'30–100% · remembered'));
+    if(window.tbhNative.miniStateRequest)window.tbhNative.miniStateRequest();   // sync the slider to the saved value
+  }
+  // shortcuts reference
+  mo.appendChild(el('<div class="wn-sec">Keyboard shortcuts</div>'));
+  mo.appendChild(el('<div class="set-keys">'+
+    '<span><b>1–9</b> / <b>0</b> first ten tabs</span>'+
+    '<span><b>←</b> / <b>→</b> previous / next tab</span>'+
+    '<span><b>/</b> focus the search box on this tab</span>'+
+    '<span><b>Esc</b> close dialogs</span></div>'));
+  mo.appendChild(el('<div class="cxnote" style="margin-top:14px">Preferences are stored in this browser/app only — never in your game or save.</div>'));
+  var ov=el('<div class="cxmodal-ov"></div>'); ov.appendChild(mo); document.body.appendChild(ov);
+  function onKey(ev){ if(ev.key==='Escape') closeSettings(); }
+  ov.addEventListener('click',function(ev){ if(ev.target===ov) closeSettings(); });
+  mo.querySelector('.cxclose').addEventListener('click',closeSettings);
+  document.addEventListener('keydown',onKey);
+  _settingsModal={ov:ov,onKey:onKey};
+}
+$('settingsBtn').addEventListener('click',openSettings);
+
+/* v1.0.16 (P4): keyboard shortcuts — never trap typing (inputs/selects/textareas pass through untouched). */
+document.addEventListener('keydown',function(ev){
+  if(ev.ctrlKey||ev.metaKey||ev.altKey)return;
+  var t=ev.target, tag=(t&&t.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select'||(t&&t.isContentEditable))return;
+  if($('tabs').classList.contains('hidden'))return;          // connect screen: nothing to switch
+  if(_settingsModal||_wnModal)return;                        // dialogs own the keyboard (Esc closes them)
+  if(ev.key==='/'){
+    var q=document.querySelector('#tab-'+activeTab+' input.cxq');
+    if(q){ev.preventDefault();q.focus();if(q.select)q.select();}
+    return;
+  }
+  if(ev.key==='ArrowLeft'||ev.key==='ArrowRight'){
+    var i=TABS.indexOf(activeTab); if(i<0)return;
+    ev.preventDefault();
+    setTab(TABS[(i+(ev.key==='ArrowRight'?1:TABS.length-1))%TABS.length]);
+    return;
+  }
+  if(/^[0-9]$/.test(ev.key)){
+    var idx=(ev.key==='0')?9:(parseInt(ev.key,10)-1);
+    if(TABS[idx]){ev.preventDefault();setTab(TABS[idx]);}
+  }
+});
 (function(){
   var t=document.documentElement.dataset.theme==='dark'?'dark':'light';
   var b=$('themeBtn');

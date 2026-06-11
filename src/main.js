@@ -58,7 +58,50 @@ function createWindow() {
   });
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, '..', 'dashboard.html'));
+  // the mini-HUD is a companion of the main window — never an orphan
+  win.on('closed', () => { win = null; if (miniWin && !miniWin.isDestroyed()) miniWin.close(); });
 }
+
+// v1.0.16 (P4) — compact always-on-top mini-HUD. A second small frameless BrowserWindow showing gold /
+// session gold-per-hour / current stage / offline timer / next affordable rune, fed by the SAME save-read
+// pipeline through the dashboard renderer (the renderer computes the payload and relays it here — no new
+// data lane, provably read-only). Bounds + opacity persist in the HUD's own userData dir, never the game's.
+let miniWin = null;
+const miniCfgPath = () => path.join(app.getPath('userData'), 'mini-hud.json');
+function miniCfgLoad() { try { return JSON.parse(fs.readFileSync(miniCfgPath(), 'utf8')); } catch (e) { return {}; } }
+function miniCfgSave(patch) { try { fs.writeFileSync(miniCfgPath(), JSON.stringify(Object.assign(miniCfgLoad(), patch))); } catch (e) { /* ignore */ } }
+function miniSendState() { if (win && !win.isDestroyed()) win.webContents.send('mini-state', { open: !!(miniWin && !miniWin.isDestroyed()), opacity: (miniCfgLoad().opacity != null ? miniCfgLoad().opacity : 1) }); }
+function createMini() {
+  if (miniWin && !miniWin.isDestroyed()) { miniWin.focus(); return; }
+  const cfg = miniCfgLoad();
+  miniWin = new BrowserWindow({
+    width: cfg.width || 332, height: cfg.height || 178, x: cfg.x, y: cfg.y,
+    frame: false, alwaysOnTop: true, skipTaskbar: true, resizable: true,
+    minWidth: 250, minHeight: 124, maximizable: false, fullscreenable: false,
+    backgroundColor: '#10141f', title: 'TBH HUD mini',
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
+  });
+  miniWin.setMenuBarVisibility(false);
+  miniWin.setAlwaysOnTop(true, 'screen-saver');   // stays above a borderless-fullscreen game window
+  if (cfg.opacity != null) { try { miniWin.setOpacity(Math.min(1, Math.max(0.3, cfg.opacity))); } catch (e) { /* ignore */ } }
+  miniWin.loadFile(path.join(__dirname, '..', 'mini.html'));
+  const saveBounds = () => { try { const b = miniWin.getBounds(); miniCfgSave({ x: b.x, y: b.y, width: b.width, height: b.height }); } catch (e) { /* ignore */ } };
+  let bT = null;
+  miniWin.on('move', () => { clearTimeout(bT); bT = setTimeout(saveBounds, 400); });
+  miniWin.on('resize', () => { clearTimeout(bT); bT = setTimeout(saveBounds, 400); });
+  miniWin.on('closed', () => { miniWin = null; miniSendState(); });
+  // when the mini (re)opens, ask the dashboard to resend the latest payload
+  miniWin.webContents.on('did-finish-load', () => { miniSendState(); if (win && !win.isDestroyed()) win.webContents.send('mini-request-data'); });
+}
+ipcMain.on('mini-toggle', () => { if (miniWin && !miniWin.isDestroyed()) miniWin.close(); else createMini(); });
+ipcMain.on('mini-close', () => { if (miniWin && !miniWin.isDestroyed()) miniWin.close(); });
+ipcMain.on('mini-data', (_e, payload) => { if (miniWin && !miniWin.isDestroyed()) miniWin.webContents.send('mini-data', payload); });
+ipcMain.on('mini-opacity', (_e, v) => {
+  const op = Math.min(1, Math.max(0.3, +v || 1));
+  miniCfgSave({ opacity: op });
+  if (miniWin && !miniWin.isDestroyed()) { try { miniWin.setOpacity(op); } catch (e) { /* ignore */ } }
+});
+ipcMain.on('mini-state-request', miniSendState);
 
 function sendSave() {
   fs.readFile(SAVE_FILE, (err, data) => {
