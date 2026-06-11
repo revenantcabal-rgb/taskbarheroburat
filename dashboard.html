@@ -9,7 +9,7 @@
 <script>(function(){var t=null;try{t=localStorage.getItem('tbh_theme');}catch(e){}
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.12"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.13"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -590,6 +590,43 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
   .crewach .gap{color:var(--text-dim);margin-left:8px}
   @media(max-width:680px){.crewach{padding-left:0}.crewname{flex-basis:110px}}
   .crewnote{font-size:11.5px;color:var(--text-dim);line-height:1.5}
+  /* clickable member rows (v1.0.13) — whole row opens the member pop-up */
+  .crewrow.open{cursor:pointer;border-radius:var(--radius-sm)}
+  .crewrow.open:hover{background:color-mix(in srgb, var(--accent) 6%, transparent);padding-left:8px;margin-left:-8px;padding-right:8px;margin-right:-8px}
+  .crewmore{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--accent-2);
+    background:color-mix(in srgb, var(--accent) 10%, transparent);border:1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-radius:7px;padding:3px 9px;white-space:nowrap;flex:0 0 auto}
+  /* member pop-up: stat compare grid */
+  .cmpbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:14px 0 4px}
+  .cmpbar select{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
+    color:var(--text);font:inherit;font-size:12.5px;padding:6px 10px;cursor:pointer}
+  .cmpgrid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 14px;font-size:12.5px}
+  .cmpgrid.three{grid-template-columns:minmax(0,1fr) auto auto}
+  .cmpgrid .ch{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);font-weight:700;
+    padding:7px 0 3px;border-bottom:1px solid var(--border)}
+  .cmpgrid .cl{color:var(--text-muted);padding:4px 0;border-bottom:1px dashed color-mix(in srgb, var(--border) 55%, transparent);min-width:0}
+  .cmpgrid .cv{padding:4px 0;border-bottom:1px dashed color-mix(in srgb, var(--border) 55%, transparent);
+    font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  @media(max-width:680px){
+    .cmpgrid{font-size:12px;gap:1px 8px}
+    .cmpgrid .cv{white-space:normal;max-width:32vw;overflow-wrap:break-word}
+  }
+  .cmpgrid .cv b{font-weight:700}
+  .cmpgrid .cv.win{color:var(--good);font-weight:700}
+  .cmpgrid .cv.lose{color:var(--text-dim)}
+  /* ---------- Advisor v1.0.13: stat-difference line under each upgrade row ---------- */
+  .advdiff{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 2px 104px;align-items:center}
+  .advdiff .chip b{font-weight:700}
+  .advdiff .to{color:var(--text-dim);margin:0 2px}
+  @media(max-width:680px){.advdiff{padding-left:0}}
+  /* clickable Stat-List lines / rune-total chips (filter the rune grid) */
+  .slline.click,.chip.click{cursor:pointer;transition:.12s}
+  .slline.click:hover{color:var(--accent-2)}
+  .chip.click:hover{border-color:var(--accent);color:var(--text)}
+  .filterpill{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--accent-2);font-weight:600;
+    background:color-mix(in srgb, var(--accent) 10%, transparent);border:1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    border-radius:var(--radius-pill);padding:5px 12px;cursor:pointer}
+  .filterpill:hover{border-color:var(--accent)}
   /* accessibility: honor reduced-motion — drop the looping pulse/shine/rise + bar/tooltip transitions */
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
@@ -1305,7 +1342,7 @@ function processLoot(owned,ts){
     if(freshGear.length===1&&removedMats>=9) src='cube';
     else if(removedMats===0&&removedUnknown===0) src='found';
     fresh.forEach(function(f){
-      lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl,
+      lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl,key:f.key,
         src:(f.mat?(src==='found'?'found':null):(src==='cube'?'cube':src)),mats:(src==='cube'?removedMats:null)});
       if(rrank(f.grade)>=3)notifyRare(f);});
     lootLog=lootLog.slice(0,120);
@@ -1454,6 +1491,7 @@ function heroCard(h){
       m.appendChild(iconImg(g.icon));
       m.addEventListener('mouseenter',function(e){showTip(e,g);});
       m.addEventListener('mousemove',moveTip);m.addEventListener('mouseleave',hideTip);
+      wireCodexClick(m,'GEAR',g.key);
       row.appendChild(m);
     });
     n.appendChild(row);
@@ -1663,6 +1701,7 @@ function itemTile(it){
   n.addEventListener('mouseenter',function(ev){showTip(ev,it);});
   n.addEventListener('mousemove',moveTip);
   n.addEventListener('mouseleave',hideTip);
+  wireCodexClick(n,'GEAR',it.key);   // v1.0.13 — every tile opens its full Codex entry
   return n;
 }
 
@@ -1806,17 +1845,27 @@ function renderLoot(d){
       :'<span title="Several things changed in the same save update — origin unclear, so the HUD doesn\'t guess" style="color:var(--text-dim)">—</span>';
     return '<tr'+(rare?' class="rare"':'')+'><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
       '<td class="loot-time" style="color:var(--text-dim)">'+fmtUTC(l.t)+'</td>'+
-      '<td><div style="display:flex;align-items:center;gap:10px">'+
+      '<td><div '+(l.key?('class="click" data-key="'+esc(l.key)+'" title="Click for full details (Codex)" style="cursor:pointer;'):'style="')+'display:flex;align-items:center;gap:10px">'+
         '<div class="mini" style="border-color:'+rvar(l.grade)+'"><img src="'+SPRITE+(l.icon||'')+'.png" onerror="this.style.visibility=\'hidden\'"></div>'+
         '<span>'+(rare?'<span class="rarestar">★</span> ':'')+l.name+(l.lvl?(' <span style="color:var(--text-dim)">lvl'+l.lvl+'</span>'):'')+'</span></div></td>'+
       '<td><span class="pill" style="color:'+rvar(l.grade)+'">'+(l.grade||'—')+'</span></td>'+
       '<td>'+orig+'</td></tr>';
   }).join('');
-  p.appendChild(el('<div class="panel"><table><thead><tr><th>Your time</th><th>UTC</th><th>Item</th><th>Rarity</th><th>Origin</th></tr></thead><tbody>'+rows+'</tbody></table></div>'));
+  var lootPanel=el('<div class="panel"><table><thead><tr><th>Your time</th><th>UTC</th><th>Item</th><th>Rarity</th><th>Origin</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+  // v1.0.13 — click a loot entry to open its Codex page (entries logged before this version carry no key)
+  lootPanel.addEventListener('click',function(ev){
+    var n2=ev.target; while(n2&&n2!==lootPanel&&!(n2.getAttribute&&n2.getAttribute('data-key'))) n2=n2.parentNode;
+    var k2=n2&&n2.getAttribute&&n2.getAttribute('data-key'); if(!k2) return;
+    var ce=catalogFind('GEAR',k2); if(!ce) return; hideTip();
+    var owned=false; try{ owned=current?codexOwnPredicate(current)(ce):false; }catch(e){}
+    openCodexDetail(ce,owned);
+  });
+  p.appendChild(lootPanel);
 }
 
 function runeIconImg(ic){var img=el('<img src="src/assets/runes/Rune_'+ic+'.png" alt="">');
   img.addEventListener('error',function(){img.style.visibility='hidden';});return img;}
+var runeEffFilter=null;   // v1.0.13 — set by clicking a Stat-List line / rune-total chip; filters the rune grid
 function runeCard(rn){
   var on=rn.level>0;
   var card=el('<div class="rune '+(on?'on':'')+'"></div>');
@@ -1825,6 +1874,8 @@ function runeCard(rn){
   var nextc=(rn.max&&rn.level<rn.max&&rn.nextCost!=null)?(' · next '+fmt(rn.nextCost)+'g'):(rn.level>=rn.max?' · MAX':'');
   card.appendChild(el('<div class="rmeta"><div class="rn">'+rn.name+'</div><div class="re">'+rn.eff+'</div>'+
     '<div class="rl">'+status+nextc+'</div></div>'));
+  card.title='Click for the full per-level table (Codex)';
+  wireCodexClick(card,'RUNE',rn.key);   // v1.0.13 — per-level values + costs, one click away
   return card;
 }
 function renderRunes(d){
@@ -1832,26 +1883,34 @@ function renderRunes(d){
   var r=d.runes||{list:[],leveled:0,total:0};
   p.appendChild(el('<h3 class="sec">Rune tree <span class="tag">'+r.leveled+' / '+r.total+' nodes leveled · authoritative names & effects</span></h3>'));
   // The game's grouped Stat List (v1.0.11) — same groups, same wording, same numbers as the in-game panel.
+  // v1.0.13: every line is CLICKABLE — it filters the rune grid below to the runes that grant that stat.
+  function effClick(node){ var eff2=node.getAttribute('data-eff'); if(!eff2) return;
+    runeEffFilter=(runeEffFilter===eff2)?null:eff2; renderRunes(d);
+    var anch=$('allRunesSec'); if(anch&&runeEffFilter) anch.scrollIntoView({behavior:'smooth',block:'start'}); }
   var sl=d.statList||[];
   if(sl.length){
-    p.appendChild(el('<h3 class="sec">Stat List <span class="tag">exactly as the game shows it — grouped, worded and scaled like the in-game panel</span></h3>'));
+    p.appendChild(el('<h3 class="sec">Stat List <span class="tag">exactly as the game shows it — grouped, worded and scaled like the in-game panel · click a line to see its runes</span></h3>'));
     var gHtml=sl.map(function(g2){
       return '<div class="slgroup"><div class="slg-h">'+esc(g2.group)+'</div>'+g2.lines.map(function(l){
-        return '<div class="slline" title="'+esc('from '+l.runes+' rune'+(l.runes>1?'s':'')+' · '+l.levels+' level'+(l.levels>1?'s':'')+' bought · raw table total +'+fmt(l.raw))+'">'+esc(l.text)+'</div>';
+        return '<div class="slline click" data-eff="'+esc(l.eff)+'" title="'+esc('from '+l.runes+' rune'+(l.runes>1?'s':'')+' · '+l.levels+' level'+(l.levels>1?'s':'')+' bought · raw table total +'+fmt(l.raw)+' — click to see those runes')+'">'+esc(l.text)+'</div>';
       }).join('')+'</div>';
     }).join('');
-    p.appendChild(el('<div class="panel"><div class="slwrap">'+gHtml+'</div>'+
-      '<div class="crewnote" style="margin-top:12px">Lines, wording and values are calibrated against the game\'s own Stat List screen (the wording is the game\'s own text). Stats whose group in that screen isn\'t verified yet are left out here — every raw total still appears below. If any line differs from your in-game panel, that\'s a bug — please report it.</div></div>'));
+    var slPanel=el('<div class="panel"><div class="slwrap">'+gHtml+'</div>'+
+      '<div class="crewnote" style="margin-top:12px">Lines, wording and values are calibrated against the game\'s own Stat List screen (the wording is the game\'s own text). Stats whose group in that screen isn\'t verified yet are left out here — every raw total still appears below. If any line differs from your in-game panel, that\'s a bug — please report it.</div></div>');
+    Array.prototype.forEach.call(slPanel.querySelectorAll('.slline'),function(n2){n2.addEventListener('click',function(){effClick(n2);});});
+    p.appendChild(slPanel);
   }
-  // raw account-wide totals (v1.0.10) — every effect, straight table sums (no display scaling)
+  // raw account-wide totals (v1.0.10) — every effect, straight table sums; v1.0.13: chips filter the grid too
   var rs=d.runeStats||[];
   if(rs.length){
-    p.appendChild(el('<h3 class="sec">All rune totals <span class="tag">every effect · raw table values (the game displays %-type stats divided by 10)</span></h3>'));
+    p.appendChild(el('<h3 class="sec">All rune totals <span class="tag">every effect · raw table values (the game displays %-type stats divided by 10) · click to see the runes behind a stat</span></h3>'));
     var chips=rs.map(function(s){
-      return '<span class="chip" title="'+esc(s.runes+' rune'+(s.runes>1?'s':'')+' · '+s.levels+' level'+(s.levels>1?'s':'')+' bought — each level adds its table value')+'">'+esc(s.eff)+' <b>+'+fmt(s.total)+'</b> <span class="mt">'+s.levels+' lv</span></span>';
+      return '<span class="chip click" data-eff="'+esc(s.eff)+'" title="'+esc(s.runes+' rune'+(s.runes>1?'s':'')+' · '+s.levels+' level'+(s.levels>1?'s':'')+' bought — each level adds its table value. Click to see those runes.')+'">'+esc(s.eff)+' <b>+'+fmt(s.total)+'</b> <span class="mt">'+s.levels+' lv</span></span>';
     }).join('');
-    p.appendChild(el('<div class="panel"><div class="bd-stats" style="gap:7px">'+chips+'</div>'+
-      '<div class="crewnote" style="margin-top:10px">Each total = the per-level table values of your leveled runes, summed to their current levels (the game prices every level, and every level grants its value).</div></div>'));
+    var rsPanel=el('<div class="panel"><div class="bd-stats" style="gap:7px">'+chips+'</div>'+
+      '<div class="crewnote" style="margin-top:10px">Each total = the per-level table values of your leveled runes, summed to their current levels (the game prices every level, and every level grants its value).</div></div>');
+    Array.prototype.forEach.call(rsPanel.querySelectorAll('.chip'),function(n3){n3.addEventListener('click',function(){effClick(n3);});});
+    p.appendChild(rsPanel);
   }
   // cheapest next upgrades (not maxed, has a known next cost)
   var rec=r.list.filter(function(x){return x.max&&x.level<x.max&&x.nextCost!=null;})
@@ -1860,11 +1919,19 @@ function renderRunes(d){
     p.appendChild(el('<h3 class="sec">Cheapest next upgrades <span class="tag">lowest gold cost first</span></h3>'));
     var rg=el('<div class="runegrid"></div>');rec.forEach(function(rn){rg.appendChild(runeCard(rn));});p.appendChild(rg);
   }
-  p.appendChild(el('<h3 class="sec">All runes</h3>'));
-  var grid=el('<div class="runegrid"></div>');
   var list=r.list.slice().sort(function(a,b){return ((b.level>0)-(a.level>0))||(Number(a.key)-Number(b.key));});
+  if(runeEffFilter) list=list.filter(function(x){return x.eff===runeEffFilter;});
+  var hdr=el('<h3 class="sec" id="allRunesSec">All runes'+(runeEffFilter?(' <span class="tag">'+list.length+' rune'+(list.length===1?'':'s')+' granting this stat</span>'):'')+'</h3>');
+  p.appendChild(hdr);
+  if(runeEffFilter){
+    var pill=el('<div style="margin:-4px 0 12px"><span class="filterpill" title="Show all runes again">✕ Showing only: '+esc(runeEffFilter)+'</span></div>');
+    pill.querySelector('.filterpill').addEventListener('click',function(){runeEffFilter=null;renderRunes(d);});
+    p.appendChild(pill);
+  }
+  var grid=el('<div class="runegrid"></div>');
   list.forEach(function(rn){grid.appendChild(runeCard(rn));});
   p.appendChild(grid);
+  if(runeEffFilter&&!list.length) p.appendChild(el('<div class="empty">No runes grant this stat.</div>'));
 }
 
 /* ============================================================================
@@ -2140,17 +2207,52 @@ function renderTrends(d){
    Advisor — gear-gap (headline), rune plan, enchant ROI. Everything save-derived
    and provable; the advisor never claims an upgrade the rules can't prove.
    ========================================================================== */
-function advItem(it){
+function advItem(it,full){
   var n=el('<div class="advitem"></div>');
   var m=el('<div class="mini" style="border-color:'+rvar(it.grade)+'"></div>');
   m.appendChild(iconImg(it.icon)); n.appendChild(m);
   n.appendChild(el('<div class="advn"><b>'+esc(it.name)+'</b><span style="color:'+rvar(it.grade)+'">'+cap(it.grade||'')+(it.lvl?(' · L'+it.lvl):'')+'</span></div>'));
+  // v1.0.13 — hover for the full tooltip (inherent stats + enchants), click for the Codex page
+  if(full){
+    m.addEventListener('mouseenter',function(e){showTip(e,full);});
+    m.addEventListener('mousemove',moveTip); m.addEventListener('mouseleave',hideTip);
+    wireCodexClick(n,'GEAR',full.key);
+  }
   return n;
+}
+// Inherent-stat comparison for an advised swap (v1.0.13) — both items' authoritative GearInfoData values side
+// by side, same display rules as the tooltips (raw value + modtype tag). FACTS ONLY: no per-stat better/worse
+// coloring is claimed — the upgrade call itself rests on rarity/level, which is the calibrated rule.
+function gearDiffHtml(curFull,upFull){
+  function smap(f){ var m={}; ((f&&f.base&&f.base.i)||[]).forEach(function(s){ m[(s.st||s.sn)+'|'+(s.m||'')]={sn:s.sn,m:s.m,v:s.v}; }); return m; }
+  var A=smap(curFull), B=smap(upFull), keys=[], seen={};
+  Object.keys(A).concat(Object.keys(B)).forEach(function(k){ if(!seen[k]){seen[k]=1;keys.push(k);} });
+  if(!keys.length) return '';
+  var chips=keys.map(function(k){ var a=A[k], b=B[k], sn=(a||b).sn, mm=(a||b).m;
+    var tag=(mm&&mm!=='FLAT'&&mm!=='PERCENT')?(' <span class="mt">'+esc(mm.toLowerCase().slice(0,4))+'</span>'):'';
+    var pct=(mm==='PERCENT')?'%':'';
+    return '<span class="chip">'+esc(sn)+tag+' <b>'+(a?fmt(a.v)+pct:'—')+'</b><span class="to">→</span><b>'+(b?fmt(b.v)+pct:'—')+'</b></span>'; }).join('');
+  var ench=(curFull&&curFull.mods&&curFull.mods.length)?('<span class="chip" title="'+esc(curFull.mods.map(function(x){return x.name+' +'+x.value;}).join(', '))+'">current piece carries <b>'+curFull.mods.length+'</b> enchant'+(curFull.mods.length>1?'s':'')+'</span>'):'';
+  var uniq=(upFull&&upFull.base&&upFull.base.u)?('<span class="chip" style="color:var(--accent-alt)" title="'+esc(upFull.base.u)+'">★ upgrade has a unique mod</span>'):'';
+  return '<div class="advdiff"><span style="font-size:9.5px;letter-spacing:.05em;color:var(--text-dim);font-weight:700">STATS</span>'+chips+ench+uniq+'</div>';
 }
 function renderAdvisor(d){
   var p=$('tab-advisor');p.innerHTML='';
+  var byUid={}; (d.owned||[]).forEach(function(o){byUid[o.uid]=o;});
   var gaps=d.gearGaps||[], ready=gaps.filter(function(g){return !g.locked;}), locked=gaps.filter(function(g){return g.locked;});
-  p.appendChild(el('<h3 class="sec">Gear upgrades you can equip right now <span class="tag">provable only — same gear type, strictly better, level requirement met</span></h3>'));
+  var es=d.enchants||[], stones=d.stones||[];
+  var openTotal=es.reduce(function(s,e2){return s+e2.open;},0);
+  var stoneTotal=stones.reduce(function(s,x){return s+x.count;},0);
+  var plan=runePlanD((d.runes&&d.runes.list)||[], d.gold||0);
+  // ---- At a glance (v1.0.13): the advisor's verdict in four cards — every number computed below ----
+  p.appendChild(el('<h3 class="sec">At a glance <span class="tag">what\'s actionable right now — details below</span></h3>'));
+  p.appendChild(el('<div class="grid cards">'+[
+    card('Upgrades ready',String(ready.length),ready.length?'green':'',ready.length?'equip them in the game':'everything better is already worn','🛡️'),
+    card('Level-locked finds',String(locked.length),'',locked.length?'better gear waiting on hero levels':'nothing waiting in the stash','🔒'),
+    card('Open enchant slots',String(openTotal),'blue',stoneTotal+' socketable stone'+(stoneTotal===1?'':'s')+' owned','✨'),
+    card('Rune steps affordable',String(plan.steps.length),plan.steps.length?'gold':'',plan.steps.length?('spend '+fmt(plan.spent)+' of '+fmt(plan.gold)+' gold'):'save up — plan below','🔮')
+  ].join('')+'</div>'));
+  p.appendChild(el('<h3 class="sec">Gear upgrades you can equip right now <span class="tag">provable only — same gear type, strictly better, level requirement met · hover an item for its tooltip, click it for the Codex</span></h3>'));
   p.appendChild(el('<div class="hint">For each equipped item, the advisor looks for an <b>unequipped item you already own</b> of the <b>same gear type</b> that is strictly better — <b>higher rarity</b>, or same rarity at a <b>higher item level</b> — and that the hero\'s <b>level allows</b> (an item\'s level is its requirement; every equipped item in your save follows this rule). Sidegrades, cross-type swaps and stat judgement calls are never suggested, and each spare item is offered once.</div>'));
   if(!ready.length){
     p.appendChild(el('<div class="empty">No equip-ready upgrades sitting unused — everything better that you own (and can wear) is already equipped. 🎉<br><span style="font-size:11.5px">Checked every equipped item on every hero against your unequipped stash, matched by gear type and level requirement.</span></div>'));
@@ -2159,10 +2261,12 @@ function renderAdvisor(d){
     ready.forEach(function(g){
       var row=el('<div class="advrow"></div>');
       row.appendChild(el('<div class="advhero">'+esc(g.hero)+'<small class="'+(g.deployed?'dep':'')+'">'+(g.deployed?'DEPLOYED':'BENCH')+' · '+esc(cap(g.gt))+'</small></div>'));
-      row.appendChild(advItem(g.cur));
+      row.appendChild(advItem(g.cur,byUid[g.cur.uid]));
       row.appendChild(el('<span class="advarrow">→</span>'));
-      row.appendChild(advItem(g.up));
+      row.appendChild(advItem(g.up,byUid[g.up.uid]));
       row.appendChild(el('<span class="advwhy">'+esc(g.reason)+'</span>'));
+      var diff=gearDiffHtml(byUid[g.cur.uid],byUid[g.up.uid]);
+      if(diff)row.appendChild(el(diff));
       panel.appendChild(row);
     });
     panel.appendChild(el('<div class="advtotal"><span><b>'+ready.length+'</b> free upgrade'+(ready.length>1?'s':'')+' — equip them in the game (this tool is read-only and never changes anything).</span></div>'));
@@ -2175,18 +2279,19 @@ function renderAdvisor(d){
     locked.forEach(function(g){
       var row=el('<div class="advrow" style="opacity:.85"></div>');
       row.appendChild(el('<div class="advhero">'+esc(g.hero)+'<small class="'+(g.deployed?'dep':'')+'">'+(g.deployed?'DEPLOYED':'BENCH')+' · '+esc(cap(g.gt))+'</small></div>'));
-      row.appendChild(advItem(g.cur));
+      row.appendChild(advItem(g.cur,byUid[g.cur.uid]));
       row.appendChild(el('<span class="advarrow" style="color:var(--warn)">⇢</span>'));
-      row.appendChild(advItem(g.up));
+      row.appendChild(advItem(g.up,byUid[g.up.uid]));
       row.appendChild(el('<span class="advwhy" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 12%, transparent);border-color:color-mix(in srgb, var(--warn) 35%, transparent)">🔒 needs Lv '+g.needLevel+' · now Lv '+g.heroLevel+'</span>'));
+      var ldiff=gearDiffHtml(byUid[g.cur.uid],byUid[g.up.uid]);
+      if(ldiff)row.appendChild(el(ldiff));
       lpanel.appendChild(row);
     });
     lpanel.appendChild(el('<div class="advtotal"><span>These are <b>better than what\'s equipped</b> but above the hero\'s level — they\'ll appear under upgrades the moment the level requirement is met.</span></div>'));
     p.appendChild(lpanel);
   }
 
-  // ---- Rune plan: greedy cheapest-first within current gold (all costs are GOLD, from the game's tables) ----
-  var plan=runePlanD((d.runes&&d.runes.list)||[], d.gold||0);
+  // ---- Rune plan: greedy cheapest-first within current gold (computed once, up top, for the glance cards) ----
   p.appendChild(el('<h3 class="sec">Rune plan <span class="tag">cheapest-first within your '+fmt(d.gold)+' gold · costs from the game\'s own tables</span></h3>'));
   p.appendChild(el('<div class="hint">Runes are <b>account-wide</b> (every level boosts all heroes) and every level is paid in <b>gold</b> — so the cheapest affordable upgrades are the most certain value for spare gold. This plan walks the real per-level cost table, cheapest next step first.</div>'));
   if(plan.steps.length){
@@ -2204,9 +2309,6 @@ function renderAdvisor(d){
   }
 
   // ---- Enchanting workshop (v1.0.7): open slots, compact per hero + the stones you own to fill them ----
-  var es=d.enchants||[], stones=d.stones||[];
-  var openTotal=es.reduce(function(s,e2){return s+e2.open;},0);
-  var stoneTotal=stones.reduce(function(s,x){return s+x.count;},0);
   p.appendChild(el('<h3 class="sec">Enchanting workshop <span class="tag">'+openTotal+' open slot'+(openTotal===1?'':'s')+' on your deployed party · '+stoneTotal+' socketable stone'+(stoneTotal===1?'':'s')+' owned</span></h3>'));
   p.appendChild(el('<div class="hint">Each equipped item holds up to <b>3 enchants</b>; enchanting consumes a <b>stone</b> (gem-type material), and the stat it gives is <b>fixed by the stone and the slot category</b> — Weapon, Armor or Accessory (read from the game\'s own tables and verified against every enchant in your save). The tier/value roll is the game\'s RNG.</div>'));
   if(!es.length){
@@ -2249,6 +2351,7 @@ function renderAdvisor(d){
       var m=el('<div class="mini" style="border-color:'+rvar(st.grade)+'"></div>'); m.appendChild(iconImg(st.icon));
       var head=el('<div class="advitem"></div>'); head.appendChild(m);
       head.appendChild(el('<div class="advn"><b>'+esc(st.name)+(st.count>1?(' <span style="color:var(--gold)">×'+st.count+'</span>'):'')+'</b><span style="color:'+rvar(st.grade)+'">'+cap(st.grade||'')+'</span></div>'));
+      wireCodexClick(head,'MATERIAL',st.key);   // v1.0.13 — stone → its Codex page (drop sources, effects)
       row.appendChild(head);
       var chips='';
       (st.fx||[]).forEach(function(f){ chips+='<span class="chip">'+esc(GLBL[f.g]||cap(f.g))+': <b>'+esc(f.sn)+'</b>'+(f.t?(' <span class="mt">T'+f.t+'</span>'):'')+'</span>'; });
@@ -2271,7 +2374,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.12';
+var APP_VERSION='1.0.13';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -2281,6 +2384,15 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.13',d:'2026-06-11',sec:{
+    Added:[
+      'Crew member pop-up: click any member for their COMPLETE shared stats — every brag-stat, the grouped Stat List with the game\'s wording, and ALL rune totals (the board previously trimmed the list; names are no longer truncated either).',
+      'Side-by-side compare in the pop-up: pick any other member (defaults to you) and every stat lines up with the leader highlighted.',
+      'Advisor "At a glance": upgrades ready, level-locked finds, open enchant slots and affordable rune steps as cards up top.',
+      'Advisor stat comparison: every suggested swap now shows BOTH items\' inherent stats side by side (the game\'s own GearInfoData values) plus enchant/unique-mod notes — the empty row space now carries real information.',
+      'Click-through everywhere: items (inventory, trophies, hero gear, advisor, loot entries, enchanting stones) open their full Codex page; rune cards open their per-level table; Stat-List lines and rune-total chips filter the rune grid to the runes granting that stat.'],
+    Changed:[
+      'Crew rows are now compact previews (top stats + "+N more") since the full list lives one click away.']}},
   {v:'1.0.12',d:'2026-06-11',sec:{
     Changed:[
       'Dark theme redesigned — a genuinely new dark counterpart of the light design: slate-indigo ground lifted off black, clearly elevated cards with stronger definition, and a periwinkle accent ramp. (v1.0.11 dark still looked like the old navy theme.)',
@@ -2361,8 +2473,9 @@ function crewCodeOk(c){return /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/.test(c||'');}
 function crewStats(d){
   var top=(d.heroes||[]).slice().sort(function(a,b){return (b.level||0)-(a.level||0);}).slice(0,3)
     .map(function(h){return {cls:h.cls,level:h.level};});
-  // top rune stats (v1.0.10): the biggest account-wide rune totals, for crew flexing — name + summed value
-  var rstats=(d.runeStats||[]).slice(0,6).map(function(s){return {e:String(s.eff).slice(0,32),v:s.total};});
+  // rune stat totals (v1.0.13): the COMPLETE account-wide list — every effect with a total, untruncated names
+  // (was top-6/32-chars, which cut the list). Still brag-stats only: names + summed table values, nothing else.
+  var rstats=(d.runeStats||[]).slice(0,40).map(function(s){return {e:String(s.eff).slice(0,48),v:s.total};});
   // grouped Stat List (v1.0.11): the calibrated lines only, as {k: line key, v: raw total} — the board re-renders
   // them with the game's own wording. Server-side whitelist mirrors the same 9 keys.
   var slines=[]; (d.statList||[]).forEach(function(g){ g.lines.forEach(function(l){ slines.push({k:l.k,v:l.raw}); }); });
@@ -2414,6 +2527,101 @@ function crewRankDisp(st,key){ var v=crewRankVal(st,key); if(v==null)return '—
   return fmt(v); }
 function fmtAgo(ms){ var s=Math.max(0,(Date.now()-ms)/1000);
   if(s<90)return 'just now'; if(s<3600)return Math.round(s/60)+'m ago'; if(s<172800)return Math.round(s/3600)+'h ago'; return Math.round(s/86400)+'d ago'; }
+
+/* ---------- Crew member pop-up (v1.0.13) ----------
+   Click any member row → their COMPLETE shared stats in a dialog: every brag-stat, the full grouped Stat List
+   (game wording) and ALL rune totals — nothing trimmed like the board rows. A "Compare with" selector puts any
+   two members side by side (defaults to you); the larger value is highlighted. Renders ONLY what each member
+   actually shared (opt-in payload) — members on older app versions simply show fewer sections, never guesses. */
+var _cmModal=null, _cmCompareId=null;
+// "is this board entry me?" — in demo mode the sample board has no real member id, so 'demo-you' stands in
+function isMeMember(m){ return !!m&&(m.id===crewCfg.id||(demoMode&&m.id==='demo-you')); }
+function closeCrewMember(){ if(!_cmModal)return; document.removeEventListener('keydown',_cmModal.onKey); if(_cmModal.ov.parentNode)_cmModal.ov.parentNode.removeChild(_cmModal.ov); _cmModal=null; }
+function slShortLabel(m){ return m.t.replace('{0}% Increased ','').replace('{0}% ','').replace(' +{0}',''); }
+function slDispVal(m,v){ return v==null?null:(m.pct?((v/10)+'%'):('+'+fmt(v))); }
+function openCrewMember(member,members){
+  closeCrewMember();
+  var st=member.stats||{};
+  var others=(members||[]).filter(function(m){return m.id!==member.id;});
+  // _cmCompareId: null = auto (default to YOU when possible) · '__none__' = explicitly no comparison · else a member id
+  var cmp=null;
+  if(_cmCompareId&&_cmCompareId!=='__none__') others.forEach(function(m){ if(m.id===_cmCompareId) cmp=m; });
+  if(!cmp&&_cmCompareId!=='__none__'){ others.forEach(function(m){ if(isMeMember(m)) cmp=m; }); if(cmp)_cmCompareId=cmp.id; }
+  var cst=cmp?(cmp.stats||{}):null;
+  function youTag(m){ return (isMeMember(m)&&!/^you\b/i.test(m.name||''))?' (you)':''; }
+  // one row of the compare grid; win-highlight goes to the numerically larger side (a leaderboard fact)
+  function rowH(label,aDisp,bDisp,aNum,bNum){
+    if(aDisp==null&&bDisp==null) return '';
+    var aw='',bw='';
+    if(cst&&aNum!=null&&bNum!=null&&aNum!==bNum){ if(aNum>bNum)aw=' win'; else bw=' win'; }
+    return '<div class="cl">'+label+'</div><div class="cv'+aw+'"><b>'+(aDisp==null?'—':aDisp)+'</b></div>'+
+      (cst?('<div class="cv'+bw+'"><b>'+(bDisp==null?'—':bDisp)+'</b></div>'):'');
+  }
+  function tiersDisp(s){ var t=s.tiers&&Object.keys(s.tiers).length?RARITY.slice().reverse().filter(function(g){return s.tiers[g];}).map(function(g){return '<span style="color:'+rvar(g)+'">'+s.tiers[g]+' '+cap(g)+'</span>';}).join(' · '):null;
+    return t||(s.trophies!=null?(fmt(s.trophies)+' Leg+'):null); }
+  function tiersNum(s){ var t=s.tiers||{}; var n=0; Object.keys(t).forEach(function(k){n+=t[k];}); return n||(s.trophies||0); }
+  function topHeroDisp(s){ return (s.topHeroes&&s.topHeroes.length)?s.topHeroes.map(function(h){return esc(h.cls)+' '+h.level;}).join(' · '):null; }
+  function topHeroNum(s){ var m2=0;(s.topHeroes||[]).forEach(function(h){if(h.level>m2)m2=h.level;}); return m2; }
+  var grid=cst?'<div class="cmpgrid three">':'<div class="cmpgrid">';
+  var head=cst?('<div class="ch">Stat</div><div class="ch" style="text-align:right">'+esc(member.name)+youTag(member)+'</div><div class="ch" style="text-align:right">'+esc(cmp.name)+youTag(cmp)+'</div>'):'';
+  var html='';
+  // ---- brag stats ----
+  html+='<div class="cxsec"><div class="cxlbl">Brag stats</div>'+grid+head+
+    rowH('🗺️ Max stage',esc(st.maxStageLabel||stageActLabel(st.maxStage)),cst?esc(cst.maxStageLabel||stageActLabel(cst.maxStage)):null,st.maxStage||0,cst?(cst.maxStage||0):null)+
+    rowH('🪙 Lifetime gold',st.lifeGold!=null?fmt(st.lifeGold):null,cst&&cst.lifeGold!=null?fmt(cst.lifeGold):null,st.lifeGold,cst?cst.lifeGold:null)+
+    rowH('💀 Total kills',st.kills!=null?fmt(st.kills):null,cst&&cst.kills!=null?fmt(cst.kills):null,st.kills,cst?cst.kills:null)+
+    rowH('Gold balance',st.gold!=null?fmt(st.gold):null,cst&&cst.gold!=null?fmt(cst.gold):null,st.gold,cst?cst.gold:null)+
+    rowH('🦸 Top heroes',topHeroDisp(st),cst?topHeroDisp(cst):null,topHeroNum(st),cst?topHeroNum(cst):null)+
+    rowH('🔮 Runes leveled',st.runesLeveled!=null?(fmt(st.runesLeveled)+(st.runesTotal?('/'+st.runesTotal):'')):null,cst&&cst.runesLeveled!=null?(fmt(cst.runesLeveled)+(cst.runesTotal?('/'+cst.runesTotal):'')):null,st.runesLeveled,cst?cst.runesLeveled:null)+
+    rowH('💎 Legendary+ gear',tiersDisp(st),cst?tiersDisp(cst):null,tiersNum(st),cst?tiersNum(cst):null)+
+    rowH('⏱ Play hours',st.playHours!=null?(fmt(st.playHours)+' h'):null,cst&&cst.playHours!=null?(fmt(cst.playHours)+' h'):null,st.playHours,cst?cst.playHours:null)+
+    '</div></div>';
+  // ---- grouped Stat List (game wording; calibrated lines) ----
+  var aSL={}; (st.statList||[]).forEach(function(x){ if(x&&x.k) aSL[x.k]=x.v; });
+  var bSL={}; if(cst)(cst.statList||[]).forEach(function(x){ if(x&&x.k) bSL[x.k]=x.v; });
+  var groupsHtml='', curG='';
+  STAT_LIST.forEach(function(m){
+    var av=aSL[m.k], bv=cst?bSL[m.k]:null;
+    if(av==null&&bv==null) return;
+    if(m.g!==curG){ curG=m.g; groupsHtml+='<div class="ch" style="grid-column:1/-1">'+esc(m.g)+'</div>'; }
+    var label=cst?esc(slShortLabel(m)):esc(m.t.replace('{0}',String(m.pct?((av||0)/10):(av||0))));
+    groupsHtml+=rowH(label,cst?slDispVal(m,av):(av!=null?'✓':null),cst?slDispVal(m,bv):null,av||0,cst?(bv||0):null);
+  });
+  if(groupsHtml) html+='<div class="cxsec"><div class="cxlbl">Stat List — grouped like the game</div>'+grid+head+groupsHtml+'</div></div>';
+  // ---- ALL rune totals (the complete list — nothing cut) ----
+  var aR={}; (st.runeStats||[]).forEach(function(x){ if(x&&x.e) aR[x.e]=x.v; });
+  var bR={}; if(cst)(cst.runeStats||[]).forEach(function(x){ if(x&&x.e) bR[x.e]=x.v; });
+  var effs=[]; var seenE={};
+  Object.keys(aR).concat(Object.keys(bR)).forEach(function(e2){ if(!seenE[e2]){seenE[e2]=1;effs.push(e2);} });
+  effs.sort(function(x,y){ return Math.max(bR[y]||0,aR[y]||0)-Math.max(bR[x]||0,aR[x]||0); });
+  if(effs.length){
+    var rHtml=effs.map(function(e2){ return rowH(esc(e2),aR[e2]!=null?('+'+fmt(aR[e2])):null,cst?(bR[e2]!=null?('+'+fmt(bR[e2])):null):null,aR[e2]||0,cst?(bR[e2]||0):null); }).join('');
+    html+='<div class="cxsec"><div class="cxlbl">All rune totals — every effect they shared (raw table values)</div>'+grid+head+rHtml+'</div></div>';
+  }
+  // ---- build the dialog ----
+  var mo=el('<div class="cxmodal" style="width:min(640px,96vw)"></div>');
+  mo.appendChild(el('<button class="cxclose" title="Close (Esc)">×</button>'));
+  mo.appendChild(el('<div class="cxtn">'+esc(member.name)+youTag(member)+'</div>'));
+  mo.appendChild(el('<div class="cxtsub">'+(member.updatedAt?('updated '+fmtAgo(+new Date(member.updatedAt))+' · '):'')+
+    (member.achievement&&member.achievement.text?('🏅 '+esc(member.achievement.text)):'')+
+    (st.ver?(' · app v'+esc(st.ver)):'')+'</div>'));
+  if(others.length){
+    var bar=el('<div class="cmpbar"><span style="font-size:12px;color:var(--text-dim)">Compare with</span></div>');
+    var opts=[['','— no comparison —']].concat(others.map(function(m){ return [m.id, m.name+((isMeMember(m)&&!/^you\b/i.test(m.name||''))?' (you)':'')]; }));
+    bar.appendChild(cxSelect(opts,(cmp?cmp.id:''),function(v){ _cmCompareId=v||'__none__'; openCrewMember(member,members); }));
+    mo.appendChild(bar);
+  }
+  var body=el('<div></div>'); body.innerHTML=html; mo.appendChild(body);
+  if(!(st.statList&&st.statList.length)&&!(st.runeStats&&st.runeStats.length)&&st.ver&&st.ver!==APP_VERSION)
+    mo.appendChild(el('<div class="cxnote" style="margin-top:12px">This member\'s HUD is on app v'+esc(st.ver)+' — older versions share fewer stats. v1.0.6+ updates itself.</div>'));
+  mo.appendChild(el('<div class="cxnote" style="margin-top:14px">Everything here is exactly what this member chose to share (opt-in brag-stats) — never their save. The highlighted side of a comparison simply has the larger number.</div>'));
+  var ov=el('<div class="cxmodal-ov"></div>'); ov.appendChild(mo); document.body.appendChild(ov);
+  function onKey(ev){ if(ev.key==='Escape') closeCrewMember(); }
+  ov.addEventListener('click',function(ev){ if(ev.target===ov) closeCrewMember(); });
+  mo.querySelector('.cxclose').addEventListener('click',closeCrewMember);
+  document.addEventListener('keydown',onKey);
+  _cmModal={ov:ov,onKey:onKey};
+}
 function renderCrew(d){
   var p=$('tab-crew');p.innerHTML='';
   var joined=crewCodeOk(crewCfg.code)&&!!crewCfg.name;
@@ -2421,7 +2629,7 @@ function renderCrew(d){
 
   // ---- setup / privacy panel ----
   var setup=el('<div class="panel"></div>');
-  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes a few <b>brag-stats</b> — max stage, lifetime gold, kills, gold, top-3 hero levels, runes, your <b>Legendary/Immortal/Arcana gear counts</b> (gear only — stones never count), and <b>play hours</b> — and sees everyone else\'s, live. <b>Nothing else ever leaves your device</b>: not your save file, not your items, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
+  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes their <b>brag-stats</b> — max stage, lifetime gold, kills, gold, top-3 hero levels, runes, your <b>Legendary/Immortal/Arcana gear counts</b> (gear only — stones never count), play hours, and your <b>complete Stat List</b> (the grouped panel plus every rune total) — and sees everyone else\'s, live. <b>Click any member for their full stats and a side-by-side compare.</b> <b>Nothing else ever leaves your device</b>: not your save file, not your items, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
   var form=el('<div class="crewform"></div>');
   var inCode=el('<input id="crewCode" maxlength="32" placeholder="Crew code (3-32 letters/numbers)" value="'+esc(crewCfg.code)+'">');
   var inName=el('<input id="crewName" maxlength="24" placeholder="Your display name" value="'+esc(crewCfg.name)+'">');
@@ -2489,7 +2697,7 @@ function renderCrew(d){
       var meVal=null; sorted.forEach(function(m2){ if(m2.id===crewCfg.id) meVal=crewRankVal(m2.stats,key); });
       var panel=el('<div class="panel"></div>');
       sorted.forEach(function(m2,i){
-        var st=m2.stats||{}, isMe=m2.id===crewCfg.id;
+        var st=m2.stats||{}, isMe=isMeMember(m2);
         // a member whose HUD has been offline >24h keeps their last shared stats — dim them so the freshness
         // difference is visible at a glance (the timestamp under the name says exactly how old)
         var stale=m2.updatedAt&&(Date.now()-(+new Date(m2.updatedAt)))>86400000;
@@ -2509,24 +2717,33 @@ function renderCrew(d){
         else if(st.trophies!=null)chips+='<span class="chip">💎 <b>'+fmt(st.trophies)+'</b> Leg+</span>';
         if(st.playHours!=null)chips+='<span class="chip">⏱ <b>'+fmt(st.playHours)+'h</b> played</span>';
         row.appendChild(el('<span class="crewchips">'+chips+'</span>'));
-        // full grouped Stat List (v1.0.11) — rendered with the game's own wording; falls back to the v1.0.10
-        // rune-stat snippet for members whose HUD hasn't updated yet.
+        row.appendChild(el('<span class="crewmore">⤢ full stats &amp; compare</span>'));
+        // compact Stat-List preview (v1.0.13) — first lines only; the FULL list (grouped + every rune total)
+        // lives in the click-through member pop-up, so nothing is ever truly cut.
         var slGroups=statListFromPayload(st.statList);
         if(slGroups.length){
-          var slHtml=slGroups.map(function(g3){
-            return '<span class="crewsl-g">'+esc(g3.group)+'</span>'+g3.lines.map(function(l){
-              var hot=('sl:'+l.k)===key;
-              return '<span class="crewsl-l"'+(hot?' style="color:var(--accent-2);font-weight:600"':'')+'>'+esc(l.text)+'</span>';
-            }).join('');
-          }).join('');
+          var flat=[]; slGroups.forEach(function(g3){ g3.lines.forEach(function(l){ flat.push(l); }); });
+          // distinct stats this member shared = the larger of (grouped lines, all raw rune totals)
+          var totalStats=Math.max(flat.length,(st.runeStats||[]).length);
+          var shown=flat.slice(0,4);
+          var moreN=totalStats-shown.length;
+          var slHtml=shown.map(function(l){
+            var hot=('sl:'+l.k)===key;
+            return '<span class="crewsl-l"'+(hot?' style="color:var(--accent-2);font-weight:600"':'')+'>'+esc(l.text)+'</span>';
+          }).join('')+
+          (moreN>0?('<span class="crewsl-l" style="color:var(--accent-2)">+'+moreN+' more stat'+(moreN>1?'s':'')+' — click for the full list</span>'):'');
           row.appendChild(el('<span class="crewsl">'+slHtml+'</span>'));
         } else if(st.runeStats&&st.runeStats.length){
           var rline=st.runeStats.slice(0,4).map(function(x){return esc(x.e)+' <b style="color:var(--accent-alt)">+'+fmt(x.v)+'</b>';}).join(' · ');
-          row.appendChild(el('<span class="crewach" style="color:var(--text-muted)">🧬 '+rline+(st.runeStats.length>4?(' <span class="gap">+'+(st.runeStats.length-4)+' more</span>'):'')+'</span>'));
+          row.appendChild(el('<span class="crewach" style="color:var(--text-muted)">🧬 '+rline+(st.runeStats.length>4?(' <span class="gap">+'+(st.runeStats.length-4)+' more — click the row</span>'):'')+'</span>'));
         } else if(st.ver&&st.ver!==APP_VERSION){
           // older client: their HUD sends an older payload — that's why their chips show less detail
           row.appendChild(el('<span class="crewach"><span class="gap" title="This member\'s HUD is on an older version, so it shares fewer stats. v1.0.6+ updates itself; v1.0.5 or older needs a one-time reinstall.">app v'+esc(st.ver)+' — fewer stats until they update</span></span>'));
         }
+        // whole row opens the member pop-up (full stats + compare) — v1.0.13
+        row.classList.add('open');
+        row.title='Click for '+(m2.name||'this member')+'’s complete stats and a side-by-side compare';
+        row.addEventListener('click',function(){ openCrewMember(m2,sorted); });
         var achBits=[];
         if(m2.achievement&&m2.achievement.text)achBits.push('🏅 '+esc(m2.achievement.text)+(m2.achievement.t?(' <span style="color:var(--text-dim)">· '+fmtAgo(+new Date(m2.achievement.t))+'</span>'):''));
         if(!isMe&&meVal!=null){var tv=crewRankVal(st,key);
@@ -2550,12 +2767,14 @@ function demoCrewBoard(){
   var now=Date.now();
   return [
     {id:'demo-you',name:'You (sample)',updatedAt:new Date(now-60000).toISOString(),
-      stats:{maxStage:1210,maxStageLabel:'Act 2-10',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},runeStats:[{e:'Increase Gold Amount',v:300},{e:'All Hero Attack Damage Percent',v:120},{e:'Drop Chance Normal Chest Percent',v:90}],
+      stats:{maxStage:1210,maxStageLabel:'Act 2-10',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},
+      runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:2100},{e:'Drop Chance Normal Chest Percent',v:1050},{e:'Increase Exp Amount',v:700},{e:'Increase Gold Amount',v:700},{e:'Additional Gold Act Boss',v:500},{e:'All Hero Attack Damage Percent',v:350},{e:'Additional Exp Act Boss',v:300},{e:'Offline Reward Gold Percent',v:300},{e:'Additional Gold Stage Boss',v:280},{e:'All Hero Move Speed',v:210},{e:'All Hero Attack Speed',v:160},{e:'All Hero Armor Percent',v:150},{e:'Additional Exp Stage Boss',v:80},{e:'Max Inventory Slot',v:21},{e:'All Hero Attack Damage',v:10},{e:'Unlock Arrange Slot Count',v:2},{e:'Additional Exp',v:1}],
       statList:[{k:'IncreaseExpAmount',v:700},{k:'AdditionalExp',v:1},{k:'AdditionalExpStageBoss',v:80},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:210},{k:'AllHeroAttackSpeed',v:160},{k:'AllHeroAttackDamage',v:10}],
       playHours:34.4,ver:APP_VERSION},
       achievement:{t:new Date(now-3600000).toISOString(),text:'Reached Act 2-10'}},
     {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-300000).toISOString(),
       stats:{maxStage:1208,maxStageLabel:'Act 2-8',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},
+      runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:1800},{e:'Drop Chance Normal Chest Percent',v:1200},{e:'Increase Exp Amount',v:800},{e:'Increase Gold Amount',v:500},{e:'All Hero Attack Speed',v:200},{e:'All Hero Move Speed',v:170},{e:'Additional Exp Act Boss',v:300},{e:'Additional Gold Stage Boss',v:340},{e:'Offline Reward Exp Percent',v:200},{e:'All Hero Armor',v:60},{e:'Additional Exp Stage Boss',v:120},{e:'Max Inventory Slot',v:18},{e:'All Hero Attack Damage',v:14},{e:'Unlock Arrange Slot Count',v:2}],
       statList:[{k:'IncreaseExpAmount',v:800},{k:'AdditionalExpStageBoss',v:120},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:170},{k:'AllHeroAttackSpeed',v:200},{k:'AllHeroAttackDamage',v:14}],
       playHours:41.2,ver:APP_VERSION},
       achievement:{t:new Date(now-7200000).toISOString(),text:'Slayer hit Lv 22'}},
@@ -2578,6 +2797,24 @@ var CX_MINW=130, CX_GAP=12, CX_CARDH=152, CX_ROWH=CX_CARDH+CX_GAP, CX_PADY=12;
 
 function catalogTotalCount(){return buildCatalog().length;}
 function catalogEntry(key){if(!_catByKey){_catByKey={};buildCatalog().forEach(function(e){_catByKey[String(e.key)]=e;});}return _catByKey[String(key)]||null;}
+// category-aware lookup (v1.0.13) — rune keys are small ints that could collide with other tables, so anything
+// that knows what it's looking for (a rune card vs an item tile) resolves by category, never by bare key.
+var _catByCatKey=null;
+function catalogFind(cat,key){
+  if(!_catByCatKey){_catByCatKey={};buildCatalog().forEach(function(e){_catByCatKey[e.cat+'|'+String(e.key)]=e;});}
+  return _catByCatKey[(cat==='RUNE'?'RUNE':(cat==='SKILL'?'SKILL':''))+'|'+String(key)]||
+    _catByCatKey['GEAR|'+String(key)]||_catByCatKey['MATERIAL|'+String(key)]||_catByCatKey['BOX|'+String(key)]||null;
+}
+// make any node open the Codex detail for an item/rune — the whole dashboard becomes click-through (v1.0.13)
+function wireCodexClick(node,cat,key){
+  node.classList.add('click'); node.style.cursor='pointer';
+  if(!node.title) node.title='Click for full details (Codex)';
+  node.addEventListener('click',function(ev){ ev.stopPropagation(); hideTip();
+    var ce=catalogFind(cat,key); if(!ce) return;
+    var owned=false; try{ owned=current?codexOwnPredicate(current)(ce):false; }catch(e){}
+    openCodexDetail(ce,owned);
+  });
+}
 function codexOwnPredicate(d){
   var ownItem={},ownRune={},ownSkill=(d&&d.ownedSkills)||{};
   if(d){(d.owned||[]).forEach(function(o){ownItem[String(o.key)]=1;});
@@ -3076,8 +3313,8 @@ function loadDemo(){
     var x=xpToNext(h.level,h.exp);h.xpNeed=x.need;h.xpRemaining=x.remaining;h.xpPct=x.pct;});
   var demoAccount={runes:Object.keys(DB.runes||{}).slice(0,8).map(function(k,i){return {n:DB.runes[k].n,eff:DB.runes[k].eff,level:(i%3)?5:10};}),
     pet:(DB.pets&&DB.pets['6003'])?{key:6003,n:DB.pets['6003'].n,desc:DB.pets['6003'].desc}:{key:6003,n:'Dragon'}};
-  lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15,src:'cube',mats:9},
-    {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,src:'found'}];
+  lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15,key:'423041',src:'cube',mats:9},
+    {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,key:'322041',src:'found'}];
   var demoRuneSave=Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};});
   // seed a ~10-min session so the sample showcases live rates + per-hero level ETAs (deployed gain XP, bench don't)
   var demoXp0={}; heroes.forEach(function(h){demoXp0[h.key]=heroCumXp(h.level,h.exp)-(h.deployed?42000:0);});

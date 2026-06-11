@@ -11,7 +11,24 @@ notes: CHANGELOG.md + in-app "What's new".
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
-- **S18b (v1.0.12) — dark theme redesigned (owner feedback).** v1.0.11's dark had carried the legacy navy palette
+- **S19 (v1.0.13) — Crew deep-dive + Advisor info-density + click-through everywhere (owner's 3 asks).**
+  (1) **Crew member pop-up:** the board's stat list was genuinely CUT — the v1.0.10 payload sent only the top-6 rune
+  totals with names truncated at 32 chars ("Drop Chance Stage Boss Chest Per…"). Now the payload carries the
+  COMPLETE list (≤40 effects, names ≤48 — the longest real name is 36) and clicking ANY member row opens a dialog
+  with every brag-stat, the grouped Stat List (game wording) and ALL rune totals, plus a **Compare with** selector
+  (defaults to you; demo-aware) that lines both members up with the larger value highlighted — leaderboard fact,
+  no judgement. Rows became compact previews (top 4 lines + "+N more — click for the full list" + a "⤢ full stats"
+  pill). Server whitelist caps widened accordingly (api/_lib.js) and tbh-crew-api redeployed; round-tripped live.
+  (2) **Advisor:** "At a glance" cards (upgrades ready / level-locked / open enchant slots / affordable rune steps)
+  + every suggested swap now shows BOTH items' inherent stats side by side (authoritative GearInfoData values,
+  tooltip display rules, no per-stat better/worse claim — the advice still rests on the calibrated rarity/level
+  rule) + enchant-count and unique-mod notes; advisor items got hover tooltips + Codex click-through. The big
+  blank row space now carries real information. (3) **Interactivity:** click-through everywhere — inventory tiles,
+  trophies, hero gear minis, loot entries (key now recorded per entry), enchanting stones → full Codex page;
+  rune cards → per-level value/cost table; Runes-tab Stat-List lines and rune-total chips FILTER the rune grid
+  to the runes granting that stat (reset pill). Category-aware catalog lookup (catalogFind) so small rune keys
+  can never collide with item keys. Verified: 11 tabs × both themes × 375/1280 = 0 overflow; member dialog 0
+  internal overflow at 375 (values wrap); 0 console errors; verify_save PASS; version sync 1.0.13. v1.0.11's dark had carried the legacy navy palette
   over almost unchanged — the owner correctly flagged "no difference in dark mode." New dark = a real counterpart of
   the light design: slate-indigo ground lifted off black (#10141f vs the old #080a13), clearly elevated cards
   (#1c2235 ramp), stronger borders, periwinkle accent ramp (#7d96ff/#a3b4ff, alt #bd8cff), mint good/refreshed

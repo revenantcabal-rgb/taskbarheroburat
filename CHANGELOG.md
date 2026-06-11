@@ -4,6 +4,30 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.13 — 2026-06-11
+
+### Added
+- **Crew member pop-up** — click any member for their **complete** shared stats: every brag-stat, the
+  grouped Stat List in the game's own wording, and **all rune totals** (the board previously trimmed the
+  list to six entries and truncated long stat names; both limits are gone).
+- **Side-by-side compare** in the pop-up — pick any other member (defaults to you) and every stat lines
+  up in two columns with the larger value highlighted.
+- **Advisor "At a glance"** — upgrades ready, level-locked finds, open enchant slots and affordable rune
+  steps, as cards at the top of the tab.
+- **Advisor stat comparison** — every suggested swap now shows both items' inherent stats side by side
+  (the game's own GearInfoData values, same display rules as the tooltips), plus a note when the current
+  piece carries enchants or the upgrade has a unique mod. The previously-empty row space now carries
+  real information.
+- **Click-through everywhere** — items across the app (inventory, trophies, hero gear, advisor rows,
+  new-loot entries, enchanting stones) open their full Codex page; rune cards open their per-level
+  value/cost table; Stat-List lines and rune-total chips filter the rune grid to exactly the runes that
+  grant that stat.
+
+### Changed
+- Crew rows are now compact previews (top stats + "+N more") since the complete list is one click away.
+- Crew payload: the full rune-total list (up to 40 effects, names up to 48 chars) replaces the old
+  top-6/32-char cap — same opt-in rules, still brag-stats only, never your save.
+
 ## v1.0.12 — 2026-06-11
 
 ### Changed

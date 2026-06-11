@@ -78,9 +78,11 @@ function cleanStats(raw) {
   if (raw.tiers && typeof raw.tiers === 'object') {
     TIER_KEYS.forEach((t) => { const n = num(raw.tiers[t]); if (n != null && n > 0) tiers[t] = Math.min(100000, Math.floor(n)); });
   }
-  // top rune stats (v1.0.10): max 6 entries of {e: effect name, v: summed value}
-  const runeStats = Array.isArray(raw.runeStats) ? raw.runeStats.slice(0, 6).map((s) => ({
-    e: str(s && s.e, 32) || '?', v: num(s && s.v) || 0,
+  // rune stat totals (v1.0.10; v1.0.13 widened): the member's FULL account-wide rune totals — one {e,v} per
+  // effect (the game has 39 distinct effects; cap 40) with untruncated names (longest is 36 chars; cap 48).
+  // The old 6-entry/32-char caps cut the list — the owner wants the whole Stat List visible in Crew.
+  const runeStats = Array.isArray(raw.runeStats) ? raw.runeStats.slice(0, 40).map((s) => ({
+    e: str(s && s.e, 48) || '?', v: num(s && s.v) || 0,
   })).filter((s) => s.e !== '?' && s.v > 0) : [];
   // grouped Stat List (v1.0.11): only the calibrated line keys, raw positive values — anything else is dropped
   const statList = Array.isArray(raw.statList) ? raw.statList.slice(0, 12).map((s) => ({

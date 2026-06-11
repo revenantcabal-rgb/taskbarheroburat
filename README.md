@@ -56,9 +56,10 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   table, **what a stage box can contain**, **where an item drops from**, and marketable/Steam flags.
 - **Crew** — an **optional, opt-in private leaderboard** for you and your friends. Agree on any shared **crew code**
   (like a private room name), pick a display name, and everyone who opts in sees one live board: rank by max stage /
-  lifetime gold / kills / top hero / runes — **or by any calibrated Stat List line** — each member's latest brag-stats
-  **including their full grouped Stat List**, their **latest achievement** (derived from
-  their own snapshots — new max stage, new Legendary+, a hero level-up, a rune milestone), and your gap to them.
+  lifetime gold / kills / top hero / runes — **or by any calibrated Stat List line** — each member's latest brag-stats,
+  their **latest achievement** (derived from their own snapshots), and your gap to them. **Click any member** for
+  their complete shared stats — every brag-stat, the grouped Stat List in the game's own wording, and **all** their
+  rune totals — plus a **side-by-side compare** with any other member (defaults to you), larger value highlighted.
   **Off by default; nothing is uploaded unless you flip "Share my progress" ON — and even then only the small
   brag-stats payload shown on the tab, never your save file.** See the FAQ below.
 - **Tips** — **personalized suggestions** built live from your save (unspent ability points, empty gear slots, the
@@ -91,7 +92,7 @@ No save handy? Click **Preview sample** for a demo, or **Browse the full item ca
 it at vercel.com for a one-click second deployment.
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.12.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.12/TBH-HUD-Setup-1.0.12.exe)** (direct, ~79 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.13.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.13/TBH-HUD-Setup-1.0.13.exe)** (direct, ~79 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and
