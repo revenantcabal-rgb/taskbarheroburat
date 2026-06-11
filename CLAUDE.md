@@ -347,5 +347,5 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   Developer Mode hits a symlink-extract error; `package.json` sets `win.signAndEditExecutable=false` +
   `verifyUpdateCodeSignature=false` to skip the winCodeSign fetch (we don't sign / have no .ico). To SIGN later, provide a
   cert (WIN_CSC_LINK) and re-enable those, with Developer Mode/elevation so winCodeSign extracts.
-- Release/auto-update: `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml dist/*.blockmap` (electron-updater reads latest.yml).
+- Release/auto-update: `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest` (electron-updater reads latest.yml). **No `dist/*.blockmap` since v1.0.15** — differential downloads are disabled (they were pathologically slow; see S21).
 - Full-catalog audit: `node scripts/audit_catalog.js`. Live-save check: `node scripts/verify_save.js` (incl. offline tz check).

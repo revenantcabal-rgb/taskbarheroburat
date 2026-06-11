@@ -6,6 +6,17 @@ It **never writes to, modifies, or injects into the game** — it only reads fil
 
 Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 
+## Status — current as of v1.0.15
+- **Live & free in the browser:** [GitHub Pages](https://revenantcabal-rgb.github.io/taskbarheroburat/) and a
+  [Vercel mirror](https://taskbarheroburat.vercel.app/) (both auto-update from this repo on every push).
+- **Windows desktop app:** [latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)
+  (one-click installer, auto-finds your save, **auto-updates itself** — fast single-stream downloads since v1.0.15).
+- **11 tabs** — Overview · Party · Inventory · Loot · Runes · Advisor · Lifetime · Trends · Crew · Codex · Tips.
+- **Light & dark themes** (light default), fully responsive, WCAG AA in both.
+- **Opt-in Crew leaderboard** — a private, code-gated board (Vercel + Neon Postgres); brag-stats only, never your save.
+- **Read-only & calibrated throughout** — every number traces to the game's own data tables or your save, or it's
+  omitted (never guessed). Full per-version history: [CHANGELOG.md](CHANGELOG.md) and in-app ✨ **What's new**.
+
 ## What it shows (11 tabs)
 - **Overview** — gold, current & max stage (shown as **"Act X-Y" + the real stage name**, never a raw key), total
   kills, runes, session gold/hr & kills/hr, your **best measured farming stage** (from your own save history), an
@@ -18,20 +29,25 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   source breakdown**: each deployed
   hero's stats attributed to Base / Gear / Tree **plus a summed Total row**, and account-wide runes & pet.
 - **Inventory** — every owned item with its real name, rarity (color-framed), real icon, level, enchants, **inherent
-  gear stats and unique-mod effects** (hover tooltip). Filter by rarity / materials.
-- **Loot** — Steam boxes held, offline-reward gold, and a **"new items" timeline** (each entry timestamped in **both
-  your local time and UTC**) with **Legendary+ rare-item alerts** (optional, opt-in silent desktop notification).
-  New gear is shown whether it dropped or was crafted/synthesized in the Cube — the game records no origin, so the
-  tool honestly doesn't guess which.
+  gear stats and unique-mod effects** (hover tooltip; click any item for its full Codex page). Filter by rarity / materials.
+- **Loot** — the **Steam boxes you're holding** (real counts the game writes into your own `Player.log` whenever it
+  checks its Steam inventory — never placeholders; click a box to see what it can contain), timestamped
+  **offline-reward gold**, and a **"new items" timeline** (each entry in **both your local time and UTC**, click an
+  item for its Codex page) with **Legendary+ rare-item alerts** (optional, opt-in silent desktop notification). New
+  gear is shown whether it dropped or was crafted/synthesized in the Cube — the game records no origin, so the tool
+  honestly doesn't guess which.
 - **Runes** — the 197-node rune tree with real names/effects, leveled status, cheapest-next-upgrade
   recommendations, and the game's grouped **Stat List** (Exploration / Combat) rendered **exactly as the game shows
   it** — same grouping, the game's own wording, same numbers (calibrated line-by-line against the in-game panel;
-  anything not yet verified is omitted, never guessed) — plus every raw rune total below it.
-- **Advisor** — provable, save-derived build advice. **Gear upgrades you can equip right now:** for every equipped
-  item it finds an *unequipped* item of the *same gear type* that is strictly better (higher rarity, or same rarity at
-  a higher level) **and that the hero's level allows** — sidegrades and judgement calls are never suggested, and
-  better gear above the hero's level is shown separately as a **level-locked notice** (🔒 needs Lv X) so you know
-  it's waiting. **Rune plan:** a cheapest-first upgrade path priced from
+  anything not yet verified is omitted, never guessed) — plus every raw rune total below it. Click a Stat List line
+  or a rune-total chip to **filter the tree to the runes behind that stat**; click any rune for its per-level table.
+- **Advisor** — provable, save-derived build advice, with an **"At a glance"** summary up top (upgrades ready,
+  level-locked finds, open enchant slots, affordable rune steps). **Gear upgrades you can equip right now:** for every
+  equipped item it finds an *unequipped* item of the *same gear type* that is strictly better (higher rarity, or same
+  rarity at a higher level) **and that the hero's level allows** — sidegrades and judgement calls are never suggested,
+  and better gear above the hero's level is shown separately as a **level-locked notice** (🔒 needs Lv X) so you know
+  it's waiting. Each swap shows **both items' inherent stats side by side** (the game's own values) so you can see
+  exactly what changes. **Rune plan:** a cheapest-first upgrade path priced from
   the game's own per-level cost tables against your current gold (plus a "save for" target). **Enchanting workshop:**
   every open enchant slot on your deployed party, compact per hero — plus **the enchanting stones you own**, each with
   the game's own per-slot-category effects (Weapon / Armor / Accessory) and "✓ ready to use" matches where the
@@ -60,8 +76,9 @@ Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
   their **latest achievement** (derived from their own snapshots), and your gap to them. **Click any member** for
   their complete shared stats — every brag-stat, the grouped Stat List in the game's own wording, and **all** their
   rune totals — plus a **side-by-side compare** with any other member (defaults to you), larger value highlighted.
-  **Off by default; nothing is uploaded unless you flip "Share my progress" ON — and even then only the small
-  brag-stats payload shown on the tab, never your save file.** See the FAQ below.
+  **Off by default; nothing is uploaded unless you flip "Share my progress" ON — and even then only the
+  brag-stats payload listed in the FAQ (max stage, gold, kills, top heroes, runes, gear-tier counts, play hours,
+  your rune totals and grouped Stat List), never your save file or individual items.** See the FAQ below.
 - **Tips** — **personalized suggestions** built live from your save (unspent ability points, empty gear slots, the
   cheapest rune upgrade you can afford, a nearly-full stash, bench heroes falling behind, farming stagnation) plus
   **game tips** worth knowing. Every suggestion is calibrated from your save; it never invents "do X for +Y" numbers
@@ -78,7 +95,11 @@ place). All text meets WCAG AA contrast in both themes. What changed in each ver
 ## Two ways to use it
 
 ### 1. Browser (no install) — Chrome / Edge
-**Live:** **https://revenantcabal-rgb.github.io/taskbarheroburat/** (GitHub Pages, HTTPS). Then either:
+**Live (two mirrors, both HTTPS, both always current):**
+- **https://revenantcabal-rgb.github.io/taskbarheroburat/** (GitHub Pages)
+- **https://taskbarheroburat.vercel.app/** (Vercel — auto-deploys from this repo on every push)
+
+Then either:
 - **Connect folder** (recommended) → pick `%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\`.
   This reads your live save **plus** the rolling backups and `Player.log`, so you get History/Trends and the loot
   timeline. It updates live as you play.
@@ -87,17 +108,17 @@ place). All text meets WCAG AA contrast in both themes. What changed in each ver
 The connect screen walks you through it step-by-step (with a one-click button to copy the exact folder path), and a
 **Disconnect / Change folder** button in the header lets you clear the loaded save and switch to a different one at any time.
 
-No save handy? Click **Preview sample** for a demo, or **Browse the full item catalog** to explore the Codex with no save.
-(`?demo` and `?codex` also work as URL shortcuts.) The repo is also **Vercel-ready** (`vercel.json` + `index.html`) — import
-it at vercel.com for a one-click second deployment.
+No save handy? Click **See a demo** for sample data, or **Browse the full item catalog** to explore the Codex with no
+save. (`?demo` and `?codex` also work as URL shortcuts.)
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.15.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.15/TBH-HUD-Setup-1.0.15.exe)** (direct, ~79 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.15.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.15/TBH-HUD-Setup-1.0.15.exe)** (direct, ~72 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
-release is published it downloads in the background and shows an **"Update ready — Restart to update"** banner (and
-applies it on next quit even if you don't click). The installer is the standard wizard: it makes Start-Menu / desktop
-shortcuts and **registers in Windows "Add or remove programs," so you can uninstall it cleanly any time.**
+release is published it downloads in the background (in one fast stream, with a live size/speed readout since
+v1.0.15) and shows an **"Update ready — Restart to update"** banner (and applies it on next quit even if you don't
+click). The installer is the standard wizard: it makes Start-Menu / desktop shortcuts and **registers in Windows
+"Add or remove programs," so you can uninstall it cleanly any time.**
 
 ## FAQ
 
@@ -114,9 +135,12 @@ progress" ON** to appear on the board — it updates as you play and refreshes e
 code** button makes inviting easy. You can watch a board without sharing; sharing is per-device and instant to turn off.
 
 **What exactly does the Crew feature upload?** Only if you opt in, and only these brag-stats: display name, max stage,
-lifetime gold, total kills, gold balance, your top-3 hero levels, runes leveled, Legendary+ count, and play hours.
-**Never your save file, never your items, never anything else.** With sharing OFF (the default), nothing is uploaded
-at all — exactly as before. The board lives behind your crew code on a small serverless API (Vercel + Neon Postgres).
+lifetime gold, total kills, gold balance, your top-3 hero levels, runes leveled, your per-tier gear counts
+(Legendary / Immortal / Arcana … — gear only, materials never count), play hours, your **full account-wide rune
+totals**, and your **grouped Stat List** (the calibrated Exploration / Combat lines, in the game's own wording — the
+same numbers the Crew member pop-up and compare view show). **Never your save file, never your individual items,
+never anything else.** With sharing OFF (the default), nothing is uploaded at all. The board lives behind your crew
+code on a small serverless API (Vercel + Neon Postgres); the server only ever stores those whitelisted fields.
 
 **Does the installer come with an uninstaller?** Yes. It shows up in Windows **Settings → Apps → "Add or remove
 programs"** as *TBH HUD* — click **Uninstall** like any other app. (It installs per-user and never touches the game.)
