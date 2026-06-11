@@ -1,9 +1,9 @@
 # TBH HUD — improvement.log
-Updated 2026-06-11 (session 23 · app v1.0.18). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-11 (session 23 · app v1.0.19). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.18**
+Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.19**
 released (installer + latest.yml, NO blockmap since v1.0.15 → installs on v1.0.6+ auto-update via one full-stream download).
 **11 tabs** (Overview / Party / Inventory / Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 vs the test live save with 0 console errors, in **light (default) and dark themes**, now with Codex-grade Loot + Inventory
@@ -13,7 +13,18 @@ reference**, the **Targets** panel (measured-rate ETAs) and opt-in enchant crowd
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
-- **S23b (v1.0.18) — adversarial-review patch (3 reviewers × refute-style verification; 7 raised → 3 refuted,
+- **S23c (v1.0.19) — loot freshness (owner report: "crafted + synthesized, nothing appeared; no refresh").**
+  DIAGNOSIS: detection is sound (verified end-to-end: a craft logs untagged, a 9-mat synthesis logs ⚒️ Cube —
+  both on the next save READ); the real causes are (a) items only land at the game's NEXT save WRITE (its own
+  schedule), (b) the owner's long-uptime desktop app (still v1.0.11 — updates apply on quit) can lose its
+  fs.watch silently after sleep/resume → the whole HUD freezes with no error, (c) no manual refresh existed and
+  one-shot file-drop connects never update. FIXES: main.js WATCHDOG (mtime poll: save 5s, Player.log ~30s —
+  a dead watcher can no longer freeze the app); Loot tab "↻ Refresh now" wired per connect path (Electron
+  requestSave/Log/Backups · folder scanFolder(true) · file-handle re-read; one-shot drops get an honest
+  disabled state) + a "save written … ago" stamp + explicit next-save-write timing notes (incl. the baseline
+  rule). BONUS FIX: verify_save's per-stage consistency check false-alarmed on the LIVE save mid-play (Act 3-5
+  measured over 0.1h — display-rounded hours alone exceed a fixed 1% tolerance); tolerance now scales with the
+  rounding term (0.005/hours + 1%). The engine math was correct. (3 reviewers × refute-style verification; 7 raised → 3 refuted,
   4 confirmed, all fixed same-day).** (1) **Real Cube unlock state:** the review's verifier DISCOVERED the save
   field `cubeRecipeSaveDatas[].MaxUnlockRecipeKey` (highest unlocked sub-recipe per category; 0 = none) and a
   calibrating counterexample in the committed backups — ENGRAVING locked at Cube 17 despite its level-15 gate →
