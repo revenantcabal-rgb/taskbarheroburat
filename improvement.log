@@ -1,17 +1,63 @@
 # TBH HUD — improvement.log
-Updated 2026-06-11 (session 22 · app v1.0.16). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-11 (session 23 · app v1.0.17). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.16**
+Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.17**
 released (installer + latest.yml, NO blockmap since v1.0.15 → installs on v1.0.6+ auto-update via one full-stream download).
 **11 tabs** (Overview / Party / Inventory / Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 vs the test live save with 0 console errors, in **light (default) and dark themes**, now with Codex-grade Loot + Inventory
-controls, the measured blue-chest tracker, a desktop **mini-HUD**, settings and keyboard shortcuts. **Crew API live**
-(Vercel serverless + Neon Postgres, opt-in only). Public patch notes: CHANGELOG.md + in-app "What's new".
+controls, the measured blue-chest tracker, a desktop **mini-HUD**, settings, keyboard shortcuts, **Codex recipes + the Cube
+reference**, the **Targets** panel (measured-rate ETAs) and opt-in enchant crowd-calibration. **Crew API live AND hardened**
+(rate limits + prune + "Remove my data"; Vercel serverless + Neon Postgres, opt-in only). Patch notes: CHANGELOG.md + in-app.
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S23 (v1.0.17) — GOAL-v1.0.16 P5+P6 → the wave is COMPLETE (P1–P6).**
+  **(P5a) Codex recipes, 100% from the game's own tables:** the original dump whitelist skipped 5 recipe tables —
+  CubeRecipeInfoData, CubeSubRecipeInfoData, CubeLevelInfoData, SynthesisDropInfoData, ExtractionCostInfoData —
+  extracted now (install verified byte-identical to the v1.00.11 dump first). build_gamedata bakes crafting (56
+  recipes), synthesis result pools (203), synthesis requirement bands (25 groups — VERIFIED grade-independent
+  within each (type,tier): 0 mismatches across all 533 rows, and MaterialAmount==9 everywhere, independently
+  confirming the v1.0.8 Cube-consumption pattern), the Cube reference (8 localized recipe categories + 31
+  sub-recipe unlocks + the Cube XP curve) and extraction costs (90). Recipe OUTPUT pools resolve through the
+  same DB.drops chain as box contents, with bake-time integrity assertions (every material a real item, every
+  pool non-empty). Codex detail gained "The Cube can make this" (crafting: tier, unlock level, clickable
+  ingredient tiles with ×qty, pool size, "which one is random; no odds to quote" · synthesis: tier, unlock
+  level, grade/level pool, requirement bands, the game's own rule quoted verbatim) and "The Cube uses this"
+  on materials (ingredient lines + offerings with their gold cost); the Advisor gained "The Cube" (all 8
+  categories with the game's tooltips, every sub-recipe ✓/🔒 against the player's own Cube level). HONESTY:
+  the raw tables DO carry Weight/LevelWeight columns, but their composition lives in game code → omitted
+  (noted in _calibrated); the UnlockCost column names no currency → none claimed; engines in PARITY
+  (recipeIndex + 5 lookup fns in both); verify_save gained integrity checks + 17 lookup spot-checks vs an
+  independent re-derivation. The blue-chest findings doc got a PRECISION CORRECTION: its "no weight field
+  anywhere" sentence had searched the baked DB, not the raw CSVs — re-verified raw: every chest-bearing pool
+  is a uniform class-selector or single-entry pool → the no-encoded-chest-probability conclusion is unchanged
+  and STRONGER.
+  **(P5b) Enchant crowd-calibration (opt-in, tuple-only):** both engines' mod parsers now carry the stone's
+  MaterialKey + the resolved STATTYPE string (pre-deploy catch: the save's raw StatType field is NUMERIC; the
+  string resolved via StatModKey is what the original 4/4 calibration used). When the player's own save has
+  applied enchants on UNCALIBRATED gear types, the Advisor lists each (gear type, stone, rolled stat) tuple
+  and ONE explicit click POSTs exactly those three fields — never the save, no identifiers; sent tuples are
+  remembered locally. Server: api/enchant-report with a strict whitelist (the 20 real GEARTYPEs, positive-int
+  stone key, alnum stat), aggregate counters only, per-IP rate limit, distinct-row flood ceiling.
+  **(P5c) Crew hardening — tbh-crew-api REDEPLOYED:** Postgres fixed-window rate limiting (tbh_rate, fail-open)
+  on every endpoint (push 6/min per crew+member, board 30/min per IP, prune 6/min, reports 5/min); POST /prune
+  Mode A self-remove (code+memberId — exactly the pair that can already overwrite that row; zero new exposure)
+  and Mode B stale prune with a SERVER-ENFORCED 7-day floor (a leaked code can never remove an active member);
+  the Crew tab gained "🗑 Remove my data". Live smoke test (test/_crew_smoke.js): 10/10 — push, board, 429 on
+  the 7th push/min, stale-prune floor, self-remove + empty board, validation 400s, and a TRUTHFUL enchant-report
+  round-trip (the one stored tuple is the live save's own already-calibrated helmet enchant — the crowd table
+  only ever holds true rows).
+  **(P6) Targets:** "Your target" panel on the Overview — save-up-gold / rune-level (priced from the game's own
+  per-level cost table, "ready now" when affordable) / wear-a-locked-find (picked from the Advisor's REAL
+  level-locked notices; ETA from THAT hero's measured XP/hr) / clear-a-stage (ETA from the history's measured
+  stage progression, in PLAYED hours) — every ETA from the player's own measured pace only, with the honest
+  measuring…/not-gaining states of the per-hero ETA; auto-clears with a visible 🎉 when met; tbh_target is
+  cleared on Disconnect and on demo entry (clean-slate + sample isolation). Verified vs the real save with
+  exact-math checks (100k to go at a measured 80k/hr → 1h15m; 6.2M XP at a measured 120k XP/hr → ≈2 days).
+  **Also:** "Safe to let go" reason chips now wrap at 375px (a nowrap overflow on REAL saves that the P2 sweep
+  missed because demo data — which has no redundant spares — was loaded; sweeps now run with the real save).
 - **S22 (v1.0.16) — the power-user wave (docs/GOAL-v1.0.16.md P1–P4, all shipped + verified).**
   **(P1) Loot controls + export + the "where's my chest?" answer:** the timeline gained rarity chips, an origin
   filter (⚒️ Cube / ✦ found / — unclear), free-text search, sort (newest/rarity/name), Today/Yesterday date headers
@@ -275,23 +321,22 @@ the game's own tables/localization; honest fallback or omit. Verify EVERY change
 11 tabs, 0 console errors). The crew leaderboard is OPT-IN only and never receives the save.
 
 ## NEXT
-v1.0.16 shipped everywhere (Pages + owner's Vercel auto-deploy on push + desktop release Latest + crew API live,
-unchanged this wave). Remaining GOAL-v1.0.16 items: **P5** — Codex recipes (Synthesis/Crafting/Cube* inputs→output,
-no guessed odds; NO set bonuses — sets don't exist), opt-in enchant-tuple crowd-calibration (gt, MaterialKey, rolled
-StatType — calibrates boots/gloves/rings/offhands), crew API prune endpoint + rate limiting (redeploy tbh-crew-api
-only when api/* changes). **P6** — targets/goals tracker with ETAs from the player's own measured rates only.
+v1.0.17 shipped everywhere — **the GOAL-v1.0.16 wave is COMPLETE (P1–P6)**: Pages + owner's Vercel auto-deploy on
+push, desktop release Latest, crew API redeployed with hardening (live smoke 10/10). Backlog: promote crowd-
+calibrated enchant categories once tbh_enchant_reports accumulates consistent confirmations (then update
+gtGroup/gtGroupD in BOTH engines + re-verify); move the crew API under the owner's Vercel project (one canonical
+API at a time); sign the installer (cert); Clerk auth; mini-HUD tray icon + global hotkey; the owner's untracked
+Playwright scaffolding could host real browser tests.
 To ship the NEXT version: bump package.json + APP_VERSION + `?v=` cache-bust + CHANGELOG (const + .md),
 `npm run dist`, then `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest` (NO blockmap).
-Optional: move the crew API under the owner's taskbarheroburat Vercel project; sign the installer (cert); Clerk auth;
-mini-HUD tray icon + global hotkey.
 
 ## CONFIDENCE 9/10
 Everything save-facing is verified against the committed real save AND the owner's live save: verify_save.js PASS
-incl. the new v1.0.16 redundantDupes invariants (unequipped-only, independent dominator recount, never overlapping a
-gearGaps advice) and the version-sync assert at 1.0.16. The duplicates math was hand-checked against the full scepter
-dump; browser == Node parity re-asserted in-page. The blue-chest tracker was driven through the REAL pipeline with
-real catalog items (real stage + play-hours recorded; played-time gap math confirmed to the minute). 11 tabs × 375px
-× both themes = 0 overflow / 0 console errors at every step; Electron boots clean. −1: the mini-HUD window itself was
-exercised at the display-logic level (all states driven in-browser) and via a clean Electron boot, but the
-toggle→IPC→always-on-top flow hasn't been clicked by a human on real hardware yet, and the installer is unsigned
-(SmartScreen prompt).
+incl. the v1.0.17 recipe-chain integrity + 17 lookup spot-checks vs an independent re-derivation, the redundantDupes
+invariants, and the version-sync assert at 1.0.17; audit_catalog 100% on the rebuilt DB. The crew API was smoke-
+tested LIVE end-to-end after the redeploy (10/10 incl. the 429 rate-limit path and prune both modes); the enchant-
+report client was exercised against a stubbed fetch so its exact 3-field payload is asserted while no fabricated
+tuple ever reached the real crowd table. Targets ETA math spot-checked exactly (1h15m, ≈2 days). 11 tabs × 375px ×
+both themes × the REAL save = 0 overflow / 0 console errors. −1: the mini-HUD toggle→IPC flow and the new Crew
+"Remove my data" button still await one human click on real hardware (both verified at the logic/payload level),
+and the installer is unsigned (SmartScreen prompt).

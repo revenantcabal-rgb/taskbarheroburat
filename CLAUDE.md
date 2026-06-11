@@ -213,6 +213,33 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S23 (v1.0.17)** — **GOAL-v1.0.16 P5+P6 → the wave is COMPLETE (P1–P6).** (P5a) **Codex recipes:** dumped the
+  5 recipe tables the original whitelist skipped (CubeRecipe/CubeSubRecipe/CubeLevel/SynthesisDrop/ExtractionCost;
+  install verified byte-identical to the v1.00.11 dump first); build_gamedata bakes DB.crafting(56)/synth(203)/
+  synthBands(25 — VERIFIED grade-independent per (type,tier), 0 mismatches; MaterialAmount==9 in all 533 rows ==
+  the v1.0.8 Cube pattern)/cube(8 localized types + 31 sub-unlocks + XP curve)/extraction(90); recipe output pools
+  resolve through the same DB.drops chain as box contents (bake-time integrity asserts). Codex detail: "The Cube
+  can make this" (crafting w/ ingredient tiles + unlock level + pool size; synthesis w/ bands + the game's own
+  rule quoted) + "The Cube uses this" on materials; Advisor "The Cube" panel (8 tooltipped categories, sub-recipes
+  ✓/🔒 vs the player's Cube level). Weights/LevelWeights exist in the raw data but compose in game code → OMITTED;
+  UnlockCost currency unlabeled → none claimed. Engines in parity (recipeIndex/craftRecipesFor/synthPoolsFor/
+  cubeUsesOf/cubeSubFor/synthBandsFor in BOTH); verify_save: integrity + 17 lookup spot-checks vs independent
+  re-derivation. (P5b) **Enchant crowd-calibration (opt-in, tuple-only):** both mod parsers now carry matKey +
+  the resolved STATTYPE string (the save's raw StatType is NUMERIC — caught pre-deploy; the string from StatModKey
+  matches the original 4/4 calibration); the Advisor lists each (gt, stone, rolled stat) tuple on uncalibrated
+  gts and one explicit click POSTs exactly those 3 fields to api/enchant-report (whitelist: the 20 real GEARTYPEs;
+  aggregate counters, no identifiers, flood ceiling). (P5c) **Crew hardening (tbh-crew-api REDEPLOYED):** tbh_rate
+  Postgres fixed-window rate limiting (fail-open) on every endpoint; api/prune (Mode A self-remove via code+memberId
+  — the pair that can already overwrite the row; Mode B stale prune with a SERVER-ENFORCED 7-day floor); Crew tab
+  "Remove my data" button. Live smoke test test/_crew_smoke.js (gitignored like all test scripts): 10/10 incl. the
+  429 path and a TRUTHFUL enchant-report round-trip (the live save's own calibrated helmet tuple). (P6) **Targets:**
+  "Your target" panel on Overview — gold amount / rune level (priced from the per-level cost table; "ready now"
+  when affordable) / level-locked find (hero's measured XP/hr) / stage (history's measured progression, PLAYED
+  time) — ETAs ONLY from measured rates, honest measuring/idle states, auto-clears with 🎉 when met; tbh_target
+  cleared on Disconnect + demo. Also: "Safe to let go" reason chips wrap @375 (nowrap overflow on real saves —
+  the P2 sweep had demo data loaded, which has no dupes; SWEEP WITH THE REAL SAVE from now on); blue-chest findings
+  doc precision-corrected (raw DropInfoData HAS a Weight column — the original sweep searched the baked DB; every
+  chest-bearing pool is a uniform class-selector or single-entry → conclusion unchanged, stronger).
 - **S22 (v1.0.16)** — **the power-user wave (GOAL-v1.0.16 P1–P4).** (P1) **Loot controls:** rarity chips + origin
   filter + search + sort + date headers + paged "show more" with real counts (stored cap 120→500); CSV/JSON export
   (timeline + offline rewards, local+UTC); offline-rewards table paged the same way; honest **"where's my chest?"**
@@ -336,30 +363,30 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.16 is SHIPPED everywhere** — desktop release (installer + latest.yml; **no blockmap since v1.0.15** —
-   differential updates disabled for speed; auto-update WORKS from v1.0.6 on — older installs need one manual
-   reinstall, see S13c), GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`)
-   auto-deploys from the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project
-   `tbh-crew-api` under a separate Vercel team — scope noted in `OPS-PRIVATE.local.md`, gitignored; Neon Postgres; DATABASE_URL in Vercel env only; redeploy it ONLY
-   when api/* changes). To ship the NEXT version: bump `package.json` + `APP_VERSION` + the `?v=` cache-bust +
-   add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`, then
-   `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest`.
-2. **GOAL-v1.0.16 P5/P6 (the remaining wave items):** P5 — Codex recipes (Synthesis/Crafting/Cube* tables;
-   NO set bonuses — sets don't exist), opt-in enchant gt→category crowd-calibration (tuple only), crew API
-   hardening (prune endpoint, rate limiting; redeploy tbh-crew-api only on api/* change). P6 — targets/goals
-   tracker with ETAs from the player's own measured rates (perStageRates gold/hr + runePlanD costs + session
-   XP/hr; honest measuring/not-gaining states; a hero-level ETA can serve locked-gear targets).
+1. **v1.0.17 is SHIPPED everywhere — the GOAL-v1.0.16 wave is COMPLETE (P1–P6)** — desktop release (installer +
+   latest.yml; **no blockmap since v1.0.15** — differential updates disabled for speed; auto-update WORKS from
+   v1.0.6 on — older installs need one manual reinstall, see S13c), GitHub Pages on push, the owner's Vercel
+   project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from the repo, and the **crew API is live**
+   at `https://tbh-crew-api.vercel.app/api` (Vercel project `tbh-crew-api` — scope noted in `OPS-PRIVATE.local.md`,
+   gitignored; Neon Postgres; DATABASE_URL in Vercel env only; redeploy it ONLY when api/* changes — last redeploy
+   S23 with rate limiting + prune + enchant-report). To ship the NEXT version: bump `package.json` + `APP_VERSION`
+   + the `?v=` cache-bust + add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`,
+   then `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest`.
+2. **Calibrations awaiting data:** the enchant gt→category map for GLOVES/BOOTS/RING/AMULET/EARING/BRACER +
+   offhands — the opt-in crowd-calibration (S23) now collects tuples in `tbh_enchant_reports`; when a gt has
+   multiple consistent confirmations that match the stone's own fx table, promote it in gtGroup/gtGroupD (BOTH
+   engines) and re-verify. One in-game enchant on each type from the owner's save also calibrates it directly.
 3. **Optional:** move the crew API under the owner's `taskbarheroburat` Vercel project (attach Neon storage there →
    auto-injects DATABASE_URL → change the `CREW_API` constant in dashboard.html; ONE canonical API at a time or crews
-   split); sign the installer (cert); Clerk auth on the crew API. The mini-HUD owner-wishlist: tray icon +
-   global hotkey (deferred from P4 — not in the AC).
+   split); sign the installer (cert); Clerk auth on the crew API; mini-HUD tray icon + global hotkey; the owner's
+   Playwright scaffolding (untracked: playwright.config.js + tests/) — wire real browser tests onto it if wanted.
 
 ### Deferred / deliberately NOT built (golden rule — ban-safe / uncalibrated)
 - **Phase 4 live telemetry** — per-run DPS, clear-time, gold/hr & xp/hr PER ACT, per-hero DPS share — needs reading game memory (CodeStage `[ACTk]` anti-cheat). Don't build unless provably ban-safe; the save + log lanes cover what's safe.
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.16 · light/dark themes · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.17 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (separate Vercel team — CLI scope recorded in `OPS-PRIVATE.local.md`, gitignored); env var
