@@ -298,6 +298,10 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
     border:1.5px solid var(--rc,var(--border));overflow:hidden;transition:.16s;
     background:radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--rc) 22%, var(--bg-2)), var(--bg-2) 72%)}
   .item:hover{transform:translateY(-4px) scale(1.04);box-shadow:0 12px 24px -10px var(--rc);z-index:2}
+  /* v1.0.16 — inventory controls: equipped dot, compare selection, compare workspace */
+  .item .worn{position:absolute;top:4px;left:6px;font-size:9px;color:var(--good);text-shadow:0 0 6px var(--good)}
+  .item.cmp-sel{outline:2.5px solid var(--accent);outline-offset:2px}
+  .cmpbox{margin-bottom:var(--s3)}
   .item img{position:absolute;inset:0;margin:auto;width:62%;height:62%;image-rendering:pixelated;
     filter:drop-shadow(0 3px 5px var(--img-shadow))}
   .item .lv{position:absolute;left:5px;bottom:4px;font-size:10px;font-weight:700;color:var(--tile-pill-ink);
@@ -919,6 +923,38 @@ function gearGapsD(owned,heroes){
   var usedUp={},usedSlot={},out=[];
   cand.forEach(function(g){ if(usedUp[g.up.uid]) return; var sk=g.heroKey+'|'+g.cur.uid+'|'+(g.locked?'L':'E'); if(usedSlot[sk]) return;
     usedUp[g.up.uid]=1; usedSlot[sk]=1; out.push(g); });
+  return out;
+}
+// redundantDupesD (v1.0.16, mirror of saveEngine.redundantDupes): provably-redundant UNEQUIPPED spares — the
+// INVERSE of gearGapsD, structural proof only. X is listed ONLY when >= maxWearers(gt) DISTINCT owned pieces of
+// the same GEARTYPE are strictly better AND wearable whenever X is (HIGHER rarity, item level <= X's — the level
+// is the equip requirement, calibrated v1.0.7). At most maxWearers(gt) copies of a type can ever be worn at once
+// across the roster, so X can never be the best available choice for any slot. Same-rarity-higher-level pieces
+// do NOT count (higher requirement). No stat judgement, no salvage value — "redundant", never "sell".
+function maxWearersGtD(gt){
+  var H=DB.heroes||{}, n=0; Object.keys(H).forEach(function(k){if(H[k].mw===gt)n++;});
+  if(n) return n;                                                       // class main weapons: 1 wearer each
+  if(gt==='HELMET'||gt==='ARMOR'||gt==='GLOVES'||gt==='BOOTS'||gt==='RING') return 6;   // one slot per hero
+  if(gt==='SHIELD'||gt==='ARROW'||gt==='ORB'||gt==='TOME'||gt==='BOLT'||gt==='HATCHET') return 6; // one offhand slot per hero (pairing uncalibrated -> conservative)
+  return 18;                                                            // accessories: 3 slots x 6 heroes
+}
+function redundantDupesD(owned,heroes){
+  var equippedUids={};
+  (heroes||[]).forEach(function(h){(h.equipped||[]).forEach(function(e){equippedUids[e.uid]=1;});});
+  var byGt={};
+  (owned||[]).forEach(function(o){ if(!o.gt||o.mat) return; (byGt[o.gt]=byGt[o.gt]||[]).push(o); });
+  var out=[];
+  Object.keys(byGt).forEach(function(gt){ var pool=byGt[gt], need=maxWearersGtD(gt);
+    pool.forEach(function(x){ if(equippedUids[x.uid]) return;
+      var xr=rrank(x.grade), xl=x.lvl||0;
+      var doms=pool.filter(function(y){return y.uid!==x.uid&&rrank(y.grade)>xr&&(y.lvl||0)<=xl;});
+      if(doms.length>=need){
+        doms.sort(function(a,b){return (rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));});
+        out.push({name:x.name,grade:x.grade,lvl:x.lvl,icon:x.icon,uid:x.uid,key:x.key,gt:gt,
+          need:need,beat:doms.length,by:doms.slice(0,3).map(function(d2){return {name:d2.name,grade:d2.grade,lvl:d2.lvl,icon:d2.icon,uid:d2.uid};})});
+      } });
+  });
+  out.sort(function(a,b){return (rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));});
   return out;
 }
 // enchantStones (mirror of saveEngine): socketable enchant materials the player OWNS. CALIBRATED end-to-end
@@ -1785,30 +1821,152 @@ function renderParty(d){
   }
 }
 
-var invFilter='ALL';
+/* v1.0.16 — Inventory controls: Codex-grade search/type/sort + enchanted/equipped toggles + item compare +
+   the provable "redundant duplicates" finder. Same .filters chips + .cxbar patterns as Loot and the Codex. */
+var invState={rarity:'ALL',q:'',gt:'ALL',sort:'rarity',ench:false,equip:'ALL',compare:false,sel:[]};
+// Neutral side-by-side inherent stats for two SAME-GEARTYPE items (compare mode). Reuses gearDiffHtml's display
+// rules (authoritative GearInfoData values, raw value + modtype tag). FACTS ONLY — no per-stat better/worse
+// claim and, unlike the Advisor's swap renderer, no upgrade direction either: it's a comparison, not advice.
+function gearCompareHtml(a,b){
+  function smap(f){ var m={}; ((f&&f.base&&f.base.i)||[]).forEach(function(s){ m[(s.st||s.sn)+'|'+(s.m||'')]={sn:s.sn,m:s.m,v:s.v}; }); return m; }
+  var A=smap(a), B=smap(b), keys=[], seen={};
+  Object.keys(A).concat(Object.keys(B)).forEach(function(k){ if(!seen[k]){seen[k]=1;keys.push(k);} });
+  var chips=keys.map(function(k){ var x=A[k], y=B[k], sn=(x||y).sn, mm=(x||y).m;
+    var tag=(mm&&mm!=='FLAT'&&mm!=='PERCENT')?(' <span class="mt">'+esc(mm.toLowerCase().slice(0,4))+'</span>'):'';
+    var pct=(mm==='PERCENT')?'%':'';
+    return '<span class="chip">'+esc(sn)+tag+' <b>'+(x?fmt(x.v)+pct:'—')+'</b><span class="to">·</span><b>'+(y?fmt(y.v)+pct:'—')+'</b></span>'; }).join('');
+  function extras(f,side){ var out='';
+    if(f&&f.mods&&f.mods.length)out+='<span class="chip" title="'+esc(f.mods.map(function(x){return x.name+' +'+x.value;}).join(', '))+'">'+side+' carries <b>'+f.mods.length+'</b> enchant'+(f.mods.length>1?'s':'')+'</span>';
+    if(f&&f.base&&f.base.u)out+='<span class="chip" style="color:var(--accent-alt)" title="'+esc(f.base.u)+'">★ '+side+' has a unique mod</span>';
+    return out; }
+  return '<div class="advdiff"><span style="font-size:9.5px;letter-spacing:.05em;color:var(--text-dim);font-weight:700">STATS A·B</span>'+
+    (chips||'<span class="chip">no inherent stats on either piece</span>')+extras(a,'A')+extras(b,'B')+'</div>';
+}
 function renderInventory(d){
   var p=$('tab-inventory');p.innerHTML='';
   var rs=Object.keys(d.byRarity).sort(function(a,b){return rrank(a)-rrank(b);});
   var head=el('<h3 class="sec">Inventory <span class="tag">'+d.owned.length+' items · '+d.inv.stash+'/'+d.inv.stashSlots+' stash slots used</span></h3>');
   p.appendChild(head);
+  var rerender=function(){renderInventory(d);};
+  // equip state — derivable from the heroes' equippedItemIds (already parsed into h.equipped)
+  var equippedUids={};
+  (d.heroes||[]).forEach(function(h){(h.equipped||[]).forEach(function(e){equippedUids[e.uid]=1;});});
   var f=el('<div class="filters"></div>');
-  var mk=function(key,label){var b=el('<button class="'+(invFilter===key?'on':'')+'">'+label+'</button>');
-    b.addEventListener('click',function(){invFilter=key;renderInventory(d);});return b;};
+  var mk=function(key,label){var b=el('<button class="'+(invState.rarity===key?'on':'')+'">'+label+'</button>');
+    b.addEventListener('click',function(){invState.rarity=key;rerender();});return b;};
   f.appendChild(mk('ALL','All ('+d.owned.length+')'));
   rs.forEach(function(r){var b=mk(r,r.charAt(0)+r.slice(1).toLowerCase()+' ('+d.byRarity[r]+')');
     b.style.color=rvar(r);f.appendChild(b);});
   var mats=d.owned.filter(function(o){return o.mat;}).length;
   if(mats)f.appendChild(mk('MAT','Materials ('+mats+')'));
   p.appendChild(f);
+  // control bar (.cxbar, same as the Codex): search · gear type · sort · enchanted · equip state · compare
+  var bar=el('<div class="cxbar"></div>');
+  var q=el('<input class="cxq" type="search" placeholder="Search name or ID…" value="'+esc(invState.q)+'">');
+  var qT=null;q.addEventListener('input',function(){invState.q=q.value;clearTimeout(qT);qT=setTimeout(rerender,130);});
+  bar.appendChild(q);
+  var gtSeen={};d.owned.forEach(function(o){if(o.gt&&!o.mat)gtSeen[o.gt]=1;});
+  bar.appendChild(cxSelect([['ALL','Any type']].concat(Object.keys(gtSeen).sort().map(function(g){return [g,cap(g)];})),
+    invState.gt,function(v){invState.gt=v;rerender();}));
+  bar.appendChild(cxSelect([['rarity','Sort: Rarity'],['level','Sort: Level'],['type','Sort: Type'],['ench','Sort: Enchanted first']],
+    invState.sort,function(v){invState.sort=v;rerender();}));
+  var encBtn=el('<button class="'+(invState.ench?'on':'')+'" title="Only items with at least one enchant">✨ Enchanted</button>');
+  encBtn.addEventListener('click',function(){invState.ench=!invState.ench;rerender();});
+  bar.appendChild(encBtn);
+  bar.appendChild(cxSelect([['ALL','Worn + spare'],['EQUIPPED','Equipped only'],['FREE','Unequipped only']],
+    invState.equip,function(v){invState.equip=v;rerender();}));
+  var cmpBtn=el('<button class="'+(invState.compare?'on':'')+'" title="Pick two items of the same gear type to lay their inherent stats side by side">⚖ Compare</button>');
+  cmpBtn.addEventListener('click',function(){invState.compare=!invState.compare;invState.sel=[];rerender();});
+  bar.appendChild(cmpBtn);
+  var countEl=el('<span class="cxcount"></span>');bar.appendChild(countEl);
+  p.appendChild(bar);
 
-  var list=d.owned.slice().sort(function(a,b){return (rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));});
-  if(invFilter==='MAT')list=list.filter(function(o){return o.mat;});
-  else if(invFilter!=='ALL')list=list.filter(function(o){return o.grade===invFilter;});
+  // compare workspace — facts only, both items' authoritative inherent stats; never a better/worse verdict
+  if(invState.compare){
+    var selItems=invState.sel.map(function(u){return d.owned.filter(function(o){return o.uid===u;})[0];}).filter(Boolean);
+    var box=el('<div class="panel cmpbox"></div>');
+    if(selItems.length<2){
+      box.appendChild(el('<div class="hint" style="margin:0">⚖ Compare mode — click <b>two items of the same gear type</b> below to lay their inherent stats side by side (facts from the game\'s own gear table; no judgement calls).'+
+        (selItems.length===1?(' <b>A = '+esc(selItems[0].name)+'</b> ('+esc(cap(selItems[0].gt||''))+') — now pick another '+esc(cap(selItems[0].gt||''))+'.'):'')+'</div>'));
+    }else{
+      var row=el('<div class="advrow" style="margin:0"></div>');
+      row.appendChild(el('<div class="advhero">A · B<small>'+esc(cap(selItems[0].gt||''))+'</small></div>'));
+      row.appendChild(advItem({name:selItems[0].name,grade:selItems[0].grade,lvl:selItems[0].lvl,icon:selItems[0].icon,uid:selItems[0].uid},selItems[0]));
+      row.appendChild(el('<span class="advarrow" style="color:var(--text-dim)">·</span>'));
+      row.appendChild(advItem({name:selItems[1].name,grade:selItems[1].grade,lvl:selItems[1].lvl,icon:selItems[1].icon,uid:selItems[1].uid},selItems[1]));
+      row.appendChild(el(gearCompareHtml(selItems[0],selItems[1])));
+      box.appendChild(row);
+      var clr=el('<button class="ghost" style="margin-top:8px;font-size:12px">Clear selection</button>');
+      clr.addEventListener('click',function(){invState.sel=[];rerender();});
+      box.appendChild(clr);
+    }
+    p.appendChild(box);
+  }
 
-  if(!list.length){p.appendChild(el('<div class="empty">No items match this filter.</div>'));return;}
-  var grid=el('<div class="invgrid"></div>');
-  list.forEach(function(it){grid.appendChild(itemTile(it));});
-  p.appendChild(grid);
+  var list=d.owned.slice();
+  if(invState.rarity==='MAT')list=list.filter(function(o){return o.mat;});
+  else if(invState.rarity!=='ALL')list=list.filter(function(o){return o.grade===invState.rarity;});
+  if(invState.gt!=='ALL')list=list.filter(function(o){return o.gt===invState.gt&&!o.mat;});
+  if(invState.ench)list=list.filter(function(o){return (o.ench||0)>0;});
+  if(invState.equip==='EQUIPPED')list=list.filter(function(o){return equippedUids[o.uid];});
+  else if(invState.equip==='FREE')list=list.filter(function(o){return !equippedUids[o.uid];});
+  var q2=invState.q.trim().toLowerCase();
+  if(q2)list=list.filter(function(o){return String(o.name||'').toLowerCase().indexOf(q2)>=0||String(o.key||'').indexOf(q2)>=0;});
+  var bySort={
+    rarity:function(a,b){return (rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));},
+    level:function(a,b){return ((b.lvl||0)-(a.lvl||0))||(rrank(b.grade)-rrank(a.grade));},
+    type:function(a,b){return ((a.mat?1:0)-(b.mat?1:0))||String(a.gt||'~').localeCompare(String(b.gt||'~'))||(rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));},
+    ench:function(a,b){return ((b.ench||0)-(a.ench||0))||(rrank(b.grade)-rrank(a.grade))||((b.lvl||0)-(a.lvl||0));}
+  };
+  list.sort(bySort[invState.sort]||bySort.rarity);
+  countEl.textContent='showing '+list.length+' of '+d.owned.length;
+
+  if(!list.length){p.appendChild(el('<div class="empty">No items match this filter.</div>'));}
+  else{
+    var grid=el('<div class="invgrid"></div>');
+    list.forEach(function(it){
+      var tile=itemTile(it);
+      if(equippedUids[it.uid])tile.appendChild(el('<span class="worn" title="Equipped on a hero">●</span>'));
+      if(invState.compare){
+        if(invState.sel.indexOf(it.uid)>=0)tile.classList.add('cmp-sel');
+        // capture-phase click so compare-select takes the click instead of the tile's Codex hook
+        tile.addEventListener('click',function(ev){
+          ev.stopPropagation();ev.preventDefault();hideTip();
+          var i=invState.sel.indexOf(it.uid);
+          if(i>=0){invState.sel.splice(i,1);rerender();return;}
+          if(it.mat||!it.gt){return;}                                   // materials have no inherent stats to compare
+          if(invState.sel.length===1){
+            var first=d.owned.filter(function(o){return o.uid===invState.sel[0];})[0];
+            if(first&&first.gt!==it.gt){invState.sel=[it.uid];rerender();return;}   // different type -> restart with this one
+          }
+          invState.sel.push(it.uid);if(invState.sel.length>2)invState.sel.shift();
+          rerender();
+        },true);
+      }
+      grid.appendChild(tile);
+    });
+    p.appendChild(grid);
+  }
+
+  // "Safe to let go" — provably-redundant spares (structural proof; see redundantDupesD). Never "sell this":
+  // the game's salvage values aren't calibrated, so no number is quoted — only the provable redundancy.
+  var dupes=redundantDupesD(d.owned,d.heroes);
+  p.appendChild(el('<h3 class="sec">Safe to let go <span class="tag">redundant duplicates · provable only — never a sell recommendation</span></h3>'));
+  if(!dupes.length){
+    p.appendChild(el('<div class="hint">No provably-redundant spares: every unequipped piece could still be the best available choice for some hero at some level. An item is only listed here when you own <b>more strictly-better pieces of its gear type</b> (higher rarity at the same or lower level requirement) <b>than could ever be worn at once</b> across all six heroes.</div>'));
+  }else{
+    p.appendChild(el('<div class="hint">These spares are <b>provably outclassed</b>: for each one you own more <b>strictly better</b> pieces of the same gear type — <b>higher rarity</b> at the <b>same or lower level requirement</b> — than your roster could ever wear at once. Whoever could equip it always has something strictly better available, at any hero level. What you do with them is your call (salvage values aren\'t in the calibrated data, so the HUD won\'t quote one).</div>'));
+    var dpanel=el('<div class="panel"></div>');
+    dupes.forEach(function(x){
+      var full=d.owned.filter(function(o){return o.uid===x.uid;})[0];
+      var row=el('<div class="advrow"></div>');
+      row.appendChild(advItem({name:x.name,grade:x.grade,lvl:x.lvl,icon:x.icon,uid:x.uid},full));
+      row.appendChild(el('<span class="advwhy">outclassed by <b>'+x.beat+'</b> owned '+esc(cap(x.gt))+(x.beat>1?'s':'')+
+        ' (max worn at once: '+x.need+') — e.g. '+x.by.map(function(b2){return esc(b2.name)+(b2.lvl?(' L'+b2.lvl):'');}).join(', ')+'</span>'));
+      dpanel.appendChild(row);
+    });
+    p.appendChild(dpanel);
+  }
 }
 
 /* v1.0.16 — Loot tab controls: filter/search/sort state + paging + export. All client-side over the
@@ -3246,6 +3404,7 @@ function disconnect(){
   // reloads don't call this, so the persisted loot timeline still survives reloads of the SAME save.
   lastUidMeta=null;lootLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
   lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};lootOffShown=20;   // v1.0.16: controls reset with the slate
+  invState={rarity:'ALL',q:'',gt:'ALL',sort:'rarity',ench:false,equip:'ALL',compare:false,sel:[]};
   // Same clean-slate rule for the HUD's own snapshot history: a DIFFERENT save must never inherit (or pollute)
   // another save's trend history. Reloads of the same save don't pass here, so history survives refreshes.
   historyClear();
@@ -3470,6 +3629,7 @@ function loadDemo(){
   lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15,key:'423041',src:'cube',mats:9},
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,key:'322041',src:'found'}];
   lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};lootOffShown=20;   // stale filters from a real save can't blank the sample
+  invState={rarity:'ALL',q:'',gt:'ALL',sort:'rarity',ench:false,equip:'ALL',compare:false,sel:[]};
   // Demo Player.log data — REPLACES any previously-loaded real log data so nothing real ever renders under the
   // SAMPLE badge (entering demo used to keep a connected save's offline rewards/box counts on the Loot tab).
   // Boxes are real catalog STAGEBOX entries (authoritative names/grades) with sample counts; the 15,400-gold

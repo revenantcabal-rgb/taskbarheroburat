@@ -231,6 +231,47 @@ function gearGaps(psd){
   return out;
 }
 
+// redundantDupes (v1.0.16): provably-redundant UNEQUIPPED spares — the INVERSE of gearGaps, structural proof only.
+// An unequipped gear item X is listed ONLY when the player owns >= maxWearers(gt) DISTINCT pieces of the same
+// GEARTYPE that are strictly better AND wearable whenever X is: HIGHER rarity at an item level (= equip
+// requirement, calibrated v1.0.7) <= X's. Any hero who could ever equip X could equip any of those instead, and
+// at most maxWearers(gt) copies of the type can be worn at once across the whole roster — so X can never be the
+// best available choice for any slot, now or after any level-up. Same-rarity-higher-level pieces do NOT count as
+// dominators here (their requirement is higher, so a low-level hero might wear X but not them). No stat
+// judgement, no salvage-value claim (the game's salvage prices aren't calibrated) — "redundant", never "sell".
+// maxWearers per GEARTYPE, from calibrated structure only:
+//   • the 6 class main weapons (hero table MainWeapon): 1 wearer each
+//   • HELMET/ARMOR/GLOVES/BOOTS/RING + the 6 offhand types: ONE slot per hero (slot map calibrated on the live
+//     save) -> 6 (offhand class-pairing is NOT calibrated, so any hero is allowed = the conservative bound)
+//   • AMULET/EARING/BRACER + anything unknown: 18 (3 accessory slots x 6 heroes — most conservative)
+function maxWearersGt(gt){
+  const H=(DB&&DB.heroes)||{}; let n=0; Object.keys(H).forEach(k=>{ if(H[k].mw===gt) n++; });
+  if(n) return n;
+  if(gt==='HELMET'||gt==='ARMOR'||gt==='GLOVES'||gt==='BOOTS'||gt==='RING') return 6;
+  if(gt==='SHIELD'||gt==='ARROW'||gt==='ORB'||gt==='TOME'||gt==='BOLT'||gt==='HATCHET') return 6;
+  return 18;
+}
+function redundantDupes(psd){
+  const owned=ownedItems(psd), byUid={}; owned.forEach(o=>byUid[o.uid]=o);
+  const equippedUids={};
+  (psd.heroSaveDatas||[]).forEach(h=>(h.equippedItemIds||[]).filter(nz).forEach(u=>equippedUids[String(u)]=1));
+  const byGt={};
+  owned.forEach(o=>{ if(!o.gt||o.mat) return; (byGt[o.gt]=byGt[o.gt]||[]).push(o); });
+  const out=[];
+  Object.keys(byGt).forEach(gt=>{ const pool=byGt[gt], need=maxWearersGt(gt);
+    pool.forEach(x=>{ if(equippedUids[x.uid]) return;
+      const xr=rarityRank(x.grade), xl=x.lvl||0;
+      const doms=pool.filter(y=>y.uid!==x.uid&&rarityRank(y.grade)>xr&&(y.lvl||0)<=xl);
+      if(doms.length>=need){
+        doms.sort((a,b)=>(rarityRank(b.grade)-rarityRank(a.grade))||((b.lvl||0)-(a.lvl||0)));
+        out.push({name:x.name,grade:x.grade,lvl:x.lvl,icon:x.icon,uid:x.uid,key:x.key,gt,
+          need,beat:doms.length,by:doms.slice(0,3).map(d=>({name:d.name,grade:d.grade,lvl:d.lvl,icon:d.icon,uid:d.uid}))});
+      } });
+  });
+  out.sort((a,b)=>(rarityRank(b.grade)-rarityRank(a.grade))||((b.lvl||0)-(a.lvl||0)));
+  return out;
+}
+
 // runeStatList: the account-wide rune Stat List (v1.0.10) — mirrors the game's Runes -> Stat List. Per effect,
 // sum the per-level values of every leveled rune up to its current level. Reading justified structurally: all
 // 135 multi-level runes have CONSTANT per-level values with RISING per-level costs — "value at level" would
@@ -371,4 +412,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

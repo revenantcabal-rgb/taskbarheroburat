@@ -168,6 +168,23 @@ gg.forEach(g => {
 const adv = gg.filter(g => !g.locked), lock = gg.filter(g => g.locked);
 console.log('gearGaps      ', adv.length + ' equippable upgrade(s), ' + lock.length + ' level-locked notice(s)' + (gg.length ? ':' : ''));
 gg.forEach(g => console.log('   ', (g.locked ? '🔒' : '✓ ') + ' ' + g.hero.padEnd(9), (g.deployed ? 'DEPLOYED' : 'bench').padEnd(8), g.cur.name + ' (' + g.cur.grade + ' L' + g.cur.lvl + ') -> ' + g.up.name + ' (' + g.up.grade + ' L' + g.up.lvl + ')' + (g.locked ? (' [needs Lv ' + g.needLevel + ', is Lv ' + g.heroLevel + ']') : (' [' + g.reason + ']'))));
+// redundantDupes (v1.0.16): every entry must be PROVABLE — unequipped, non-material gear, dominated by at least
+// maxWearersGt(gt) DISTINCT owned pieces that are strictly better AND wearable whenever it is (higher rarity,
+// lvl <= its lvl). The dominator count is re-derived here independently and must match. A flagged item must
+// never simultaneously be a gearGaps-advised upgrade (the math forbids it — assert it stays true).
+const dup = eng.redundantDupes(psd);
+dup.forEach(x => {
+  if (eqUidSet[x.uid]) problems.push('redundantDupes: ' + x.name + ' is equipped — must never be flagged');
+  if (!x.gt) problems.push('redundantDupes: missing gt on ' + x.name);
+  if (x.need !== eng.maxWearersGt(x.gt)) problems.push('redundantDupes: need mismatch on ' + x.name);
+  const doms = owned.filter(y => y.uid !== x.uid && y.gt === x.gt && !y.mat &&
+    rr(y.grade) > rr(x.grade) && (y.lvl || 0) <= (x.lvl || 0));
+  if (doms.length !== x.beat) problems.push('redundantDupes: dominator recount ' + doms.length + ' != ' + x.beat + ' on ' + x.name);
+  if (doms.length < x.need) problems.push('redundantDupes: ' + x.name + ' flagged with only ' + doms.length + ' dominator(s), needs ' + x.need);
+  if (upSeen[x.uid]) problems.push('redundantDupes: ' + x.name + ' is both advised (gearGaps) and flagged redundant');
+});
+console.log('redundantDupes', dup.length + ' provably-redundant spare(s)' + (dup.length ? ':' : ' (none — honest empty state in the UI)'));
+dup.forEach(x => console.log('   ', x.name + ' (' + x.grade + ' L' + (x.lvl || 0) + ' ' + x.gt + ') — outclassed by ' + x.beat + ' (max worn at once: ' + x.need + ')'));
 // enchantStones: every stone must be an owned fx-bearing material (the calibrated enchant ingredients)
 const stones = eng.enchantStones(psd);
 console.log('enchantStones ', stones.length + ' kind(s) owned' + (stones.length ? (': ' + stones.map(s => s.name + (s.count > 1 ? (' ×' + s.count) : '')).join(', ')) : ' (none — honest empty state in the UI)'));
