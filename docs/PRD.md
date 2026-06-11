@@ -47,8 +47,8 @@ Product / distribution:
 Hard constraints:
 19. **Read-only** — never write to the game / save / memory.
 20. **No fabricated data** — calibrate every label against the game's own files or tbh-meter run-log known values.
-21. **GitHub home:** `revenantcabal-rgb/taskbarheroburat` (Rob's PERSONAL account — NOT the Fusion-Data-Company
-    work account, whose token is the only one currently stored on the machine).
+21. **GitHub home:** `revenantcabal-rgb/taskbarheroburat` (Mat's PERSONAL account — NOT the other
+    account whose token is also stored on the machine).
 
 ## 4. Competitive feature matrix
 | Capability | tbh-meter | tbh-copilot | TBH HUD (target) |

@@ -11,10 +11,11 @@ stats, lifetime stats, history/trends, runes, and a blue-chest tracker. Ships as
 **It never writes to or modifies the game. READ-ONLY only.** (The game uses CodeStage anti-cheat —
 reading is safe, writing/injecting is not.)
 
-Owner: Rob. GitHub: **`revenantcabal-rgb`** (his PERSONAL account), repo **`revenantcabal-rgb/taskbarheroburat`**.
+Owner: Mat (Mathew Mercado). GitHub: **`revenantcabal-rgb`** (his PERSONAL account), repo **`revenantcabal-rgb/taskbarheroburat`**.
+All commits MUST be authored as **Mathew Mercado <revenantcabal@gmail.com>** — no other identity, no co-author trailers.
 NOTE (updated session 4): `gh` is now authed as **`revenantcabal-rgb` (active account, full `repo`+`workflow` scopes)** —
-git push, `gh release`, and `gh api` (Pages) all work as revenantcabal. A second `Fusion-Data-Company` account is also in
-the keyring but is NOT active — don't switch to it. Live distribution: Release **v1.0.0** + **GitHub Pages**
+git push, `gh release`, and `gh api` (Pages) all work as revenantcabal. A second, unrelated account is also in
+the keyring but is NOT active — don't switch to it, and never reference it in this repo. Live distribution: Release **v1.0.0** + **GitHub Pages**
 (https://revenantcabal-rgb.github.io/taskbarheroburat/dashboard.html).
 
 ## Project tracking (read these; keep them current)
@@ -298,7 +299,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   toggle OFF by default, pushes ONLY calibrated brag-stats (never the save), ~30s polling, rank-by, achievements from
   snapshot deltas (server-derived), gap-to-you, copy invite; demo mode hard-disables sharing. Backend `api/progress.js`
   + `api/leaderboard.js` (Vercel serverless + `@neondatabase/serverless`) + Neon `tbh_crew_*`, deployed as
-  **tbh-crew-api** (fusiondatacompany-projects; DATABASE_URL in Vercel env, never committed; CORS allowlist), verified
+  **tbh-crew-api** (separate Vercel team; DATABASE_URL in Vercel env, never committed; CORS allowlist), verified
   live end-to-end. **Engine parity verified in-browser** (inline == Node on the same save) + verify_save.js invariant
   assertions for all new fns. 11 tabs, 0 console errors, 0 overflow @375; Electron clean; v1.0.4 released.
 **The v1.0.2 → v1.0.3 wave (sessions 7-12).** The 1.0.2 line was built but never published; v1.0.3 superseded it.
@@ -316,7 +317,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
    differential updates disabled for speed; auto-update WORKS from v1.0.6 on — older installs need one manual
    reinstall, see S13c), GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`)
    auto-deploys from the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project
-   `tbh-crew-api` under the fusiondatacompany team; Neon Postgres; DATABASE_URL in Vercel env only; redeploy it ONLY
+   `tbh-crew-api` under a separate Vercel team — scope noted in `OPS-PRIVATE.local.md`, gitignored; Neon Postgres; DATABASE_URL in Vercel env only; redeploy it ONLY
    when api/* changes). To ship the NEXT version: bump `package.json` + `APP_VERSION` + the `?v=` cache-bust +
    add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`, then
    `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest`.
@@ -332,7 +333,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 ## Build / run  (app v1.0.15 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
-  `tbh-crew-api` (team fusiondatacompany-projects, CLI `vercel --scope fusiondatacompany-projects`); env var
+  `tbh-crew-api` (separate Vercel team — CLI scope recorded in `OPS-PRIVATE.local.md`, gitignored); env var
   `DATABASE_URL` = a Neon Postgres URL (NEVER committed — beware: piping it via PowerShell `|` adds a BOM that breaks
   `neon()`; write to a temp file and `cmd /c "vercel env add ... < file"`). Tables `tbh_crew_members` /
   `tbh_crew_history` auto-create on first request. The same /api files also deploy with the owner's site project —

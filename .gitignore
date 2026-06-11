@@ -13,3 +13,6 @@ scripts/_gamedata_raw/
 !improvement.log
 
 .vercel
+
+# private ops notes — never commit
+OPS-PRIVATE.local.md

@@ -4,7 +4,7 @@ A design-system revamp (fresh visual language, **light mode default**, full CSS-
 audit, the **Crew "Stat List"** comparison, and **public patch notes**. Paste the block below into Claude Code
 as your `/goal`. Detail + the Stat List calibration target follow it.
 
-> Decisions locked with Rob: fresh new look · light mode default · full design-token refactor · Crew "Stats" =
+> Decisions locked with the owner: fresh new look · light mode default · full design-token refactor · Crew "Stats" =
 > the in-game **Stat List** panel.
 
 ---
@@ -70,7 +70,7 @@ grouped into Exploration / Combat / … Probing the real save + game tables:
   screenshot taken from the same save**. Ship only lines that match; omit/flag the rest. If pet stats are
   required to match, re-extract them via `scripts/dump_textassets.py` + `scripts/build_gamedata.py`.
 
-### Calibration target (transcribed from Rob's in-game Stat List screenshot)
+### Calibration target (transcribed from the owner's in-game Stat List screenshot)
 Use these as known values; the HUD's computed Stat List must match (for the save that produced this screenshot —
 the committed `test/live.es3` fixture is an older state with different numbers, so calibrate against a fresh
 screenshot+save pair).

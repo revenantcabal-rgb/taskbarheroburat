@@ -30,5 +30,5 @@ Hard rules:
   (validated 7/7 vs tbh-meter run logs). Materials use their tier name (e.g. "Soulstone - Normal").
 - Verify every change against the real save at
   `%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\SaveFile_Live.es3`.
-- GitHub home is `revenantcabal-rgb/taskbarheroburat` (NOT the Fusion-Data-Company token on the machine).
+- GitHub home is `revenantcabal-rgb/taskbarheroburat` (NOT the other token on the machine).
 ---
