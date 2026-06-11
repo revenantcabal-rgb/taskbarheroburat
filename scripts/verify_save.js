@@ -185,6 +185,35 @@ dup.forEach(x => {
 });
 console.log('redundantDupes', dup.length + ' provably-redundant spare(s)' + (dup.length ? ':' : ' (none — honest empty state in the UI)'));
 dup.forEach(x => console.log('   ', x.name + ' (' + x.grade + ' L' + (x.lvl || 0) + ' ' + x.gt + ') — outclassed by ' + x.beat + ' (max worn at once: ' + x.need + ')'));
+// recipe chain (v1.0.17): DB integrity + engine lookups must agree with an independent re-derivation.
+{
+  const C = DB.crafting || [], S = DB.synth || [], DR = DB.drops || {};
+  C.forEach(c => {
+    (c.mats || []).forEach(([mk]) => { if (!DB.items[mk]) problems.push('crafting: material ' + mk + ' missing from items'); });
+    if (!(DR[c.dk] || []).length) problems.push('crafting: empty result pool ' + c.dk);
+  });
+  S.forEach(x => { if (!(DR[x.dk] || []).length) problems.push('synth: empty result pool ' + x.dk); });
+  ((DB.cube || {}).subs || []).forEach(x => {
+    (x.mat || []).forEach(([mk]) => { if (!DB.items[mk]) problems.push('cube offering: material ' + mk + ' missing from items'); });
+    if (x.dk && !(DR[x.dk] || []).length) problems.push('cube offering: empty result pool ' + x.dk);
+  });
+  // engine lookups vs independent reverse-derivation on a sample of pool members
+  let checked = 0;
+  C.slice(0, 8).forEach(c => { const member = (DR[c.dk] || [])[0]; if (!member) return;
+    const got = eng.craftRecipesFor(member).map(r => r.k);
+    if (got.indexOf(c.k) < 0) problems.push('craftRecipesFor(' + member + ') missed recipe ' + c.k);
+    checked++; });
+  S.slice(0, 8).forEach(x => { const member = (DR[x.dk] || [])[0]; if (!member) return;
+    const got = eng.synthPoolsFor(member);
+    if (!got.some(g => g.dk === x.dk)) problems.push('synthPoolsFor(' + member + ') missed pool ' + x.dk);
+    checked++; });
+  const coin = ((DB.cube || {}).subs || []).filter(x => x.mat && x.mat.length)[0];
+  if (coin) { const uses = eng.cubeUsesOf(coin.mat[0][0]);
+    if (!uses.offer.length) problems.push('cubeUsesOf(' + coin.mat[0][0] + ') missed its offering'); checked++; }
+  console.log('recipes       ', C.length + ' crafting, ' + S.length + ' synth pools, ' +
+    (((DB.cube || {}).subs || []).length) + ' cube subs, ' + (DB.extraction || []).length + ' extraction rows | ' +
+    checked + ' lookup spot-checks vs independent re-derivation');
+}
 // enchantStones: every stone must be an owned fx-bearing material (the calibrated enchant ingredients)
 const stones = eng.enchantStones(psd);
 console.log('enchantStones ', stones.length + ' kind(s) owned' + (stones.length ? (': ' + stones.map(s => s.name + (s.count > 1 ? (' ×' + s.count) : '')).join(', ')) : ' (none — honest empty state in the UI)'));

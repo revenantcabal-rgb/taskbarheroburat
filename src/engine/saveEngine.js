@@ -4,8 +4,8 @@ const ES3_PASSWORD = 'emuMqG3bLYJ938ZDCfieWJ';
 const GOLD_KEY = 100001;
 const NET_TICKS_TO_UNIX_MS = 62135596800000;
 const RARITY = ['COMMON','UNCOMMON','RARE','LEGENDARY','IMMORTAL','ARCANA','BEYOND','CELESTIAL','DIVINE','COSMIC'];
-let DB = null, _dropSrc = null;
-function setDB(db){ DB = db; _dropSrc = null; }
+let DB = null, _dropSrc = null, _recipeSrc = null;
+function setDB(db){ DB = db; _dropSrc = null; _recipeSrc = null; }
 
 function decryptEs3(buffer){ const b=Buffer.isBuffer(buffer)?buffer:Buffer.from(buffer); const iv=b.subarray(0,16),ct=b.subarray(16); const key=crypto.pbkdf2Sync(ES3_PASSWORD,iv,100,16,'sha1'); const d=crypto.createDecipheriv('aes-128-cbc',key,iv); return Buffer.concat([d.update(ct),d.final()]).toString('utf8'); }
 function safeJsonParse(t){ return JSON.parse(String(t).replace(/([:\[,])(\s*)(\d{16,})(?=\s*[,\]}])/g,'$1$2"$3"')); }
@@ -20,7 +20,9 @@ function gearStats(gk){ return (gk&&DB&&DB.gear)?(DB.gear[gk]||DB.gear[String(gk
 function itemInfo(key){ const i=DB&&DB.items&&(DB.items[key]||DB.items[String(key)]); return i?{name:i.n,grade:i.g,type:i.t,gt:i.gt,lvl:i.lvl,ic:i.ic,mat:!!i.mat,mt:i.mt||null,fx:i.fx||null,gk:i.gk,base:gearStats(i.gk)}:{name:'#'+key,grade:null,type:null,gt:null,lvl:null,ic:null,mat:false,mt:null,fx:null,gk:null,base:null}; }
 // enchant stat-mod -> authoritative display name (DB.stats from the game's StatModInfoData). No fabrication.
 function statName(modKey){ const s=DB&&DB.stats&&DB.stats[String(modKey)]; return s?s.sn:('Stat #'+modKey); }
-function resolveMods(ench){ return (ench||[]).filter(m=>m&&m.StatModKey).map(m=>{ const s=DB&&DB.stats&&DB.stats[String(m.StatModKey)]; return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null,stat:s?s.s:null}; }); }
+// v1.0.17: also carries matKey (the consumed stone) + statType (the save's raw numeric stat id; the resolved
+// STATTYPE string is in `stat`) — the calibration tuple for the opt-in enchant report. Display fields unchanged.
+function resolveMods(ench){ return (ench||[]).filter(m=>m&&m.StatModKey).map(m=>{ const s=DB&&DB.stats&&DB.stats[String(m.StatModKey)]; return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null,stat:s?s.s:null,matKey:(m.MaterialKey!=null?String(m.MaterialKey):null),statType:(m.StatType!=null?String(m.StatType):null)}; }); }
 // Structural icon resolver: the game only ships base (rarity-0) gear icons (TYPE_<id>) plus
 // Item_<id> for materials/currency. A gear key is [type:2][rarity:1][baseIndex:2][sub:1]; the icon
 // for any rarity is the type's base icon at baseIndex (type+'00'+idx). Pure logic so it runs in the
@@ -62,6 +64,31 @@ function dropSources(itemKey){
       for(const ik of mem){ (_dropSrc[ik]=_dropSrc[ik]||[]).push(k); } } } }
   return _dropSrc[String(itemKey)]||[];
 }
+// v1.0.17 (P5) — the Cube/recipe chain (DB.crafting / DB.synth / DB.synthBands / DB.cube, baked by
+// build_gamedata.py from the game's own CraftingRecipe/SynthesisDrop/SynthesisRecipe/Cube* tables).
+// Recipe OUTPUTS are DropKey pools resolved through the same DB.drops map as box contents — membership
+// only, odds NEVER shown (the Weight/LevelWeight columns' composition semantics are uncalibrated).
+function recipeIndex(){
+  if(_recipeSrc) return _recipeSrc;
+  _recipeSrc={};
+  ((DB&&DB.crafting)||[]).forEach((c,i)=>((DB.drops&&DB.drops[c.dk])||[]).forEach(ik=>{ (_recipeSrc[ik]=_recipeSrc[ik]||{c:[],s:[]}).c.push(i); }));
+  ((DB&&DB.synth)||[]).forEach((s,i)=>((DB.drops&&DB.drops[s.dk])||[]).forEach(ik=>{ (_recipeSrc[ik]=_recipeSrc[ik]||{c:[],s:[]}).s.push(i); }));
+  return _recipeSrc;
+}
+// crafting recipes whose result pool can yield this item
+function craftRecipesFor(itemKey){ const ix=recipeIndex()[String(itemKey)]; return ix?ix.c.map(i=>DB.crafting[i]):[]; }
+// Cube-synthesis result pools that can yield this item ({lvl, tier, type, g, dk})
+function synthPoolsFor(itemKey){ const ix=recipeIndex()[String(itemKey)]; return ix?ix.s.map(i=>DB.synth[i]):[]; }
+// what the Cube CONSUMES this item for: crafting ingredient and/or offering coin
+function cubeUsesOf(itemKey){ const k=String(itemKey);
+  return { craft:((DB&&DB.crafting)||[]).filter(c=>(c.mats||[]).some(m=>String(m[0])===k)),
+           offer:(((DB&&DB.cube)||{}).subs||[]).filter(e=>(e.mat||[]).some(m=>String(m[0])===k)) };
+}
+// the sub-recipe unlock row for a Cube recipe type (+tier where tiered): {lvl: UnlockCubeLevel, cost, n, ...}
+function cubeSubFor(type,tier){ return ((((DB&&DB.cube)||{}).subs)||[]).filter(e=>e.t===type&&(tier==null||e.tier===tier))[0]||null; }
+// the requirement bands for a synthesis (type, tier) — VERIFIED grade-independent at bake time
+function synthBandsFor(type,tier){ const b=(DB&&DB.synthBands)||{}; return b[type+'|'+tier]||null; }
+
 // Player.log offline-reward events (paired lines). reward==delta until the offline cap, then plateaus.
 function parseOfflineEvents(text){
   const lines=String(text||'').split(/\r?\n/); const out=[]; let pend=null;
@@ -412,4 +439,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,craftRecipesFor,synthPoolsFor,cubeUsesOf,cubeSubFor,synthBandsFor,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

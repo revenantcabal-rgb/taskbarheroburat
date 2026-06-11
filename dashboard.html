@@ -556,6 +556,15 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
     background:radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--rc,var(--border-strong)) 18%, var(--bg-2)), var(--bg-2) 74%)}
   .cxmem img{position:absolute;inset:0;margin:auto;width:64%;height:64%;image-rendering:pixelated}
   .cxmem:hover{transform:translateY(-2px);box-shadow:0 8px 16px -8px var(--rc,var(--img-shadow))}
+  /* v1.0.17 — Cube/recipe sections in the Codex detail */
+  .cxqty{position:absolute;right:2px;bottom:1px;font-size:9.5px;font-weight:800;color:var(--text);
+    background:color-mix(in srgb, var(--bg-2) 80%, transparent);border-radius:4px;padding:0 3px}
+  .cxrecipe{border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:8px}
+  .cxrecipe:last-child{margin-bottom:0}
+  .cxrl{font-size:12.5px;font-weight:700;margin-bottom:4px}
+  .cxrtag{font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--warn);
+    background:color-mix(in srgb, var(--warn) 12%, transparent);border-radius:6px;padding:1px 6px;white-space:nowrap}
+  .cxrecipe .cxmembers{margin:5px 0}
   .cxsrc{display:flex;flex-wrap:wrap;gap:6px}
   .cxsrc .chip{cursor:pointer} .cxsrc .chip:hover{border-color:var(--border-strong);color:var(--text)}
   .cxrune table{font-size:12px} .cxrune td{padding:4px 8px}
@@ -1113,6 +1122,25 @@ function dropSources(itemKey){
       for(var j=0;j<mem.length;j++){(_dropSrc[mem[j]]=_dropSrc[mem[j]]||[]).push(k);}}}}
   return _dropSrc[String(itemKey)]||[];
 }
+// v1.0.17 (P5) — the Cube/recipe chain (mirror of saveEngine; DB.crafting/synth/synthBands/cube from the
+// game's own tables). Recipe OUTPUTS are DropKey pools resolved via the same DB.drops map as box contents —
+// membership only, odds NEVER shown (the Weight/LevelWeight columns' composition semantics are uncalibrated).
+var _recipeSrc=null;
+function recipeIndex(){
+  if(_recipeSrc)return _recipeSrc;
+  _recipeSrc={};
+  (DB.crafting||[]).forEach(function(c,i){((DB.drops&&DB.drops[c.dk])||[]).forEach(function(ik){(_recipeSrc[ik]=_recipeSrc[ik]||{c:[],s:[]}).c.push(i);});});
+  (DB.synth||[]).forEach(function(s,i){((DB.drops&&DB.drops[s.dk])||[]).forEach(function(ik){(_recipeSrc[ik]=_recipeSrc[ik]||{c:[],s:[]}).s.push(i);});});
+  return _recipeSrc;
+}
+function craftRecipesFor(itemKey){var ix=recipeIndex()[String(itemKey)];return ix?ix.c.map(function(i){return DB.crafting[i];}):[];}
+function synthPoolsFor(itemKey){var ix=recipeIndex()[String(itemKey)];return ix?ix.s.map(function(i){return DB.synth[i];}):[];}
+function cubeUsesOf(itemKey){var k=String(itemKey);
+  return {craft:(DB.crafting||[]).filter(function(c){return (c.mats||[]).some(function(m){return String(m[0])===k;});}),
+          offer:((DB.cube||{}).subs||[]).filter(function(e){return (e.mat||[]).some(function(m){return String(m[0])===k;});})};
+}
+function cubeSubFor(type,tier){return ((DB.cube||{}).subs||[]).filter(function(e){return e.t===type&&(tier==null||e.tier===tier);})[0]||null;}
+function synthBandsFor(type,tier){var b=DB.synthBands||{};return b[type+'|'+tier]||null;}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 async function decryptSave(buf){
@@ -1132,9 +1160,13 @@ function analyze(psd){
   function occ(k){return (psd[k]||[]).filter(function(s){return nz(s.ItemUniqueId);}).length;}
   var owned=(psd.itemSaveDatas||[]).map(function(it){
     var info=itemInfo(it.ItemKey);
+    // v1.0.17: matKey (the consumed stone) + stat (the rolled STATTYPE string, resolved via StatModKey like
+    // the original 4/4 calibration) + statType (the save's raw numeric id, fallback only) ride along — the
+    // calibration tuple for the opt-in enchant report (parity with saveEngine.resolveMods).
     var mods=(it.EnchantData||[]).filter(function(e){return e&&e.StatModKey;}).map(function(m){
       var s=statMod(m.StatModKey);
-      return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null};});
+      return {name:s?s.sn:('Stat #'+m.StatType),value:m.Value,tier:m.Tier,mod:s?s.m:null,stat:s?s.s:null,
+        matKey:(m.MaterialKey!=null?String(m.MaterialKey):null),statType:(m.StatType!=null?String(m.StatType):null)};});
     return {uid:String(it.UniqueId),key:String(it.ItemKey),icon:info.ic||iconId(it.ItemKey),
       ench:(it.EnchantCount||[]).reduce(function(x,y){return x+y;},0),mods:mods,
       name:info.name,grade:info.grade,type:info.type,gt:info.gt,lvl:info.lvl,mat:info.mat,
@@ -1991,7 +2023,9 @@ function renderInventory(d){
       var full=d.owned.filter(function(o){return o.uid===x.uid;})[0];
       var row=el('<div class="advrow"></div>');
       row.appendChild(advItem({name:x.name,grade:x.grade,lvl:x.lvl,icon:x.icon,uid:x.uid},full));
-      row.appendChild(el('<span class="advwhy">outclassed by <b>'+x.beat+'</b> owned '+esc(cap(x.gt))+(x.beat>1?'s':'')+
+      // white-space:normal — these reasons are sentence-length and must wrap at 375 (the advisor's .advwhy
+      // chips are short labels and keep their nowrap)
+      row.appendChild(el('<span class="advwhy" style="white-space:normal;line-height:1.5;min-width:0">outclassed by <b>'+x.beat+'</b> owned '+esc(cap(x.gt))+(x.beat>1?'s':'')+
         ' (max worn at once: '+x.need+') — e.g. '+x.by.map(function(b2){return esc(b2.name)+(b2.lvl?(' L'+b2.lvl):'');}).join(', ')+'</span>'));
       dpanel.appendChild(row);
     });
@@ -2731,6 +2765,74 @@ function renderAdvisor(d){
     p.appendChild(spanel);
     p.appendChild(el('<div class="crewnote" style="margin-top:8px">“Ready to use” lines are shown only where the slot category is verified (weapon types from the game\'s own hero table; helmet &amp; body armor observed in your save\'s enchants). Other gear types still take stones — the category labels above tell you what each would give.</div>'));
   }
+
+  // v1.0.17 (P5) — opt-in enchant crowd-calibration: when the player's OWN save carries an applied enchant
+  // on a gear type whose slot category is still uncalibrated, offer a one-click report of ONLY the tuple
+  // (gear type, stone, rolled stat). Nothing else ever leaves the device; each tuple is listed before sending.
+  var reportTuples=[];
+  (d.owned||[]).forEach(function(o){
+    if(!o.gt||o.mat||gtGroupD(o.gt)!==null)return;
+    (o.mods||[]).forEach(function(m){
+      // st = the rolled STATTYPE string (resolved from StatModKey, same as the original calibration);
+      // the save's raw numeric id is the fallback when a StatModKey is unknown to the tables
+      var st=m.stat||m.statType;
+      if(!m.matKey||!st)return;
+      var sig=o.gt+'|'+m.matKey+'|'+st;
+      if(!reportTuples.some(function(t){return t.sig===sig;}))
+        reportTuples.push({sig:sig,gt:o.gt,mk:m.matKey,st:String(st),item:o.name,stone:(DB.items[m.matKey]||{}).n||('#'+m.matKey),statName:m.name});
+    });
+  });
+  if(reportTuples.length&&!demoMode){
+    var sent={};try{sent=JSON.parse(localStorage.getItem('tbh_ench_reported')||'{}');}catch(e){}
+    var fresh=reportTuples.filter(function(t){return !sent[t.sig];});
+    p.appendChild(el('<h3 class="sec">Help calibrate enchant categories <span class="tag">optional · sends only the three fields listed — never your save</span></h3>'));
+    p.appendChild(el('<div class="hint">Your save contains applied enchants on gear types whose slot category isn\'t verified yet ('+
+      'the HUD only labels “ready to use” where the category is proven). Reporting the tuples below — <b>gear type, stone used, stat that rolled</b> — '+
+      'helps confirm those categories from real data for everyone. One click, three fields per line, nothing else.</div>'));
+    var rpanel=el('<div class="panel"></div>');
+    reportTuples.forEach(function(t){
+      rpanel.appendChild(el('<div class="cxstat"><span>'+esc(cap(t.gt))+' · '+esc(t.item)+'</span><b>'+esc(t.stone)+' → '+esc(t.statName)+(sent[t.sig]?' <span style="color:var(--good)">✓ reported</span>':'')+'</b></div>'));
+    });
+    if(fresh.length){
+      var rbtn=el('<button class="ghost" style="margin-top:8px">📨 Report '+fresh.length+' tuple'+(fresh.length>1?'s':'')+'</button>');
+      rbtn.addEventListener('click',function(){
+        rbtn.disabled=true;rbtn.textContent='sending…';
+        fetch(CREW_API+'/enchant-report',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({tuples:fresh.map(function(t){return {gt:t.gt,mk:t.mk,st:t.st};})})})
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+        .then(function(){fresh.forEach(function(t){sent[t.sig]=1;});
+          try{localStorage.setItem('tbh_ench_reported',JSON.stringify(sent));}catch(e){}
+          rbtn.textContent='✓ reported — thank you';})
+        .catch(function(){rbtn.disabled=false;rbtn.textContent='couldn\'t reach the server — try again later';});
+      });
+      rpanel.appendChild(rbtn);
+    }
+    p.appendChild(rpanel);
+  }
+
+  // v1.0.17 (P5) — the Cube: recipe categories + sub-recipe unlock levels, straight from the game's own
+  // CubeRecipeInfoData / CubeSubRecipeInfoData (localized names/tooltips). The player's own Cube level marks
+  // what's unlocked. The unlock COST column carries no currency label in the table -> shown as a bare number.
+  var cubeDb=DB.cube||{};
+  if(cubeDb.types&&cubeDb.types.length){
+    var cubeLvl=(d.cube&&d.cube.Level)||null;
+    function cleanTip(s){return String(s||'').replace(/<br\s*\/?>/gi,' ').replace(/<\/?color[^>]*>/gi,'');}
+    p.appendChild(el('<h3 class="sec">The Cube <span class="tag">recipes &amp; unlock levels — the game\'s own tables'+(cubeLvl?(' · your Cube is level '+cubeLvl):'')+'</span></h3>'));
+    var cpanel=el('<div class="panel"></div>');
+    cubeDb.types.forEach(function(ct){
+      var subs=(cubeDb.subs||[]).filter(function(s2){return s2.t===ct.t;});
+      var chips=subs.map(function(s2){
+        var unlocked=(cubeLvl!=null&&s2.lvl!=null&&s2.lvl<=cubeLvl);
+        var label=(s2.n&&s2.n!=='-')?s2.n:('Lv '+(s2.lvl!=null?s2.lvl:'?'));
+        var ttl='unlocks at Cube level '+(s2.lvl!=null?s2.lvl:'?')+(s2.cost!=null?(' · unlock cost '+fmt(s2.cost)):'')+(s2.gold!=null?(' · '+fmt(s2.gold)+' gold per use'):'');
+        return '<span class="chip" title="'+esc(ttl)+'" style="'+(unlocked?'color:var(--good)':'color:var(--text-dim)')+'">'+(unlocked?'✓ ':(cubeLvl!=null?'🔒 ':''))+esc(label)+'</span>';
+      }).join('');
+      cpanel.appendChild(el('<div class="bd-row"><span class="bd-src" title="'+esc(cleanTip(ct.tip))+'">'+esc(cap(ct.t))+'<small>hover for the game\'s description</small></span>'+
+        '<div class="bd-stats">'+(chips||'<span class="bd-empty">—</span>')+'</div></div>'));
+    });
+    p.appendChild(cpanel);
+    p.appendChild(el('<div class="crewnote" style="margin-top:8px">Names, tooltips and unlock levels are the game\'s own. The unlock-cost column carries no currency label in the data, so none is claimed'+(cubeLvl==null?'; connect a save to see which recipes your Cube has unlocked':'')+'. Per-recipe details (materials, result pools, level bands) are on each item\'s Codex page.</div>'));
+  }
 }
 
 /* ============================================================================
@@ -3053,6 +3155,23 @@ function renderCrew(d){
   });
   optRow.appendChild(optBtn);
   optRow.appendChild(el('<span class="crewnote">'+(crewCfg.optin?'Your brag-stats update your crew on every save read (about once a minute).':'Off by default. Until you turn this on, nothing about you is uploaded — you can still watch the board.')+'</span>'));
+  // v1.0.17 (P5) — "forget me": one click deletes this member's row + history from the crew server
+  // (POST /prune with this client's own code+memberId — the same pair that can already update the row).
+  if(joined&&!demoMode){
+    var rmBtn=el('<button class="ghost" type="button" title="Delete your row and history from the crew server. Friends keep theirs; you can rejoin any time.">🗑 Remove my data</button>');
+    rmBtn.addEventListener('click',function(){
+      rmBtn.disabled=true;rmBtn.textContent='removing…';
+      fetch(CREW_API+'/prune',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({code:crewCfg.code.trim(),memberId:crewId()})})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        if(j&&j.ok){crewCfg.optin=false;crewSave();crewMsg('your data was removed from the crew server ('+(j.removed||0)+' row). Sharing is now OFF.');crewRefresh(true);renderCrew(current);}
+        else{rmBtn.disabled=false;rmBtn.textContent='🗑 Remove my data';crewMsg('remove failed — try again in a minute.');}
+      })
+      .catch(function(){rmBtn.disabled=false;rmBtn.textContent='🗑 Remove my data';crewMsg('crew server unreachable.');});
+    });
+    optRow.appendChild(rmBtn);
+  }
   setup.appendChild(optRow);
   setup.appendChild(el('<div id="crewStatus" class="crewnote" style="margin-top:9px"></div>'));
   p.appendChild(setup);
@@ -3374,6 +3493,41 @@ function openCodexDetail(e,owned){
     if(src.length)html+=sec('Drops from ('+src.length+')','<div class="cxsrc">'+src.map(function(bk){var bi=DB.items[bk]||{};
       return '<span class="chip" data-box="'+esc(bk)+'">'+esc(bi.n||('Box '+bk))+'</span>';}).join('')+'</div>');
   }
+  // v1.0.17 (P5) — the Cube/recipe chain, straight from the game's own tables. Everything deterministic is
+  // shown (tiers, unlock levels, material lists, result level bands, pool sizes); odds are NEVER quoted —
+  // the tables carry weights but their composition semantics live in game code (calibrate-or-omit).
+  function camelWords(s){return String(s||'').replace(/([a-z])([A-Z])/g,'$1 $2');}
+  if(e.cat==='GEAR'||e.cat==='MATERIAL'||e.cat==='BOX'){
+    var crs=craftRecipesFor(e.key), sps=synthPoolsFor(e.key), ch2='';
+    crs.forEach(function(c){
+      var sub=cubeSubFor('CRAFTING',c.tier);
+      ch2+='<div class="cxrecipe"><div class="cxrl">⚒️ Crafting · Tier '+c.tier+' · '+esc(camelWords(c.cat))+
+        (sub&&sub.lvl?(' <span class="cxrtag">unlocks at Cube level '+sub.lvl+'</span>'):'')+'</div>'+
+        '<div class="cxnote">Consumes:</div><div class="cxmembers" data-mats="'+esc(c.k)+'"></div>'+
+        '<div class="cxnote">Result: one item from this recipe\'s pool of '+((DB.drops&&DB.drops[c.dk])||[]).length+' — which one is random; the game ships no odds to quote.</div></div>';
+    });
+    sps.forEach(function(s2){
+      var sub=cubeSubFor('SYNTHESIS',s2.tier), bands=synthBandsFor(s2.type,s2.tier), bandTxt='';
+      if(bands){var match=bands.bands.filter(function(b){return b.lo<=s2.lvl&&s2.lvl<=b.hi;});
+        if(match.length)bandTxt='<div class="cxnote">Reachable with 9 materials at average material level '+
+          match.map(function(b){return '≥ '+b.avg+' (result band Lv '+b.lo+'–'+b.hi+')';}).join(' · or ')+'.</div>';}
+      ch2+='<div class="cxrecipe"><div class="cxrl">🧊 Cube synthesis · Tier '+s2.tier+
+        (sub&&sub.lvl?(' <span class="cxrtag">unlocks at Cube level '+sub.lvl+'</span>'):'')+'</div>'+
+        '<div class="cxnote">This item is in the '+esc(cap(s2.g))+' '+esc(String(s2.type).toLowerCase())+' result pool at level '+s2.lvl+
+        ' ('+((DB.drops&&DB.drops[s2.dk])||[]).length+' possible results). The game\'s own rule: “Synthesize 9 items of the same grade into one of a higher grade.”</div>'+bandTxt+'</div>';
+    });
+    if(ch2)html+=sec('The Cube can make this',ch2);
+  }
+  if(e.cat==='MATERIAL'){
+    var uses=cubeUsesOf(e.key), uh='';
+    uses.craft.forEach(function(c){
+      uh+='<div class="cxstat"><span>⚒️ Crafting ingredient · Tier '+c.tier+' '+esc(camelWords(c.cat))+'</span><b>'+
+        c.mats.map(function(m){var mi=DB.items[m[0]]||{};return esc(mi.n||('#'+m[0]))+((m[1]&&m[1]>1)?(' ×'+m[1]):'');}).join(' + ')+'</b></div>';});
+    uses.offer.forEach(function(o){
+      uh+='<div class="cxstat"><span>🕯️ Offering'+(o.n&&o.n!=='-'?(' · '+esc(o.n)):'')+'</span><b>'+
+        (o.gold!=null?('gold cost '+fmt(o.gold)+' · '):'')+'result pool of '+((o.dk&&DB.drops&&DB.drops[o.dk])||[]).length+'</b></div>';});
+    if(uh)html+=sec('The Cube uses this',uh);
+  }
   var flags=[];if(e.steam)flags.push('Steam item');
   if(e.mkt)flags.push('tradeable / marketable on the Steam Community Market');
   else if(e.cat==='GEAR'||e.cat==='MATERIAL')flags.push('not marketable');
@@ -3392,6 +3546,18 @@ function openCodexDetail(e,owned){
     t.appendChild(iconImg(mi.ic||iconId(ik)));
     t.addEventListener('click',function(){var ce=catalogEntry(ik);if(ce)openCodexDetail(ce,CX&&CX.own?CX.own(ce):false);});
     mc.appendChild(t);});
+  // v1.0.17 — crafting-ingredient tiles (same pattern: graceful icon fallback + click-through; ×qty badge)
+  Array.prototype.forEach.call(mo.querySelectorAll('[data-mats]'),function(mats){
+    var rk=mats.getAttribute('data-mats');
+    var rec=(DB.crafting||[]).filter(function(c){return String(c.k)===rk;})[0];
+    if(!rec)return;
+    (rec.mats||[]).forEach(function(m){var ik=m[0],mi=DB.items[ik]||{};
+      var t=el('<div class="cxmem" style="--rc:'+rvar(mi.g)+'" title="'+esc((mi.n||ik)+((m[1]&&m[1]>1)?(' ×'+m[1]):''))+'"></div>');
+      t.appendChild(iconImg(mi.ic||iconId(ik)));
+      if(m[1]&&m[1]>1)t.appendChild(el('<span class="cxqty">×'+m[1]+'</span>'));
+      t.addEventListener('click',function(){var ce=catalogEntry(ik);if(ce)openCodexDetail(ce,CX&&CX.own?CX.own(ce):false);});
+      mats.appendChild(t);});
+  });
   Array.prototype.forEach.call(mo.querySelectorAll('.cxsrc .chip'),function(ch){
     ch.addEventListener('click',function(){var ce=catalogEntry(ch.getAttribute('data-box'));if(ce)openCodexDetail(ce,CX&&CX.own?CX.own(ce):false);});});
 

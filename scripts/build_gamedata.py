@@ -249,21 +249,106 @@ def main():
             "req": int(r["PrevNodeRequiredLevel"]) if r.get("PrevNodeRequiredLevel") else None,
         }
 
-    # ---- drop tables: box DropKey -> member ItemKeys (DropInfoData -> ItemGroupInfoData) ----
+    # ---- v1.0.17 (P5): the Cube / recipe chain (all from the game's own tables; odds NEVER quoted) ----
+    # CraftingRecipeInfoData: 7 categories x 8 tiers; Material = space-separated "<ItemKey>_<qty>" tokens;
+    # the OUTPUT is a DropKey (a result POOL, resolved through the same DropInfoData chain as box contents).
+    # SynthesisDropInfoData: the Cube-synthesis result pools per (tier, result level, type, grade).
+    # SynthesisRecipeInfoData: the requirement bands. VERIFIED while baking: MaterialAmount == 9 in all rows
+    # (matches the calibrated v1.0.8 Cube-consumption pattern) and the (minMatTier, lo, hi, avg) band sets are
+    # IDENTICAL across grades within each (type, tier) — 0 mismatches in all 25 groups — so bands bake
+    # grade-free and no input->output grade pairing is ever asserted. The per-band LevelWeight1..4 columns are
+    # real client data but their band mapping lives in game code (uncalibrated) -> OMITTED.
+    # CubeRecipeInfoData/CubeSubRecipeInfoData/CubeLevelInfoData: the 8 recipe categories (localized tooltips),
+    # the 31 sub-recipe unlocks (Cube level + cost — the UnlockCost column is UNLABELED for currency, so no
+    # currency is claimed; TriggerGoldCost IS gold by the game's own column name), and the Cube XP curve.
+    def mat_tokens(s):
+        out_ = []
+        for tok in (s or "").split():
+            if "_" in tok:
+                k, q = tok.rsplit("_", 1)
+                try:
+                    out_.append([k, int(q)])
+                except ValueError:
+                    out_.append([k, None])
+        return out_
+
+    crafting = []
+    for r in rows("CraftingRecipeInfoData.txt"):
+        crafting.append({"k": r["CraftingRecipeKey"], "cat": r["ItemCraftingType"],
+                         "tier": int(r["RecipeTier"]), "mats": mat_tokens(r["Material"]), "dk": r["DropKey"]})
+
+    synth = []
+    for r in rows("SynthesisDropInfoData.txt"):
+        synth.append({"lvl": int(r["ItemLevel"]), "tier": int(r["RecipeTier"]),
+                      "type": r["ItemSynthesisType"], "g": r["GRADE"], "dk": r["DropKey"]})
+
+    synth_bands = {}
+    synth_rows = rows("SynthesisRecipeInfoData.txt")
+    assert all(r["MaterialAmount"] == "9" for r in synth_rows), "synthesis MaterialAmount != 9 — recalibrate"
+    for r in synth_rows:
+        key = r["ItemSynthesisType"] + "|" + r["RecipeTier"]
+        e = synth_bands.setdefault(key, {"grades": [], "bands": []})
+        if r["GRADE"] not in e["grades"]:
+            e["grades"].append(r["GRADE"])
+        band = {"mt": int(r["MinMaterialTier"]), "lo": int(r["MinResultLevel"]),
+                "hi": int(r["MaxResultLevel"]), "avg": int(r["MinMaterialAverageLevel"])}
+        if band not in e["bands"]:
+            e["bands"].append(band)
+    for e in synth_bands.values():
+        e["bands"].sort(key=lambda b: (b["lo"], b["hi"], b["avg"]))
+
+    cube_types = []
+    for r in sorted(rows("CubeRecipeInfoData.txt"), key=lambda x: int(x["Index"] or 0)):
+        cube_types.append({"t": r["RECIPETYPE"], "tip": loc.get(r["TooltipStringKey"])})
+
+    cube_subs = []
+    for r in rows("CubeSubRecipeInfoData.txt"):
+        e = {"t": r["RECIPETYPE"], "lvl": int(r["UnlockCubeLevel"]) if r.get("UnlockCubeLevel") else None,
+             "n": loc.get(r["SubRecipeNameStringKey"])}
+        if r.get("RecipeTier"):
+            e["tier"] = int(r["RecipeTier"])
+        if r.get("UnlockCost"):
+            e["cost"] = int(r["UnlockCost"])
+        m = mat_tokens(r.get("Material"))
+        if m:
+            e["mat"] = m
+        if r.get("TriggerGoldCost"):
+            e["gold"] = int(r["TriggerGoldCost"])
+        if r.get("DropKey"):
+            e["dk"] = r["DropKey"]
+        cube_subs.append(e)
+
+    cube_levels = {}
+    for r in rows("CubeLevelInfoData.txt"):
+        try:
+            cube_levels[int(r["Level"])] = int(r["ExpForLevelUp"])
+        except (ValueError, KeyError):
+            pass
+
+    extraction = []
+    for r in rows("ExtractionCostInfoData.txt"):
+        extraction.append({"grp": r["GearGroup"], "mt": r["MATERIALTYPE"],
+                           "tier": int(r["Tier"]), "cost": int(r["Cost"])})
+
+    # ---- drop tables: DropKey -> member ItemKeys (DropInfoData -> ItemGroupInfoData) ----
     # Chain: a STAGEBOX item carries a DropKey -> DropInfoData rows -> REWARDTYPE ITEMGROUP (RewardKey ->
     # ItemGroupInfoData member ItemKeys) or REWARDTYPE ITEM (RewardKey is the ItemKey directly).
     # We key by DropKey (normalized: boxes sharing a DropKey aren't duplicated). The renderer/engine resolve
     # a box's contents via item.dk -> drops[dk], and the reverse "drops from" by inverting this map.
-    # We restrict to DropKeys actually owned by a STAGEBOX item (the player-facing, EN-named sources) and
-    # OMIT the Korean ItemGroup GroupName entirely (golden rule: never expose/guess unlocalized text).
+    # v1.0.17: recipe OUTPUT pools (crafting / synthesis / offerings) resolve through the same map, so the
+    # allowed DropKey set now includes them alongside the STAGEBOX-owned ones. Per-entry Weight columns exist
+    # in DropInfoData but their composition semantics are uncalibrated -> membership only, odds never shown.
+    # The Korean ItemGroup GroupName stays OMITTED entirely (golden rule: never expose/guess unlocalized text).
     group_members = {}
     for r in rows("ItemGroupInfoData.txt"):
         group_members.setdefault(r["ItemGroupKey"], []).append(r["ItemKey"])
     box_dropkeys = set(e["dk"] for e in items.values() if e.get("t") == "STAGEBOX" and e.get("dk"))
+    recipe_dropkeys = (set(c["dk"] for c in crafting) | set(s_["dk"] for s_ in synth) |
+                       set(e["dk"] for e in cube_subs if e.get("dk")))
     drops_set = {}
     for r in rows("DropInfoData.txt"):
         dk = r["DropKey"]
-        if dk not in box_dropkeys:
+        if dk not in box_dropkeys and dk not in recipe_dropkeys:
             continue
         s = drops_set.setdefault(dk, set())
         if r["REWARDTYPE"] == "ITEMGROUP":
@@ -273,6 +358,15 @@ def main():
             s.add(r["RewardKey"])
     drops = {k: sorted(v, key=lambda x: int(x) if x.isdigit() else x) for k, v in sorted(drops_set.items())}
     drop_member_refs = sum(len(v) for v in drops.values())
+
+    # recipe-chain validation: every referenced material/offering key must be a real item, every recipe
+    # output pool must resolve non-empty — a failure here means the tables changed; recalibrate, don't ship.
+    bad_mat = sorted(set(k for c in crafting for k, _q in c["mats"] if k not in items))
+    bad_off = sorted(set(k for e in cube_subs for k, _q in (e.get("mat") or []) if k not in items))
+    empty_pools = sorted(dk for dk in recipe_dropkeys if not drops.get(dk))
+    assert not bad_mat, "crafting materials missing from ItemInfoData: %s" % bad_mat
+    assert not bad_off, "offering materials missing from ItemInfoData: %s" % bad_off
+    assert not empty_pools, "recipe output pools resolved empty: %s" % empty_pools
 
     # ---- hero level curve: Level -> ExpForLevelUp (exp needed WITHIN that level to reach the next).
     # CALIBRATED vs the live save: every hero's HeroExp < ExpForLevelUp[HeroLevel] (per-level progress, not
@@ -310,6 +404,11 @@ def main():
         "drops": drops,
         "levels": levels,
         "stages": stages,
+        "crafting": crafting,
+        "synth": synth,
+        "synthBands": synth_bands,
+        "cube": {"types": cube_types, "subs": cube_subs, "levels": cube_levels},
+        "extraction": extraction,
         "_calibrated": {
             "source": "game ItemInfoData/StatModInfoData/MaterialInfoData/StatModGroupInfoData/GearInfoData/UniqueModInfoData/RuneInfoData(+Level) + en-US Localization (read-only)",
             "rarityFrom": "itemKey 3rd digit == GRADE column, validated 5760/5760 gear rows",
@@ -323,6 +422,10 @@ def main():
             "dropBoxes": len(drops),
             "dropMemberRefs": drop_member_refs,
             "dropGroupNames": "omitted - ItemGroupInfoData GroupNames are Korean/unlocalized (golden rule)",
+            "recipes": "crafting %d | synthesis pools %d | synthesis band groups %d (grade-independent, 0 mismatches) | cube types %d | cube subs %d | extraction rows %d" % (
+                len(crafting), len(synth), len(synth_bands), len(cube_types), len(cube_subs), len(extraction)),
+            "recipeOdds": "omitted - DropInfoData Weight + SynthesisRecipe LevelWeight semantics are uncalibrated (game-code composition); pools shown as membership only",
+            "cubeCostCurrency": "UnlockCost/extraction Cost columns carry no currency label - shown without a currency claim (TriggerGoldCost IS gold by column name)",
             "gameVersion": GAME_VERSION,
         },
     }
@@ -338,7 +441,8 @@ def main():
     print(f"stats {len(stats)} | runes {len(runes)} (with per-level effects)")
     print(f"gear {len(gear)} | inherent-stat sets {gear_inh} | unique mods {gear_um}")
     print(f"skills {len(skills)} | heroes {len(heroes)} (w/ base stats) | attributes {len(attributes)} | passives {len(passives)} | pets {len(pets)} | monsters {len(monsters)}")
-    print(f"drops {len(drops)} box DropKeys | {drop_member_refs} member refs (box contents / reverse drop sources)")
+    print(f"drops {len(drops)} DropKeys (boxes + recipe pools) | {drop_member_refs} member refs")
+    print(f"recipes: crafting {len(crafting)} | synth pools {len(synth)} | band groups {len(synth_bands)} | cube subs {len(cube_subs)} | extraction {len(extraction)}")
     print(f"levels {len(levels)} (hero XP-to-next curve, calibrated vs live save)")
     print(f"stages {len(stages)} (StageName_<key> from localization; decode act=floor(k/100)-10, stage=k%100)")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")

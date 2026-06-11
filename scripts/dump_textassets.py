@@ -6,7 +6,10 @@ want=set(["ItemInfoData","GearInfoData","DropInfoData","ItemGroupInfoData","Stat
   "GradeInfoData","GearTypeInfoData","RuneInfoData","RuneLevelInfoData","SkillInfoData","SkillLevelInfoData",
   "MonsterInfoData","MaterialInfoData","UniqueModInfoData","StatModGroupInfoData","AttributeInfoData",
   "PassiveSkillInfoData","ItemLevelScaleInfoData","GearTypeScaleInfoData","HeroInfoData","PetInfoData",
-  "SynthesisRecipeInfoData","CraftingRecipeInfoData","OfflineRewardInfoData","LevelInfoData"])
+  "SynthesisRecipeInfoData","CraftingRecipeInfoData","OfflineRewardInfoData","LevelInfoData",
+  # v1.0.17 (P5): the Cube/recipe chain — categories, sub-recipe unlocks, cube XP curve,
+  # synthesis result pools, extraction costs
+  "CubeRecipeInfoData","CubeSubRecipeInfoData","CubeLevelInfoData","SynthesisDropInfoData","ExtractionCostInfoData"])
 env=UnityPy.load(DATA)
 for obj in env.objects:
     if obj.type.name=="TextAsset":

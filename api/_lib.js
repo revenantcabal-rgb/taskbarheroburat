@@ -55,8 +55,44 @@ function ensureSchema(s) {
       created_at timestamptz NOT NULL DEFAULT now()
     )`;
     await s`CREATE INDEX IF NOT EXISTS tbh_crew_hist_idx ON tbh_crew_history (crew_code, member_id, id DESC)`;
+    // v1.0.17 (P5) — fixed-window rate counters (serverless has no shared memory; Postgres is the only
+    // cross-instance state). One row per (bucket, minute); swept opportunistically by /prune.
+    await s`CREATE TABLE IF NOT EXISTS tbh_rate (
+      bucket text NOT NULL,
+      window_start timestamptz NOT NULL,
+      n int NOT NULL DEFAULT 1,
+      PRIMARY KEY (bucket, window_start)
+    )`;
+    // v1.0.17 (P5) — enchant crowd-calibration: aggregate counters of the OPT-IN reported tuple
+    // (gear type, stone ItemKey, rolled STATTYPE). No identifiers of any kind are stored.
+    await s`CREATE TABLE IF NOT EXISTS tbh_enchant_reports (
+      gt text NOT NULL,
+      material_key bigint NOT NULL,
+      stat_type text NOT NULL,
+      n int NOT NULL DEFAULT 1,
+      first_seen timestamptz NOT NULL DEFAULT now(),
+      last_seen timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (gt, material_key, stat_type)
+    )`;
   })().catch((e) => { _schemaReady = null; throw e; });
   return _schemaReady;
+}
+
+// v1.0.17 — simple fixed-window rate limit (cap per bucket per minute). FAIL-OPEN: a Neon hiccup here must
+// never take an endpoint down harder, so errors allow the request (the caller's own try/catch still guards).
+async function rateLimited(s, bucket, cap) {
+  try {
+    const r = await s`INSERT INTO tbh_rate (bucket, window_start, n)
+                      VALUES (${bucket}, date_trunc('minute', now()), 1)
+                      ON CONFLICT (bucket, window_start) DO UPDATE SET n = tbh_rate.n + 1
+                      RETURNING n`;
+    return r.length && r[0].n > cap;
+  } catch (e) { return false; }
+}
+// best-effort client IP for per-IP buckets (Vercel sets x-forwarded-for; first hop = the client)
+function clientIp(req) {
+  const xf = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return xf || req.headers['x-real-ip'] || (req.socket && req.socket.remoteAddress) || 'unknown';
 }
 
 const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
@@ -127,4 +163,4 @@ function deriveAchievement(prevStats, prevAch, stats) {
 
 function sendJson(res, code, obj) { res.status(code).json(obj); }
 
-module.exports = { CODE_RE, applyCors, sql, ensureSchema, cleanStats, deriveAchievement, sendJson, str };
+module.exports = { CODE_RE, applyCors, sql, ensureSchema, cleanStats, deriveAchievement, sendJson, str, rateLimited, clientIp };
