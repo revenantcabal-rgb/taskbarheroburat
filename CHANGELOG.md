@@ -4,6 +4,40 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.17 — 2026-06-11
+
+### Added
+- **Codex recipes** — every item's Codex page now shows how the Cube can **make** it: crafting recipes
+  (tier, Cube unlock level, clickable ingredient tiles, result-pool size — "which one is random; the game
+  ships no odds to quote") and synthesis pools (tier, unlock level, grade/level band, requirement bands, and
+  the game's own rule quoted verbatim: *"Synthesize 9 items of the same grade into one of a higher grade"*).
+  Materials additionally show what the Cube **uses** them for (crafting ingredient lines; offering coins with
+  their gold cost). Sourced from five newly extracted game tables (CubeRecipe/CubeSubRecipe/CubeLevel/
+  SynthesisDrop/ExtractionCost InfoData) + the two recipe tables — **odds are never quoted**: the raw data
+  carries weights, but how they compose lives in game code, so membership only (calibrate-or-omit).
+- **The Cube reference** (Advisor) — all 8 recipe categories with the game's own localized tooltips on hover,
+  and every sub-recipe chip marked ✓ unlocked / 🔒 locked against **your** Cube level.
+- **Targets** — pin one goal on the Overview: **save up gold**, **a rune level** (priced from the game's own
+  per-level cost table; "ready now" when affordable), **wear a level-locked find** (from the Advisor's real
+  notices; ETA from that hero's measured XP/hr), or **clear a stage** (ETA from your history's measured
+  progression, in played time). Every ETA uses only your own measured pace — honest "measuring…" /
+  "not gaining" states, never an assumed rate — and the target clears itself with a 🎉 when reached.
+- **Help calibrate (optional)** — if your save carries enchants on gear types whose slot category isn't
+  verified yet, the Advisor lists the three-field tuples (gear type · stone · rolled stat) and one explicit
+  click reports exactly those three fields. Never your save, no identifiers of any kind.
+- **Crew: "Remove my data"** — one click deletes your row + history from the crew server (sharing flips off;
+  friends keep theirs; rejoin any time).
+
+### Changed
+- **Crew server hardening** — rate limiting on every endpoint (Postgres fixed-window; the client's own pace
+  is far below every cap), a prune endpoint (self-remove + stale-member cleanup with a **7-day server-enforced
+  floor** so a leaked crew code can never remove an active member), and strict whitelist validation on the new
+  calibration reports (the 20 real gear types only, aggregate counters, flood ceiling).
+- The blue-chest findings doc gained a precision correction: the raw `DropInfoData` does carry per-entry
+  weights (the original sweep searched the baked DB) — but every pool containing a Stage Boss Box is a uniform
+  class-selector or single-entry pool, so the conclusion is unchanged and stronger: **no chest-drop probability
+  exists anywhere in the client data**; the measured tracker stays the only honest rate.
+
 ## v1.0.16 — 2026-06-11
 
 ### Added

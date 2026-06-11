@@ -41,13 +41,18 @@ The item table proves the color tiers. All 59 chest ("STAGEBOX") items split cle
 
 ## 2. The drop RATE — what the files do and don't contain  **[VERIFIED]**
 
-I searched the full 1.8 MB game-data dump for any drop-weight/probability field:
+> **PRECISION CORRECTION (2026-06-11, v1.0.17 session).** The original sentence here — "I searched the full
+> 1.8 MB game-data dump for any drop-weight/probability field: zero" — searched the **baked**
+> `gamedata.min.json`, not the raw CSVs. The raw `DropInfoData` **does** carry an integer `Weight` column per
+> pool entry. The conclusion is **unchanged and now stronger**, verified directly against the raw table:
+> every pool that contains a Stage Boss Box is either a **uniform class selector** (DropKey 9200010: the six
+> class boxes 920001–920006, each weight 10000, picked by `HeroKeyCondition` — a selector, not a chance roll)
+> or a **single-entry pool** (9200220/320/420/520: one box at weight 10000 = the pool's only outcome). Zero of
+> the 59 STAGEBOX keys appear as weighted members of any mixed pool. So **no probability of a chest dropping
+> is encoded anywhere** — what fires those pools, and how often, lives in game code. The measured tracker
+> (Loot → Blue-chest tracker, v1.0.16) remains the only honest rate.
 
-```
-weight: 0    probability: 0    odds: 0    dropRate: 0    Ratio: 0
-```
-
-**Zero.** There is no drop-weight or drop-probability table in the client data. What *does* exist:
+What *does* exist:
 
 - **Drop tables** = box → list of possible item IDs (membership **only**, no weights). The extractor chain is `STAGEBOX item → DropKey → DropInfoData → ItemGroupInfoData`, and it pulls *which* items can come out — never the odds. (`scripts/build_gamedata.py`, lines ~252–274.)
 - **Runes that *increase* Stage Boss Chest drop chance** — these exist and are real, but they're **multipliers on an unknown base**:
