@@ -4,6 +4,41 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.16 — 2026-06-11
+
+### Added
+- **Loot tab controls** — rarity chips, an origin filter (⚒️ Cube / ✦ found / unclear), free-text search,
+  sort (newest / rarity / name), Today/Yesterday date headers, and paged rendering with honest counts
+  ("showing 80 of 214") — nothing is silently cut any more. The stored timeline grew from 120 to 500 items,
+  and the offline-rewards table pages the same way.
+- **Loot export** — one click downloads the full new-items timeline + offline rewards as **CSV or JSON**
+  (local + UTC time, name, rarity, origin, level). Client-side, read-only.
+- **"Where's my chest?" answered** — the game sometimes mints boxes that Steam returns *empty* for
+  (`CreateSteamItem … items is empty` in your own Player.log). The Loot tab now counts exactly those lines:
+  the boxes are held on the **Steam side**, never reach your save, and that's why they don't appear in the
+  timeline. A Steam-side delay — not a missed drop. (Full investigation: COMMON-BOX-STEAM-ROUTING-FINDINGS.md.)
+- **Blue-chest tracker — measured from YOUR play, never asserted.** The "blue chest" is the game's RARE
+  **Stage Boss Box**; its drop % and the rumored 12-minute per-stage cooldown are **not in the game's files**
+  (file-verified — BLUE-CHEST-DROP-RATE-FINDINGS.md). So the HUD measures instead: every Stage Boss Box that
+  lands in your save is logged with your stage and play-hours, and the panel shows your own same-stage gaps
+  and after-a-stage-switch gaps — medians, mins, maxes, **always with the sample size**. Gaps are shown in
+  played time so closed-game periods don't stretch them.
+- **Inventory power tools** — search (name/ID), gear-type filter, sort (rarity / level / type /
+  enchanted-first), "✨ enchanted only" + equipped/unequipped toggles (worn items show a dot), and a
+  **⚖ Compare mode**: pick two items of the same gear type for side-by-side inherent stats from the game's
+  own gear table — facts only, no better/worse verdicts.
+- **"Safe to let go" (redundant duplicates)** — spares listed **only on structural proof**: you own more
+  strictly-better pieces of that gear type (higher rarity at the same-or-lower level requirement) than your
+  whole roster could ever wear at once. Never a "sell" recommendation — salvage values aren't calibrated, so
+  none are quoted.
+- **Desktop mini-HUD** — a compact, frameless, always-on-top strip showing gold · session gold/hr · current
+  stage · the offline-rewards timer · your next rune step. Fed by the same read-only save watcher (no new
+  data lane); position, size and opacity are remembered; toggle it from the header or Settings.
+- **Settings panel (⚙)** — compact density, reduced motion (or follow your system), default tab on launch,
+  rare-item alerts, and the mini-HUD controls on desktop. Stored locally, never in your game.
+- **Keyboard shortcuts** — **1–9/0** jump to the first ten tabs, **←/→** cycle through all eleven,
+  **/** focuses the current tab's search box. Typing in a field is never hijacked.
+
 ## v1.0.15 — 2026-06-11
 
 ### Fixed
