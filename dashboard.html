@@ -1356,7 +1356,11 @@ function miniBars(vals,opts){
    (dropped or market-bought — those two still can't be told apart). Anything mixed/unclear stays unlabeled.
    Honest inference from real instance deltas — labeled "likely", never stated as fact. */
 var lastUidMeta=null, lootLog=[];
-try{var ls=localStorage.getItem('tbh_loot');if(ls){var o=JSON.parse(ls);lootLog=o.log||[];
+// v1.0.16 (P3) — Stage-Boss-Box ("blue chest") acquisition log: {t, stage, ph(playHours at the read), n(boxes in
+// the read)}. The game's files contain NO base drop % and NO cooldown for this chest (file-verified, see
+// BLUE-CHEST-DROP-RATE-FINDINGS.md) — so the HUD MEASURES the player's own acquisitions and never asserts a rate.
+var chestLog=[];
+try{var ls=localStorage.getItem('tbh_loot');if(ls){var o=JSON.parse(ls);lootLog=o.log||[];chestLog=o.chest||[];
   if(o.uidm){lastUidMeta=o.uidm;}                              // current format: {uid: 1|0} (1 = material)
   else if(o.uids){lastUidMeta={};o.uids.forEach(function(u){lastUidMeta[u]=-1;});}   // legacy: material-ness unknown
 }}catch(e){}
@@ -1369,7 +1373,7 @@ function toggleRareAlerts(){
   if(!('Notification'in window)){if(current)renderLoot(current);return;}
   Notification.requestPermission().then(function(p){rareAlerts=(p==='granted');try{localStorage.setItem('tbh_rare_alerts',rareAlerts?'1':'0');}catch(e){}if(current)renderLoot(current);});
 }
-function processLoot(owned,ts){
+function processLoot(owned,ts,d){
   var meta={}; owned.forEach(function(o2){meta[o2.uid]=o2.mat?1:0;});
   if(lastUidMeta===null){lastUidMeta=meta;persistLoot();return;}
   var fresh=owned.filter(function(o2){return !(o2.uid in lastUidMeta);});
@@ -1382,15 +1386,26 @@ function processLoot(owned,ts){
     var src=null;
     if(freshGear.length===1&&removedMats>=9) src='cube';
     else if(removedMats===0&&removedUnknown===0) src='found';
+    var tNow=ts||Date.now(), chestN=0;
     fresh.forEach(function(f){
-      lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl,key:f.key,
+      lootLog.unshift({t:tNow,name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl,key:f.key,
         src:(f.mat?(src==='found'?'found':null):(src==='cube'?'cube':src)),mats:(src==='cube'?removedMats:null)});
-      if(rrank(f.grade)>=3)notifyRare(f);});
+      if(rrank(f.grade)>=3)notifyRare(f);
+      // v1.0.16 (P3) — a RARE-grade STAGEBOX is the Stage Boss Box (the "blue chest", calibrated naming):
+      // record the acquisition for the measurement panel. Type from the authoritative item table.
+      var ii=DB.items[String(f.key)];
+      if(ii&&ii.t==='STAGEBOX'&&f.grade==='RARE')chestN++;
+    });
+    if(chestN){
+      // boxes landing in the SAME save read collapse into one event (gaps are only measurable between reads)
+      chestLog.unshift({t:tNow,stage:(d&&d.stage)||null,ph:(d&&d.playHours!=null)?d.playHours:null,n:chestN});
+      chestLog=chestLog.slice(0,400);
+    }
     lootLog=lootLog.slice(0,500);   // v1.0.16: keep a real record (was 120) — ~75 KB worst case, well inside localStorage
   }
   lastUidMeta=meta;persistLoot();
 }
-function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uidm:lastUidMeta}));}catch(e){}}
+function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:lootLog,uidm:lastUidMeta,chest:chestLog}));}catch(e){}}
 
 /* ---------- Player.log parsing (read-only; same folder as the save) ----------
    The game logs little loot directly (live drops go straight to the save), but it DOES log
@@ -2056,6 +2071,49 @@ function renderLoot(d){
       return fmt(undeliv[k])+'× '+esc(nm);}).join(' · ');
     p.appendChild(el('<div class="hint">📦 <b>Where\'s my chest?</b> In this log window the game generated <b>'+fmt(undelivTotal)+' box'+(undelivTotal>1?'es':'')+
       '</b> that Steam hasn\'t delivered yet ('+perKey+') — its inventory call came back <i>empty</i> each time. Those boxes are held on the <b>Steam side</b>, not in your save, so they don\'t appear in the timeline below. That\'s a Steam/game-side delay this build is known for — not a missed drop.</div>'));
+  }
+
+  // v1.0.16 (P3) — Blue-chest tracker: MEASURED from the player's own play, never asserted. The game's data
+  // files contain no base drop % and no cooldown for the Stage Boss Box (file-verified, see
+  // BLUE-CHEST-DROP-RATE-FINDINGS.md) — so this panel only ever shows the player's own acquisition intervals.
+  p.appendChild(el('<h3 class="sec">Blue-chest tracker <span class="tag">Stage Boss Box · measured from your play — the game files contain no rate to quote</span></h3>'));
+  p.appendChild(el('<div class="hint">The "blue chest" is the game\'s <b>Stage Boss Box</b> (the RARE-grade chest — calibrated from the game\'s own item table). File-verified: <i>"there is NO numeric drop rate for the blue chest anywhere in the game\'s data files"</i>, and the rumored <i>12-minute per-stage cooldown</i> <b>is not in the files either</b> — anyone quoting those numbers measured them or guessed (full investigation: BLUE-CHEST-DROP-RATE-FINDINGS.md in the repo). So the HUD <b>measures instead of asserting</b>: every Stage Boss Box that lands in your save is logged with your current stage and play-hours, and the intervals below are <b>your own data, sample size included</b>. To test the community\'s "switch stages for back-to-back chests" trick yourself: farm one stage, note the gaps — then switch stages and see whether the next chest comes faster. The HUD never claims it will.</div>'));
+  if(!chestLog.length){
+    p.appendChild(el('<div class="empty">No Stage Boss Box acquisitions recorded yet — they\'re logged automatically while the HUD is connected and you play.<br><span style="font-size:11.5px">Chests are detected from your save (they land as items), so the HUD must be running when one drops. Nothing is recorded from other players or community claims.</span></div>'));
+  }else{
+    var evs=chestLog.slice().reverse();   // oldest -> newest for gap math
+    var gaps=[];                          // between consecutive acquisitions (only measurable between save reads)
+    for(var ci=1;ci<evs.length;ci++){
+      var a2=evs[ci-1],b2=evs[ci];
+      var wallH=(b2.t-a2.t)/3600000;
+      var playedH=(a2.ph!=null&&b2.ph!=null)?Math.max(0,b2.ph-a2.ph):null;
+      gaps.push({b:b2,wallH:wallH,playedH:playedH,
+        away:(playedH!=null&&(wallH-playedH)>0.25),                       // the calibrated closed-game detector (v1.0.9)
+        switched:!!(a2.stage&&b2.stage&&a2.stage!==b2.stage)});
+    }
+    function med(xs){if(!xs.length)return null;var s2=xs.slice().sort(function(x,y){return x-y;});var m2=Math.floor(s2.length/2);return s2.length%2?s2[m2]:(s2[m2-1]+s2[m2])/2;}
+    function gapDur(g){var h=(g.playedH!=null)?g.playedH:g.wallH;return fmtDur(h*3600);}
+    var same=gaps.filter(function(g){return !g.switched;}), sw=gaps.filter(function(g){return g.switched;});
+    var sameVals=same.map(function(g){return (g.playedH!=null?g.playedH:g.wallH);}), swVals=sw.map(function(g){return (g.playedH!=null?g.playedH:g.wallH);});
+    var sumHtml='<div class="grid cards">'+
+      card('Chests recorded',String(chestLog.reduce(function(s2,e2){return s2+(e2.n||1);},0)),'','across '+chestLog.length+' save read'+(chestLog.length>1?'s':'')+' · N='+chestLog.length,'📦')+
+      (same.length?card('Same-stage gap',fmtDur((med(sameVals)||0)*3600),'','median of '+same.length+' measured gap'+(same.length>1?'s':'')+' · min '+fmtDur(Math.min.apply(null,sameVals)*3600)+' · max '+fmtDur(Math.max.apply(null,sameVals)*3600),'⏱️'):'')+
+      (sw.length?card('Gap after a stage switch',fmtDur((med(swVals)||0)*3600),'','median of '+sw.length+' measured gap'+(sw.length>1?'s':'')+' — your data, not a promise','🔀'):'')+
+      '</div>';
+    p.appendChild(el(sumHtml));
+    var crows='';
+    chestLog.slice(0,12).forEach(function(e2,i2){
+      // the gap shown on a row is the interval ENDING at that acquisition (newest first => gaps[len-1-i])
+      var g=gaps[gaps.length-1-i2]||null;
+      crows+='<tr><td class="loot-time">'+new Date(e2.t).toLocaleString()+'</td>'+
+        '<td>'+(e2.stage?stageLabel(e2.stage):'<span style="color:var(--text-dim)">—</span>')+'</td>'+
+        '<td class="r">'+(e2.n||1)+'</td>'+
+        '<td class="r">'+(g?gapDur(g):'<span style="color:var(--text-dim)">first recorded</span>')+'</td>'+
+        '<td>'+(g?((g.switched?'<span style="color:var(--accent-alt)">after a stage switch</span>':'same stage')+(g.away?' · <span title="The game was closed for part of this gap (wall-clock vs played-time, the calibrated 0.25h detector) — the gap is shown in PLAYED time" style="color:var(--warn)">includes time away</span>':'')):'—')+'</td></tr>';
+    });
+    p.appendChild(el('<div class="panel"><table><thead><tr><th>Your time</th><th>Stage</th><th class="r">Boxes</th><th class="r">Gap before it</th><th>Context</th></tr></thead><tbody>'+crows+'</tbody></table></div>'));
+    if(chestLog.length>12)p.appendChild(el('<div class="loothint" style="margin-top:6px">Showing the latest 12 of '+chestLog.length+' recorded acquisitions (all '+chestLog.length+' feed the medians above; the export includes the full new-items timeline).</div>'));
+    p.appendChild(el('<div class="loothint" style="margin-top:6px">Gaps are shown in <b>played time</b> (your save\'s own play-hours counter) when available, so time with the game closed doesn\'t stretch them; gaps that contained a closed-game period are marked.</div>'));
   }
 
   // Offline rewards (timestamped gold from Player.log) — real game timestamps; paged, nothing hidden silently
@@ -3402,7 +3460,7 @@ function disconnect(){
   // Change-folder = clean slate: reset loot tracking so a DIFFERENT save isn't diffed against the old one
   // (which would flood the timeline with false "drops") and no stale timeline bleeds across saves. Normal page
   // reloads don't call this, so the persisted loot timeline still survives reloads of the SAME save.
-  lastUidMeta=null;lootLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
+  lastUidMeta=null;lootLog=[];chestLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
   lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};lootOffShown=20;   // v1.0.16: controls reset with the slate
   invState={rarity:'ALL',q:'',gt:'ALL',sort:'rarity',ench:false,equip:'ALL',compare:false,sel:[]};
   // Same clean-slate rule for the HUD's own snapshot history: a DIFFERENT save must never inherit (or pollute)
@@ -3432,7 +3490,7 @@ async function onBytes(buf){
     historyAppend(trendPoint(psd));
     // timestamp new items with the file's TRUE UTC mtime when available (the .es3 lastSavedTime field is LOCAL
     // ticks); falls back to ticks / now. This makes the loot timeline's local + UTC columns both accurate.
-    processLoot(d.owned, lastSaveFileMs||(d.lastSaved?+d.lastSaved:Date.now()));
+    processLoot(d.owned, lastSaveFileMs||(d.lastSaved?+d.lastSaved:Date.now()), d);
     render(d);
     crewOnSaveRead(d);   // opt-in only: push brag-stats to the crew (no-op unless the user enabled sharing)
     $('dot').className='dot live';$('statusText').textContent='reading your save';
@@ -3630,6 +3688,14 @@ function loadDemo(){
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,key:'322041',src:'found'}];
   lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};lootOffShown=20;   // stale filters from a real save can't blank the sample
   invState={rarity:'ALL',q:'',gt:'ALL',sort:'rarity',ench:false,equip:'ALL',compare:false,sel:[]};
+  // sample chest acquisitions (REPLACES any real ones — same demo-isolation rule as logData): a same-stage run
+  // with ~12-25min played gaps and one stage-switch arrival, so the measurement panel showcases honestly
+  chestLog=[
+    {t:Date.now()-4*60000,  stage:1208,ph:34.40,n:1},
+    {t:Date.now()-29*60000, stage:1206,ph:34.18,n:1},
+    {t:Date.now()-52*60000, stage:1206,ph:33.85,n:1},
+    {t:Date.now()-77*60000, stage:1206,ph:33.50,n:1}
+  ];
   // Demo Player.log data — REPLACES any previously-loaded real log data so nothing real ever renders under the
   // SAMPLE badge (entering demo used to keep a connected save's offline rewards/box counts on the Loot tab).
   // Boxes are real catalog STAGEBOX entries (authoritative names/grades) with sample counts; the 15,400-gold
