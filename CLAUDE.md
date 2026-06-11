@@ -212,6 +212,12 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S21 (v1.0.15)** — **slow-update fix.** Differential downloads were the culprit (solid-7z NSIS ⇒ diff ≈ full
+  79 MB fetched as thousands of sequential range requests; measured full-stream 1 MB/s vs 68 ms/ranged-request on
+  the owner's line; 1.0.14's temp file sat at 0 bytes). Now: `disableDifferentialDownload=true` (main.js),
+  `nsis.differentialPackage:false` (NO .blockmap shipped — old clients auto-fall back to full download), banner
+  shows MB + live speed. **RELEASE COMMAND CHANGED: no blockmap asset** —
+  `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest`.
 - **S20 (v1.0.14)** — **version clarity + Steam boxes explained + demo log isolation.** Footer now shows
   "app v…" on every platform (was Electron-only; browser had no visible app version) with game-v/app-v tooltips;
   Electron shell version surfaces only if it differs from APP_VERSION. Loot "Steam boxes you're holding": hint
@@ -306,14 +312,14 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.14 is SHIPPED everywhere** — desktop release (installer + latest.yml + blockmap; auto-update WORKS from
-   v1.0.6 on — older installs need one manual reinstall, see S13c),
-   GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from
-   the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project `tbh-crew-api`
-   under the fusiondatacompany team; Neon Postgres; DATABASE_URL in Vercel env only; redeployed for the v1.0.11
-   `statList` whitelist). To ship the NEXT version: bump `package.json` + `APP_VERSION` + the `?v=` cache-bust +
+1. **v1.0.15 is SHIPPED everywhere** — desktop release (installer + latest.yml; **no blockmap since v1.0.15** —
+   differential updates disabled for speed; auto-update WORKS from v1.0.6 on — older installs need one manual
+   reinstall, see S13c), GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`)
+   auto-deploys from the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project
+   `tbh-crew-api` under the fusiondatacompany team; Neon Postgres; DATABASE_URL in Vercel env only; redeploy it ONLY
+   when api/* changes). To ship the NEXT version: bump `package.json` + `APP_VERSION` + the `?v=` cache-bust +
    add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`, then
-   `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml dist/*.blockmap --latest`.
+   `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest`.
 2. **Optional:** move the crew API under the owner's `taskbarheroburat` Vercel project (attach Neon storage there →
    auto-injects DATABASE_URL → change the `CREW_API` constant in dashboard.html; ONE canonical API at a time or crews
    split); sign the installer (cert); deepen the Codex (recipes, set bonuses, drop rates); Clerk auth on the crew API.
@@ -323,7 +329,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.14 · light/dark themes · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.15 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (team fusiondatacompany-projects, CLI `vercel --scope fusiondatacompany-projects`); env var

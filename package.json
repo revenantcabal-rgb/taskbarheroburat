@@ -1,6 +1,6 @@
 {
   "name": "tbh-hud",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Read-only companion HUD for TBH: Task Bar Hero",
   "main": "src/main.js",
   "scripts": {
@@ -44,6 +44,7 @@
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
+      "differentialPackage": false,
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,

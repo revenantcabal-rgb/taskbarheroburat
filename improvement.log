@@ -11,7 +11,17 @@ notes: CHANGELOG.md + in-app "What's new".
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
-- **S20 (v1.0.14) — version clarity + Steam-boxes explained + demo log isolation (owner's 2 questions).**
+- **S21 (v1.0.15) — extremely-slow-update fix (root-caused on the owner's install).** Evidence: the updater cache
+  held the previous installer + blockmap and the 1.0.14 download sat at a 0-byte temp file → it was running a
+  DIFFERENTIAL download. Measured on the same line: full-stream from GitHub releases = ~1.0 MB/s (79 MB ≈ 76 s),
+  ranged requests = ~68 ms each — and our NSIS exe is solid-compressed, so any change ripples through the whole
+  archive: the "diff" ≈ the full 79 MB fetched as THOUSANDS of sequential range requests = many minutes. Fixes:
+  (a) `autoUpdater.disableDifferentialDownload = true` (main.js — arrives with this update for all future ones);
+  (b) `nsis.differentialPackage: false` — releases stop shipping a .blockmap, so EXISTING 1.0.13/1.0.14 installs
+  immediately fall back to the fast full download when fetching v1.0.15 (no blockmap → no differential attempt);
+  (c) the update banner now shows transferred/total MB + live MB/s so a big download never looks stuck.
+  RELEASE PROCESS CHANGE: from v1.0.15 on, `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml
+  --latest` — NO blockmap asset anymore.
   (1) **game v vs app v:** the footer now shows "app v<APP_VERSION>" on EVERY platform (it was Electron-only —
   browser users had NO visible app version); header "game v…" and footer "app v…" both carry tooltips spelling
   out the difference; the Electron shell version is only surfaced if it ever DIFFERS from the renderer's (a

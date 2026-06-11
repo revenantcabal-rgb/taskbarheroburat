@@ -4,6 +4,17 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.15 — 2026-06-11
+
+### Fixed
+- **Extremely slow update downloads.** Root cause, diagnosed on a real install: differential "patch"
+  downloads fetched nearly the whole 79 MB installer as thousands of tiny sequential range requests
+  against GitHub's CDN (the installer is solid-compressed, so any change ripples through the entire
+  archive) — many minutes instead of about one. Updates now stream the installer in a single download
+  (~79 MB; measured ≈1 MB/s ≈ 80 s on the reference line), releases no longer ship a blockmap (so even
+  older installs fall back to the fast full download immediately), and the update banner now shows
+  **size + live speed** ("42% · 33 / 79 MB · 1.0 MB/s") so progress is always visible.
+
 ## v1.0.14 — 2026-06-11
 
 ### Added

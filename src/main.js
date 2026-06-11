@@ -11,6 +11,11 @@ try {
   autoUpdater = require('electron-updater').autoUpdater;
   autoUpdater.autoDownload = true;            // pull a newer release in the background as soon as it's found
   autoUpdater.autoInstallOnAppQuit = true;    // and apply it the next time the app quits, even without a click
+  // v1.0.15: differential ("patch") downloads are DISABLED. Diagnosed on a real install: our NSIS exe is
+  // solid-compressed, so any source change ripples through the whole archive — the "diff" is ~the full 79 MB,
+  // and electron-updater fetches it as thousands of small sequential range requests against GitHub's CDN
+  // (~68 ms each measured) = many minutes, vs ~76 s for one full stream on the same line. Full download wins.
+  autoUpdater.disableDifferentialDownload = true;
 } catch (e) { /* dev: not installed */ }
 // Relay updater progress to the renderer so the UI can show a friendly "update ready — restart" banner.
 function sendUpdate(payload) { if (win && !win.isDestroyed()) win.webContents.send('update-status', payload); }
@@ -23,7 +28,11 @@ function wireUpdater() {
   autoUpdater.on('checking-for-update', () => sendUpdate({ state: 'checking' }));
   autoUpdater.on('update-available', (i) => sendUpdate({ state: 'available', version: i && i.version }));
   autoUpdater.on('update-not-available', () => sendUpdate({ state: 'none', version: app.getVersion() }));
-  autoUpdater.on('download-progress', (p) => sendUpdate({ state: 'downloading', percent: Math.round(p && p.percent || 0) }));
+  autoUpdater.on('download-progress', (p) => sendUpdate({
+    state: 'downloading', percent: Math.round(p && p.percent || 0),
+    // v1.0.15: surface size + speed so a download never looks silently stuck
+    transferred: p && p.transferred || 0, total: p && p.total || 0, bps: p && p.bytesPerSecond || 0,
+  }));
   autoUpdater.on('update-downloaded', (i) => sendUpdate({ state: 'downloaded', version: i && i.version }));
   autoUpdater.on('error', () => sendUpdate({ state: 'error' }));
   checkForUpdatesNow();
