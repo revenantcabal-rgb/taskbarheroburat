@@ -406,6 +406,13 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
     letter-spacing:.6px;background:var(--surface-2);border-bottom:1px solid var(--border)}
   .lootmore{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap}
   .lootmore button{font-size:12px;padding:6px 13px;border-radius:var(--radius-pill)}
+  /* v1.0.17 (P6) — the pinned-target row */
+  .targetrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .targetrow .t-meta{flex:1 1 240px;min-width:0}
+  .targetrow .t-l{font-size:14px;font-weight:700}
+  .targetrow .t-p{font-size:12px;color:var(--text-dim);margin-top:2px}
+  .targetrow .t-eta{font-size:19px;font-weight:800;min-width:0}
+  .targetrow .t-eta span{font-weight:600}
   tbody tr.rare{background:linear-gradient(90deg,color-mix(in srgb, var(--gold) 10%, transparent),transparent 70%)}
   tbody tr.rare:hover{background:linear-gradient(90deg,color-mix(in srgb, var(--gold) 16%, transparent),color-mix(in srgb, var(--accent) 5%, transparent))}
   .rarestar{color:var(--gold);text-shadow:0 0 7px var(--gold)}
@@ -1690,6 +1697,168 @@ function flexCard(d){
   });
   return panel;
 }
+/* ============================================================================
+   v1.0.17 (P6) — targets tracker. ONE pinned target; the ETA comes ONLY from the player's own measured
+   rates (session gold/hr · that hero's measured XP/hr · the history's measured stage progression), with
+   the same honest states as the per-hero level ETA (measuring… / not gaining / reached). Never a
+   fabricated pace. Persisted in tbh_target; cleared on Disconnect and replaced in demo (clean-slate).
+   ========================================================================== */
+var target=null;
+try{var _tg=JSON.parse(localStorage.getItem('tbh_target')||'null');if(_tg&&_tg.type)target=_tg;}catch(e){}
+function targetSave(){try{if(target)localStorage.setItem('tbh_target',JSON.stringify(target));else localStorage.removeItem('tbh_target');}catch(e){}}
+function stageIdx(key){var k=+key;if(!k)return null;var act=Math.floor(k/100)-10,no=k%100;if(act<1||no<1||no>10)return null;return (act-1)*10+no;}
+// measured max-stage progression across the recorded history: stage-steps per PLAYED hour
+function stagePaceFromHistory(){
+  var pts=rawTrendPoints().slice().sort(function(a,b){return a.t-b.t;}),first=null,last=null;
+  pts.forEach(function(x){if(x.maxStage==null||x.playH==null)return;if(!first)first=x;last=x;});
+  if(!first||!last||first===last)return null;
+  var steps=(stageIdx(last.maxStage)||0)-(stageIdx(first.maxStage)||0);
+  var hours=(last.playH||0)-(first.playH||0);
+  if(hours<=0)return null;
+  return {steps:steps,hours:hours,perHr:steps/hours};
+}
+// cumulative gold cost to take a rune from `from` to `to` (the game's own per-level cost table)
+function runeCostTo(runeKey,from,to){
+  var d2=DB.runes&&DB.runes[String(runeKey)];if(!d2||!d2.lv)return null;
+  var sum=0,any=false;
+  d2.lv.forEach(function(x){if(x.l>from&&x.l<=to&&x.cost!=null){sum+=x.cost;any=true;}});
+  return any?sum:null;
+}
+function targetStatus(d,rates){
+  var t=target;
+  if(t.type==='gold'){
+    var have=d.gold||0;
+    if(have>=t.amount)return {label:'Save up '+fmt(t.amount)+' gold',progress:fmt(have)+' / '+fmt(t.amount)+' gold',state:'met'};
+    var need=t.amount-have;
+    if(rates.measuring||rates.gph==null)return {label:'Save up '+fmt(t.amount)+' gold',progress:fmt(have)+' / '+fmt(t.amount)+' gold ('+fmt(need)+' to go)',state:'measuring'};
+    if(rates.gph<=0)return {label:'Save up '+fmt(t.amount)+' gold',progress:fmt(have)+' / '+fmt(t.amount)+' gold',state:'idle',paceNote:'no gold gained this session yet'};
+    return {label:'Save up '+fmt(t.amount)+' gold',progress:fmt(have)+' / '+fmt(t.amount)+' gold ('+fmt(need)+' to go)',state:'eta',
+      etaSec:need/rates.gph*3600,paceNote:'at your measured '+fmt(rates.gph)+' gold/hr this session'};
+  }
+  if(t.type==='rune'){
+    var r=((d.runes&&d.runes.list)||[]).filter(function(x){return String(x.key)===String(t.runeKey);})[0];
+    var curLv=r?r.level:0, nm=(DB.runes[String(t.runeKey)]||{}).n||('Rune '+t.runeKey);
+    if(curLv>=t.level)return {label:nm+' to Lv '+t.level,progress:'Lv '+curLv+' / '+t.level,state:'met'};
+    var cost=runeCostTo(t.runeKey,curLv,t.level);
+    if(cost==null)return {label:nm+' to Lv '+t.level,progress:'Lv '+curLv+' / '+t.level,state:'idle',paceNote:'no cost table for those levels'};
+    var have2=d.gold||0;
+    if(have2>=cost)return {label:nm+' to Lv '+t.level,progress:'Lv '+curLv+' / '+t.level+' · '+fmt(cost)+' gold needed',state:'affordable',
+      paceNote:'you can afford every step right now ('+fmt(have2)+' gold on hand) — level it in the game'};
+    var need2=cost-have2;
+    if(rates.measuring||rates.gph==null)return {label:nm+' to Lv '+t.level,progress:'Lv '+curLv+' / '+t.level+' · '+fmt(need2)+' more gold',state:'measuring'};
+    if(rates.gph<=0)return {label:nm+' to Lv '+t.level,progress:'Lv '+curLv+' / '+t.level+' · '+fmt(need2)+' more gold',state:'idle',paceNote:'no gold gained this session yet'};
+    return {label:nm+' to Lv '+t.level,progress:'Lv '+curLv+' / '+t.level+' · '+fmt(need2)+' more gold (cost '+fmt(cost)+', have '+fmt(have2)+')',
+      state:'eta',etaSec:need2/rates.gph*3600,paceNote:'at your measured '+fmt(rates.gph)+' gold/hr this session'};
+  }
+  if(t.type==='gear'){
+    var h=(d.heroes||[]).filter(function(x){return String(x.key)===String(t.heroKey);})[0];
+    var lbl='Wear '+t.name+' on '+(h?h.cls:('hero '+t.heroKey))+' (needs Lv '+t.needLevel+')';
+    if(!h)return {label:lbl,progress:'hero not found',state:'idle'};
+    if(h.level>=t.needLevel)return {label:lbl,progress:'Lv '+h.level+' / '+t.needLevel,state:'met'};
+    var xpNeed=heroCumXp(t.needLevel,0)-heroCumXp(h.level,h.exp);
+    if(!(session&&session.heroXp0&&session.heroXp0[h.key]!=null))return {label:lbl,progress:'Lv '+h.level+' / '+t.needLevel,state:'measuring'};
+    var hrs2=(Date.now()-session.t0)/3600000;
+    if(hrs2<0.033)return {label:lbl,progress:'Lv '+h.level+' / '+t.needLevel,state:'measuring'};
+    var gained=heroCumXp(h.level,h.exp)-session.heroXp0[h.key];
+    if(gained<=0)return {label:lbl,progress:'Lv '+h.level+' / '+t.needLevel,state:'idle',paceNote:h.cls+' isn\'t gaining XP right now (bench heroes don\'t)'};
+    var perHr=gained/hrs2;
+    return {label:lbl,progress:'Lv '+h.level+' / '+t.needLevel+' · '+fmt(Math.max(0,Math.round(xpNeed)))+' XP to go',
+      state:'eta',etaSec:xpNeed/perHr*3600,paceNote:'at '+h.cls+'\'s measured '+fmt(Math.round(perHr))+' XP/hr this session'};
+  }
+  if(t.type==='stage'){
+    var lbl2='Clear '+stageActLabel(t.stageKey)+(stageName(t.stageKey)?(' · '+stageName(t.stageKey)):'');
+    var curIdx=stageIdx(d.maxStage),goalIdx=stageIdx(t.stageKey);
+    if(curIdx==null||goalIdx==null)return {label:lbl2,progress:'—',state:'idle',paceNote:'stage key out of range'};
+    if(curIdx>=goalIdx)return {label:lbl2,progress:stageActLabel(d.maxStage)+' cleared',state:'met'};
+    var pace=stagePaceFromHistory(), steps=goalIdx-curIdx;
+    if(!pace||pace.steps<=0)return {label:lbl2,progress:steps+' stage'+(steps>1?'s':'')+' to go (max cleared: '+stageActLabel(d.maxStage)+')',
+      state:'idle',paceNote:'no stage progress in your recorded history yet — the pace is measured, never assumed'};
+    return {label:lbl2,progress:steps+' stage'+(steps>1?'s':'')+' to go (max cleared: '+stageActLabel(d.maxStage)+')',
+      state:'eta',etaSec:steps/pace.perHr*3600,
+      paceNote:'at your measured pace of '+pace.steps+' stage'+(pace.steps>1?'s':'')+' per '+pace.hours.toFixed(1)+' played hours ('+(pace.perHr).toFixed(2)+'/h) — ETA is PLAYED time'};
+  }
+  return null;
+}
+function renderTargetPanel(p,d,rates){
+  p.appendChild(el('<h3 class="sec">Your target <span class="tag">pin a goal — the ETA uses only your own measured rates</span></h3>'));
+  if(target){
+    var st=targetStatus(d,rates);
+    if(!st){target=null;targetSave();}
+    else{
+      if(st.state==='met'){
+        p.appendChild(el('<div class="suggstrip" style="cursor:default"><span class="ss-ic">🎉</span><span class="ss-txt"><span class="ss-t">Target reached: '+esc(st.label)+'</span><span class="ss-b">'+esc(st.progress)+' — pin a new one below.</span></span></div>'));
+        target=null;targetSave();   // clears when met (the celebration above stays for this render)
+      }else{
+        var body=st.state==='eta'?('≈ '+fmtEta(st.etaSec)+' <span style="font-size:13px;color:var(--text-dim)">'+esc(st.paceNote||'')+'</span>')
+          :st.state==='affordable'?('<span style="color:var(--good)">ready now</span> <span style="font-size:13px;color:var(--text-dim)">'+esc(st.paceNote||'')+'</span>')
+          :st.state==='measuring'?'<span style="color:var(--text-dim)">measuring your pace…</span>'
+          :'<span style="color:var(--text-dim)">'+esc(st.paceNote||'not gaining right now')+'</span>';
+        var tp=el('<div class="panel"><div class="targetrow"><div class="t-meta"><div class="t-l">🎯 '+esc(st.label)+'</div><div class="t-p">'+esc(st.progress)+'</div></div><div class="t-eta">'+body+'</div></div></div>');
+        var clr=el('<button class="ghost" style="font-size:12px">✕ Clear target</button>');
+        clr.addEventListener('click',function(){target=null;targetSave();renderOverview(d);});
+        tp.querySelector('.targetrow').appendChild(clr);
+        p.appendChild(tp);
+      }
+    }
+  }
+  if(!target){
+    var pk=el('<div class="panel"><div class="cxbar" style="margin:0"></div></div>');
+    var bar=pk.querySelector('.cxbar');
+    var typeSel=cxSelect([['gold','💰 Save up gold'],['rune','🔮 Rune level'],['gear','🔒 Wear a locked find'],['stage','🗺️ Clear a stage']],
+      _tpick.type,function(v){_tpick.type=v;renderOverview(d);});
+    bar.appendChild(typeSel);
+    if(_tpick.type==='gold'){
+      var gi=el('<input class="cxq" type="number" min="1" placeholder="gold amount, e.g. 500000" value="'+(_tpick.amount||'')+'" style="max-width:220px">');
+      gi.addEventListener('input',function(){_tpick.amount=gi.value;});
+      bar.appendChild(gi);
+    }else if(_tpick.type==='rune'){
+      var ropts=((d.runes&&d.runes.list)||[]).filter(function(r){return r.max&&r.level<r.max;})
+        .map(function(r){return [String(r.key),r.name+' (Lv '+r.level+'/'+r.max+')'];});
+      if(ropts.length){
+        if(!_tpick.runeKey)_tpick.runeKey=ropts[0][0];
+        bar.appendChild(cxSelect(ropts,_tpick.runeKey,function(v){_tpick.runeKey=v;renderOverview(d);}));
+        var rr2=((d.runes&&d.runes.list)||[]).filter(function(x){return String(x.key)===String(_tpick.runeKey);})[0];
+        var li=el('<input class="cxq" type="number" min="1" max="'+(rr2?rr2.max:99)+'" placeholder="target level" value="'+(_tpick.level||(rr2?Math.min(rr2.level+1,rr2.max):1))+'" style="max-width:130px">');
+        li.addEventListener('input',function(){_tpick.level=li.value;});
+        bar.appendChild(li);
+      }else bar.appendChild(el('<span class="cxcount">every rune is maxed 🎉</span>'));
+    }else if(_tpick.type==='gear'){
+      var locked=(d.gearGaps||[]).filter(function(g){return g.locked;});
+      if(locked.length){
+        var gopts=locked.map(function(g,i){return [String(i),g.up.name+' for '+g.hero+' (needs Lv '+g.needLevel+')'];});
+        if(_tpick.gearIdx==null)_tpick.gearIdx='0';
+        bar.appendChild(cxSelect(gopts,_tpick.gearIdx,function(v){_tpick.gearIdx=v;}));
+      }else bar.appendChild(el('<span class="cxcount">no level-locked finds right now — the Advisor lists them when they appear</span>'));
+    }else if(_tpick.type==='stage'){
+      var ai=el('<input class="cxq" type="number" min="1" max="20" placeholder="act" value="'+(_tpick.act||'')+'" style="max-width:90px">');
+      var si=el('<input class="cxq" type="number" min="1" max="10" placeholder="stage" value="'+(_tpick.stageNo||'')+'" style="max-width:90px">');
+      ai.addEventListener('input',function(){_tpick.act=ai.value;});
+      si.addEventListener('input',function(){_tpick.stageNo=si.value;});
+      bar.appendChild(ai);bar.appendChild(si);
+    }
+    var pin=el('<button>🎯 Pin target</button>');
+    pin.addEventListener('click',function(){
+      var t=null;
+      if(_tpick.type==='gold'&&+_tpick.amount>0)t={type:'gold',amount:Math.floor(+_tpick.amount)};
+      else if(_tpick.type==='rune'&&_tpick.runeKey){
+        var rr3=((d.runes&&d.runes.list)||[]).filter(function(x){return String(x.key)===String(_tpick.runeKey);})[0];
+        var lv=Math.floor(+_tpick.level||((rr3?rr3.level:0)+1));
+        if(rr3&&lv>rr3.level&&lv<=rr3.max)t={type:'rune',runeKey:String(_tpick.runeKey),level:lv};
+      }else if(_tpick.type==='gear'){
+        var locked2=(d.gearGaps||[]).filter(function(g){return g.locked;}),g2=locked2[+_tpick.gearIdx||0];
+        if(g2)t={type:'gear',heroKey:String(g2.heroKey),needLevel:g2.needLevel,name:g2.up.name};
+      }else if(_tpick.type==='stage'){
+        var k2=(Math.floor(+_tpick.act||0)+10)*100+Math.floor(+_tpick.stageNo||0);
+        if(stageIdx(k2)!=null&&stageIdx(k2)>(stageIdx(d.maxStage)||0))t={type:'stage',stageKey:k2};
+      }
+      if(t){target=t;targetSave();renderOverview(d);}
+    });
+    bar.appendChild(pin);
+    p.appendChild(pk);
+  }
+}
+var _tpick={type:'gold'};   // picker scratch state (not persisted — the pinned target is)
+
 function renderOverview(d){
   var p=$('tab-overview');p.innerHTML='';
   // session rates
@@ -1743,6 +1912,8 @@ function renderOverview(d){
     bestLine.addEventListener('click',function(){setTab('trends');});
     p.appendChild(bestLine);
   }
+
+  renderTargetPanel(p,d,{gph:gph,measuring:measuring});   // v1.0.17 (P6): pinned target + measured-rate ETA
 
   p.appendChild(el('<h3 class="sec">This session</h3>'));
   p.appendChild(el('<div class="grid cards">'+[
@@ -3678,6 +3849,7 @@ function disconnect(){
   lastUidMeta=null;lootLog=[];chestLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
   lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};lootOffShown=20;   // v1.0.16: controls reset with the slate
   invState={rarity:'ALL',q:'',gt:'ALL',sort:'rarity',ench:false,equip:'ALL',compare:false,sel:[]};
+  target=null;targetSave();_tpick={type:'gold'};   // v1.0.17: a different save must not inherit a pinned target
   // Same clean-slate rule for the HUD's own snapshot history: a DIFFERENT save must never inherit (or pollute)
   // another save's trend history. Reloads of the same save don't pass here, so history survives refreshes.
   historyClear();
@@ -3918,6 +4090,7 @@ function loadDemo(){
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,key:'322041',src:'found'}];
   lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};lootOffShown=20;   // stale filters from a real save can't blank the sample
   invState={rarity:'ALL',q:'',gt:'ALL',sort:'rarity',ench:false,equip:'ALL',compare:false,sel:[]};
+  target=null;targetSave();_tpick={type:'gold'};   // a real pinned target never renders against sample data
   // sample chest acquisitions (REPLACES any real ones — same demo-isolation rule as logData): a same-stage run
   // with ~12-25min played gaps and one stage-switch arrival, so the measurement panel showcases honestly
   chestLog=[
