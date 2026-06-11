@@ -9,7 +9,7 @@
 <script>(function(){var t=null;try{t=localStorage.getItem('tbh_theme');}catch(e){}
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.18"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.19"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -2374,15 +2374,28 @@ function renderLoot(d){
   p.appendChild(el('<h3 class="sec">New items <span class="tag">detected from your save · origin inferred from what was consumed · Legendary+ highlighted</span></h3>'));
   p.appendChild(el('<div class="hint">The save stores <b>no origin flag</b> for new items — but the Cube <b>consumes materials</b>, and the HUD watches what disappears between saves. One new piece of gear while <b>9+ material instances vanished</b> in the same save update = the Cube\'s synthesis pattern → tagged <b>⚒️ Cube (likely)</b>. New items with <b>nothing consumed</b> → <b>✦ found</b> (dropped — or market-bought; those two still can\'t be told apart'+
     ', and in this game build the Steam Market rarely delivers anyway). Mixed or unclear reads stay untagged — the HUD never asserts an origin it didn\'t observe.'+
+    ' <b>Timing:</b> items appear at the game\'s <b>next save write</b> (the game saves on its own schedule, not the instant you craft) — the “save written … ago” stamp below shows how fresh the data is, and ↻ re-reads on demand.'+
     (d&&d.cube?(' Your Cube is <b>level '+d.cube.Level+'</b>.'):'')+'</div>'));
   var alertOn=rareAlerts&&('Notification'in window)&&Notification.permission==='granted';
   var canNotify=('Notification'in window);
-  p.appendChild(el('<div class="lootbar"><button class="alertbtn'+(alertOn?' on':'')+'" onclick="toggleRareAlerts()">'+
+  // v1.0.19 — manual refresh + freshness stamp: items only appear when the GAME writes its save, and the
+  // one-shot connect paths (file drop) have no watcher at all — so show how fresh the data is and offer a
+  // forced re-read. (Detection itself is verified: crafts and syntheses log on the next save read.)
+  var lbar=el('<div class="lootbar"><button class="alertbtn'+(alertOn?' on':'')+'" onclick="toggleRareAlerts()">'+
     (alertOn?'🔔 Rare-item alerts: ON':'🔕 Rare-item alerts: OFF')+'</button>'+
-    '<span class="loothint">'+(canNotify?'Silent desktop alert when a Legendary or better appears (opt-in).':'Desktop alerts not supported in this browser.')+'</span></div>'));
+    '<span class="loothint">'+(canNotify?'Silent desktop alert when a Legendary or better appears (opt-in).':'Desktop alerts not supported in this browser.')+'</span></div>');
+  var canRefresh=!!((window.tbhNative&&window.tbhNative.requestSave)||dirHandle||handle);
+  var rfBtn=el('<button class="ghost"'+(canRefresh?'':' disabled')+' title="'+(canRefresh
+    ?'Re-read the save, Player.log and backups right now (they\'re also re-read automatically whenever the game writes the save)'
+    :'Connected via a one-time file drop — drop the .es3 again (or use Connect folder) to get fresh data')+'">↻ Refresh now</button>');
+  if(canRefresh)rfBtn.addEventListener('click',function(){rfBtn.disabled=true;rfBtn.textContent='reading…';forceRefresh();
+    setTimeout(function(){if(current)renderLoot(current);},900);});
+  lbar.appendChild(rfBtn);
+  if(lastSaveFileMs)lbar.appendChild(el('<span class="loothint" title="The save file\'s own timestamp — the game writes it on its own schedule; a fresh craft/synthesis appears at the next write">save written '+fmtAgo(lastSaveFileMs)+'</span>'));
+  p.appendChild(lbar);
   if(!lootLog.length){
     p.appendChild(el('<div class="empty">Watching for new items… they appear here with a timestamp and rarity as you play.<br>'+
-      '<span style="font-size:11.5px">Live drops aren\'t written to the game\'s log, so the HUD detects new items from changes to your save file (this includes anything you craft in the Cube).</span></div>'));
+      '<span style="font-size:11.5px">Live drops aren\'t written to the game\'s log, so the HUD detects new items from <b>changes to your save file</b> (crafts and Cube syntheses included) — they appear at the game\'s <b>next save write</b>, not the instant you craft. Items you already had when the HUD connected are the baseline and aren\'t listed.</span></div>'));
     return;
   }
 
@@ -3038,7 +3051,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.18';
+var APP_VERSION='1.0.19';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -3048,6 +3061,12 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.19',d:'2026-06-11',sec:{
+    Added:[
+      'Loot tab: a "↻ Refresh now" button (re-reads the save, Player.log and backups on demand) and a "save written … ago" stamp — crafts and syntheses appear at the game\'s NEXT save write, and now you can see exactly how fresh the data is. One-time file drops say so honestly instead of offering a refresh they can\'t do.'],
+    Fixed:[
+      'Desktop: a watchdog now guarantees save reads keep flowing even if Windows silently kills the file watcher (it can happen after sleep/resume on long-running sessions — the HUD would quietly freeze: stale gold, no new loot). A cheap mtime check every 5 seconds backstops it.',
+      'The timing of new-item detection is now explained in the Loot tab (the game saves on its own schedule, not the instant you craft; items you had before connecting are the baseline).']}},
   {v:'1.0.18',d:'2026-06-11',sec:{
     Fixed:[
       'The Cube panel\'s ✓/🔒 now reflect your save\'s OWN unlock records (cubeRecipeSaveDatas) instead of inferring from Cube level — unlocking is a purchase, and a real save proved a recipe can stay locked above its level gate. No save records → no claims.',
@@ -3910,6 +3929,23 @@ function disconnect(){
 }
 
 /* ---------- input paths ---------- */
+// v1.0.19 — forced re-read for every connect path (the Loot tab's "↻ Refresh now"). Read-only, idempotent:
+// re-processing an unchanged save produces no false loot entries (uid diff) and no duplicate history points
+// (keyed by save time). One-shot connects (drag-drop / legacy file input) hold no handle — nothing to re-read.
+function forceRefresh(){
+  if(window.tbhNative&&window.tbhNative.requestSave){
+    window.tbhNative.requestSave();
+    if(window.tbhNative.requestLog)window.tbhNative.requestLog();
+    if(window.tbhNative.requestBackups)window.tbhNative.requestBackups();
+    return 'native';
+  }
+  if(dirHandle){scanFolder(true);return 'folder';}
+  if(handle){
+    (async function(){try{var f=await handle.getFile();lastMod=f.lastModified;lastSaveFileMs=f.lastModified;onBytes(await f.arrayBuffer());}catch(e){}})();
+    return 'file';
+  }
+  return null;
+}
 async function onBytes(buf){
   try{
     var psd=loadInner(await decryptSave(buf));

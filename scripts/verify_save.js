@@ -131,8 +131,11 @@ const tpoints = [tp];
 for (const f of bfiles) { try { tpoints.push(eng.trendPoint(eng.loadSave(fs.readFileSync(f)))); } catch (e) {} }
 const psr = eng.perStageRates(tpoints);
 psr.forEach(r => {
-  // r.hours is display-rounded to 2dp; the engine divides by the exact hours -> compare with 1% tolerance.
-  if (r.hours > 0.01 && Math.abs(r.goldPerHr - r.combatGold / r.hours) > Math.max(1, r.goldPerHr * 0.01)) problems.push('perStageRates ' + r.stage + ': goldPerHr inconsistent with combatGold/hours');
+  // r.hours is display-rounded to 2dp while the engine divides by EXACT hours, so the recomputation error
+  // alone can reach ±0.005/r.hours relative (≈5% on a freshly-started stage measured over 0.1h — observed
+  // live on Act 3-5, v1.0.19). Tolerance must scale with that rounding, plus 1% slack.
+  const tol = Math.max(1, r.goldPerHr * (0.005 / r.hours + 0.01));
+  if (r.hours > 0.01 && Math.abs(r.goldPerHr - r.combatGold / r.hours) > tol) problems.push('perStageRates ' + r.stage + ': goldPerHr inconsistent with combatGold/hours');
   if (!(r.intervals > 0)) problems.push('perStageRates ' + r.stage + ': no intervals');
   if (r.xpPerHr != null && r.xpPerHr < 0) problems.push('perStageRates ' + r.stage + ': negative xpPerHr');
 });

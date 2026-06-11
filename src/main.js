@@ -151,6 +151,30 @@ app.whenReady().then(() => {
       }
     });
   } catch (e) { /* directory may not exist until the game runs */ }
+  // v1.0.19 — WATCHDOG: fs.watch can silently die on Windows (sleep/resume, handle loss) and a long-running
+  // HUD would then freeze with no error — stale gold, no new loot, "nothing refreshes". A cheap mtime poll
+  // guarantees save reads keep flowing even with a dead watcher (read-only; same debounced send paths).
+  let polledSaveMtime = 0, polledLogMtime = 0, pollTick = 0;
+  setInterval(() => {
+    fs.stat(SAVE_FILE, (err, st) => {
+      if (err || !st) return;
+      if (st.mtimeMs !== polledSaveMtime) {
+        const first = polledSaveMtime === 0;
+        polledSaveMtime = st.mtimeMs;
+        if (!first) { clearTimeout(debounce); debounce = setTimeout(sendSave, 400); }
+      }
+    });
+    if (++pollTick % 6 === 0) {              // Player.log every ~30s
+      fs.stat(path.join(SAVE_DIR, 'Player.log'), (err, st) => {
+        if (err || !st) return;
+        if (st.mtimeMs !== polledLogMtime) {
+          const first = polledLogMtime === 0;
+          polledLogMtime = st.mtimeMs;
+          if (!first) sendLog();
+        }
+      });
+    }
+  }, 5000);
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   // check GitHub releases for a newer HUD; events drive the in-app banner (no-op in dev / if offline)
   wireUpdater();

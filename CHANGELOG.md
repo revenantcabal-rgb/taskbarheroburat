@@ -4,6 +4,24 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.19 — 2026-06-11
+
+### Added
+- **Loot tab: "↻ Refresh now" + a freshness stamp.** Crafts and Cube syntheses are detected from your **save
+  file**, which the game writes on its own schedule — not the instant you craft. The Loot tab now shows
+  **"save written … ago"** (so you can see whether the game has saved since your craft) and a **↻ Refresh now**
+  button that re-reads the save, Player.log and backups on demand — on desktop and on web folder/file connects.
+  One-time file drops can't be re-read (no handle), so the button says that honestly instead.
+
+### Fixed
+- **Desktop: a save-watch watchdog.** Windows can silently kill a long-running file watcher (typically after
+  sleep/resume) — the HUD would then quietly freeze: stale gold, no new loot, nothing refreshing, no error.
+  A lightweight mtime check (every 5 s for the save, ~30 s for Player.log) now backstops the watcher so reads
+  always keep flowing. Detection itself was verified end-to-end: a craft (1 new item, materials consumed) and
+  a synthesis (1 new item, 9+ materials consumed → tagged ⚒️ Cube) both log on the next save read.
+- The verify harness's per-stage rate consistency check now tolerates the display-rounding of tiny measurement
+  windows (a freshly-started stage measured over 0.1h tripped a false alarm — the engine math was correct).
+
 ## v1.0.18 — 2026-06-11
 
 ### Fixed
