@@ -341,8 +341,9 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - Browser (no install): **https://revenantcabal-rgb.github.io/taskbarheroburat/** (GitHub Pages, HTTPS; bare URL works via
   index.html) -> Connect folder. Or open `dashboard.html` locally in Chrome/Edge. `?codex` browses the full catalog with no
   save; `?demo` loads sample data. NOTE: bump `?v=` on the `gamedata.min.js` script tag when the DB changes (cache-bust).
-- Browser (Vercel, 2nd free host): repo is Vercel-ready (`vercel.json` + `index.html`) — import the GitHub repo at
-  vercel.com for a one-click deploy. (Not auto-deployed: no interactive Vercel auth here; only the Fusion Data Company team is available.)
+- Browser (Vercel, 2nd live host): the owner's Vercel project **auto-deploys from this repo on every push**
+  (https://taskbarheroburat.vercel.app/, verified live). CLI deploys here use a separate Vercel team — scope kept
+  out of the repo (see `OPS-PRIVATE.local.md`, gitignored).
 - Desktop: `npm install` then `npm start` (Electron; auto-finds the save, watches it, auto-updates from GitHub releases).
 - Installer: `npm run dist` -> `dist/TBH-HUD-Setup-<ver>.exe`. **winCodeSign note:** building on a non-admin box without
   Developer Mode hits a symlink-extract error; `package.json` sets `win.signAndEditExecutable=false` +

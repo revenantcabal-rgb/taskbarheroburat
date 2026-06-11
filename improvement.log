@@ -175,8 +175,9 @@ Golden rule throughout: every number calibrated from the game's own data, or omi
   server-side from each member's own snapshot deltas (new max stage / new Legendary+ / hero level-up / rune milestone),
   gap-to-you, copy-invite-code; sharing disabled in demo mode so sample data can't reach a real crew. **Backend:**
   `api/progress.js` + `api/leaderboard.js` (Vercel serverless, @neondatabase/serverless) + Neon Postgres (`tbh_crew_*`
-  tables, auto-bootstrapped; ~20-snapshot history/member), deployed as **tbh-crew-api** (fusiondatacompany-projects)
-  with DATABASE_URL in Vercel env (never committed); CORS-allowlist Pages+Vercel origins, `*` for the desktop (file://).
+  tables, auto-bootstrapped; ~20-snapshot history/member), deployed as **tbh-crew-api** (a separate Vercel team —
+  scope kept out of the repo, see OPS-PRIVATE.local.md) with DATABASE_URL in Vercel env (never committed);
+  CORS-allowlist Pages+Vercel origins, `*` for the desktop (file://).
   Live-verified end-to-end: join → "Joined the crew", improved push → "Reached Act 2-10", board returns the member; the
   dashboard Crew tab verified against the live API with the real save. **Inline↔Node engine parity verified in-browser**
   (same gearGaps/per-stage numbers from the same save). Fixed a crew-chip overflow @375 (now 0 overflow, all 11 tabs).
