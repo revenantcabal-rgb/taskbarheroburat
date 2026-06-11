@@ -392,6 +392,11 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
   .alertbtn{font-size:12.5px;padding:7px 13px;border-radius:var(--radius-sm)}
   .alertbtn.on{background:color-mix(in srgb, var(--good) 14%, transparent);border-color:color-mix(in srgb, var(--good) 40%, transparent);color:var(--good)}
   .loothint{font-size:11.5px;color:var(--text-dim)}
+  /* v1.0.16 — Loot controls: date headers in the timeline + the paged "show more" row */
+  tr.datesep td{padding:5px 10px;font-size:10.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.6px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+  .lootmore{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap}
+  .lootmore button{font-size:12px;padding:6px 13px;border-radius:var(--radius-pill)}
   tbody tr.rare{background:linear-gradient(90deg,color-mix(in srgb, var(--gold) 10%, transparent),transparent 70%)}
   tbody tr.rare:hover{background:linear-gradient(90deg,color-mix(in srgb, var(--gold) 16%, transparent),color-mix(in srgb, var(--accent) 5%, transparent))}
   .rarestar{color:var(--gold);text-shadow:0 0 7px var(--gold)}
@@ -1345,7 +1350,7 @@ function processLoot(owned,ts){
       lootLog.unshift({t:ts||Date.now(),name:f.name,grade:f.grade,gt:f.gt,icon:f.icon,lvl:f.lvl,key:f.key,
         src:(f.mat?(src==='found'?'found':null):(src==='cube'?'cube':src)),mats:(src==='cube'?removedMats:null)});
       if(rrank(f.grade)>=3)notifyRare(f);});
-    lootLog=lootLog.slice(0,120);
+    lootLog=lootLog.slice(0,500);   // v1.0.16: keep a real record (was 120) — ~75 KB worst case, well inside localStorage
   }
   lastUidMeta=meta;persistLoot();
 }
@@ -1355,7 +1360,7 @@ function persistLoot(){try{localStorage.setItem('tbh_loot',JSON.stringify({log:l
    The game logs little loot directly (live drops go straight to the save), but it DOES log
    timestamped offline-reward gold and current Steam-box counts. We surface those honestly and
    do NOT invent any drop/cooldown the log doesn't contain. */
-var logData={offline:[],boxes:{}};
+var logData={offline:[],boxes:{},undelivered:{}};
 // The save's true last-save instant (UTC). The .es3 lastSavedTime FIELD is stored as LOCAL wall-clock .NET
 // ticks (calibration: on the live save the ticks read 8h ahead of the file's UTC mtime — the user's TZ offset),
 // so for absolute "idle since save" we prefer the file's real modification time (true UTC, set by the connect
@@ -1367,7 +1372,7 @@ var lastSaveFileMs=null;
 // `reward` is the CLAMPED `delta` (reward==delta until the offline cap, then plateaus) — so a real cap is
 // learned from the user's OWN logs where reward<delta. We capture the full event (no assumed cap/rate).
 function parseLog(text){
-  var lines=String(text||'').split(/\r?\n/), offline=[], boxes={}, pend=null;
+  var lines=String(text||'').split(/\r?\n/), offline=[], boxes={}, undeliv={}, pend=null;
   for(var i=0;i<lines.length;i++){var ln=lines[i];
     if(ln.indexOf('[OfflineReward]')>=0){
       var mE=ln.match(/saved=(\d+),\s*now=(\d+),\s*delta=(\d+)s,\s*reward=(\d+)s(?:,\s*counter=(\d+))?/);
@@ -1377,9 +1382,13 @@ function parseLog(text){
         if(ev.reward>0)ev.rate=ev.gold/ev.reward; offline.push(ev); pend=null;}
     } else if(ln.indexOf('GetBoxCount')>=0){
       var mb=ln.match(/Count\s*:\s*(\d+)\s*\/\/\s*ItemKey\s*:\s*(\d+)/); if(mb) boxes[mb[2]]=parseInt(mb[1],10);
+    } else if(ln.indexOf('CreateSteamItem returned OK but items is empty')>=0){
+      // v1.0.16 — the game minted a box but Steam's inventory call returned nothing (file-verified: each mint is
+      // paired 1:1 with this line). Counted per box key so the Loot tab can answer "where's my chest?" honestly.
+      var mu=ln.match(/itemBoxKey=(\d+)/); if(mu) undeliv[mu[1]]=(undeliv[mu[1]]||0)+1;
     }
   }
-  return {offline:offline, boxes:boxes};
+  return {offline:offline, boxes:boxes, undelivered:undeliv};
 }
 // offlineStatus: honest idle/banked/cap from the save's lastSavedTime + the user's Player.log offline events.
 // The CAP is learned from their own logs (the reward plateau where reward<delta) — NEVER assumed (no 8h, no daily reset).
@@ -1396,11 +1405,15 @@ function offlineStatus(savedMs, events, nowMs){
     bankedEst:(capSec!=null&&rate!=null)?Math.round(Math.min(idleSec,capSec)*rate):null, count:evs.length};
 }
 function setLog(texts){
-  var off=[], boxes={};
-  (texts||[]).forEach(function(t){var r=parseLog(t); off=off.concat(r.offline); Object.keys(r.boxes).forEach(function(k){boxes[k]=r.boxes[k];});});
+  var off=[], boxes={}, undeliv={};
+  (texts||[]).forEach(function(t){var r=parseLog(t); off=off.concat(r.offline);
+    Object.keys(r.boxes).forEach(function(k){boxes[k]=r.boxes[k];});
+    // mint events SUM across log files (each line is one box the game generated in this log window),
+    // unlike GetBoxCount which is a current-count check (last value wins above)
+    Object.keys(r.undelivered||{}).forEach(function(k){undeliv[k]=(undeliv[k]||0)+r.undelivered[k];});});
   // dedup offline events by timestamp, newest first
   var seen={}; off=off.filter(function(o){var k=o.t+'/'+o.gold; if(seen[k])return false; seen[k]=1; return true;}).sort(function(a,b){return b.t-a.t;});
-  logData={offline:off, boxes:boxes};
+  logData={offline:off, boxes:boxes, undelivered:undeliv};
   if(activeTab==='loot'&&current) renderLoot(current);
 }
 
@@ -1798,6 +1811,60 @@ function renderInventory(d){
   p.appendChild(grid);
 }
 
+/* v1.0.16 — Loot tab controls: filter/search/sort state + paging + export. All client-side over the
+   in-memory lootLog / logData; same .filters chips + .cxbar patterns as Inventory and the Codex. */
+var lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};
+var lootOffShown=20;
+function lootOriginLabel(src){return src==='cube'?'cube (likely)':src==='found'?'found':'unclear';}
+function lootFiltered(){
+  var q=lootState.q.trim().toLowerCase();
+  var list=lootLog.filter(function(l){
+    if(lootState.rarity!=='ALL'&&l.grade!==lootState.rarity)return false;
+    if(lootState.origin!=='ALL'){
+      if(lootState.origin==='UNCLEAR'){if(l.src==='cube'||l.src==='found')return false;}
+      else if((l.src||'')!==lootState.origin.toLowerCase())return false;
+    }
+    if(q&&String(l.name||'').toLowerCase().indexOf(q)<0&&String(l.key||'').indexOf(q)<0)return false;
+    return true;
+  });
+  if(lootState.sort==='rarity')list=list.slice().sort(function(a,b){return (rrank(b.grade)-rrank(a.grade))||(b.t-a.t);});
+  else if(lootState.sort==='name')list=list.slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''))||(b.t-a.t);});
+  return list;   // 'new': lootLog is already newest-first
+}
+// Export — the FULL timeline + offline rewards (not just the current filter), CSV + JSON. Read-only, client-side.
+function lootExportData(){
+  return {
+    exported_at_utc:new Date().toISOString(), app_version:APP_VERSION,
+    new_items:lootLog.map(function(l){return {time_local:new Date(l.t).toLocaleString(),time_utc:new Date(l.t).toISOString(),
+      name:l.name||'',rarity:l.grade||'',origin:lootOriginLabel(l.src),level:l.lvl||null,gear_type:l.gt||null,
+      item_id:l.key||null,materials_consumed:(l.src==='cube'?(l.mats||null):null)};}),
+    offline_rewards:(logData.offline||[]).map(function(o){return {time_local:o.t?new Date(o.t).toLocaleString():'',
+      time_utc:o.t?new Date(o.t).toISOString():'',gold:o.gold,credited_seconds:(o.reward!=null?o.reward:null)};})
+  };
+}
+function csvEsc(v){v=(v==null)?'':String(v);return (/[",\n]/.test(v))?('"'+v.replace(/"/g,'""')+'"'):v;}
+function csvFrom(rows,cols){return cols.join(',')+'\n'+rows.map(function(r){return cols.map(function(c){return csvEsc(r[c]);}).join(',');}).join('\n');}
+function downloadText(fn,mime,text){
+  var blob=new Blob([text],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=fn;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},150);
+}
+function lootExport(kind){
+  var d2=lootExportData(), stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  if(kind==='json'){downloadText('tbh-loot-'+stamp+'.json','application/json',JSON.stringify(d2,null,2));return;}
+  var csv='# TBH HUD loot export · '+d2.exported_at_utc+' · app v'+APP_VERSION+'\n# New items\n'+
+    csvFrom(d2.new_items,['time_local','time_utc','name','rarity','origin','level','gear_type','item_id','materials_consumed'])+
+    '\n\n# Offline rewards\n'+csvFrom(d2.offline_rewards,['time_local','time_utc','gold','credited_seconds']);
+  downloadText('tbh-loot-'+stamp+'.csv','text/csv',csv);
+}
+// Day bucket for the timeline's date headers (newest-first sort only)
+function lootDayLabel(ts){
+  var d2=new Date(ts), now=new Date();
+  var day=function(x){return x.getFullYear()+'-'+x.getMonth()+'-'+x.getDate();};
+  if(day(d2)===day(now))return 'Today';
+  var y=new Date(now.getTime()-86400000); if(day(d2)===day(y))return 'Yesterday';
+  return d2.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+}
 function renderLoot(d){
   var p=$('tab-loot');p.innerHTML='';
 
@@ -1818,13 +1885,35 @@ function renderLoot(d){
     p.appendChild(bgrid);
   }
 
-  // Offline rewards (timestamped gold from Player.log) — real game timestamps
+  // v1.0.16 — boxes the game minted but Steam never delivered (file-verified: every such mint writes a
+  // "CreateSteamItem returned OK but items is empty" line; counted straight from the player's own log window).
+  // Those boxes live on the Steam side, NOT in the save — so they correctly never enter the timeline below.
+  // This is a Steam/game-side throttle (same root cause as the deferred Steam-Market goal), never a HUD loss.
+  var undeliv=logData.undelivered||{}, undelivKeys=Object.keys(undeliv).filter(function(k){return undeliv[k]>0;});
+  var undelivTotal=undelivKeys.reduce(function(s,k){return s+undeliv[k];},0);
+  if(undelivTotal){
+    if(!boxKeys.length)p.appendChild(el('<h3 class="sec">Steam boxes <span class="tag">from your own Player.log</span></h3>'));
+    var perKey=undelivKeys.sort().map(function(k){var info=itemInfo(k);
+      var nm=(info.name&&info.name.charAt(0)!=='#')?info.name:('Box '+k);
+      return fmt(undeliv[k])+'× '+esc(nm);}).join(' · ');
+    p.appendChild(el('<div class="hint">📦 <b>Where\'s my chest?</b> In this log window the game generated <b>'+fmt(undelivTotal)+' box'+(undelivTotal>1?'es':'')+
+      '</b> that Steam hasn\'t delivered yet ('+perKey+') — its inventory call came back <i>empty</i> each time. Those boxes are held on the <b>Steam side</b>, not in your save, so they don\'t appear in the timeline below. That\'s a Steam/game-side delay this build is known for — not a missed drop.</div>'));
+  }
+
+  // Offline rewards (timestamped gold from Player.log) — real game timestamps; paged, nothing hidden silently
   if(logData.offline&&logData.offline.length){
-    p.appendChild(el('<h3 class="sec">Offline rewards <span class="tag">gold granted while away · from Player.log</span></h3>'));
-    var orows=logData.offline.slice(0,20).map(function(o){
+    var offN=logData.offline.length, offShow=Math.min(lootOffShown,offN);
+    p.appendChild(el('<h3 class="sec">Offline rewards <span class="tag">gold granted while away · from Player.log · showing '+offShow+' of '+offN+'</span></h3>'));
+    var orows=logData.offline.slice(0,offShow).map(function(o){
       return '<tr><td class="loot-time">'+new Date(o.t).toLocaleString()+'</td><td class="loot-time" style="color:var(--text-dim)">'+fmtUTC(o.t)+'</td><td class="r"><b style="color:var(--gold)">+'+fmt(o.gold)+'</b> gold</td></tr>';
     }).join('');
     p.appendChild(el('<div class="panel"><table><thead><tr><th>Your time</th><th>UTC</th><th class="r">Reward</th></tr></thead><tbody>'+orows+'</tbody></table></div>'));
+    if(offN>offShow){
+      var moreOff=el('<div class="lootmore"><button class="ghost">Show 20 more</button><button class="ghost">Show all '+offN+'</button></div>');
+      moreOff.children[0].addEventListener('click',function(){lootOffShown+=20;renderLoot(d);});
+      moreOff.children[1].addEventListener('click',function(){lootOffShown=offN;renderLoot(d);});
+      p.appendChild(moreOff);
+    }
   }
 
   // New-items timeline — items detected between save reads. HONEST: this can't tell a chest DROP from a Cube
@@ -1843,19 +1932,54 @@ function renderLoot(d){
       '<span style="font-size:11.5px">Live drops aren\'t written to the game\'s log, so the HUD detects new items from changes to your save file (this includes anything you craft in the Cube).</span></div>'));
     return;
   }
-  var rows=lootLog.slice(0,80).map(function(l){
+
+  // v1.0.16 — filter bar: rarity chips (same .filters pattern as Inventory) + origin/sort selects + search +
+  // export (same .cxbar pattern as the Codex). Any change resets paging so results are never hidden by an old page.
+  var reset=function(){lootState.shown=80;renderLoot(d);};
+  var rarSeen={};lootLog.forEach(function(l){if(l.grade)rarSeen[l.grade]=1;});
+  var fch=el('<div class="filters"></div>');
+  var mkChip=function(key,label,color){var b=el('<button class="'+(lootState.rarity===key?'on':'')+'">'+label+'</button>');
+    if(color)b.style.color=color;b.addEventListener('click',function(){lootState.rarity=key;reset();});return b;};
+  fch.appendChild(mkChip('ALL','All ('+lootLog.length+')'));
+  Object.keys(rarSeen).sort(function(a,b){return rrank(a)-rrank(b);}).forEach(function(r){
+    var n2=lootLog.filter(function(l){return l.grade===r;}).length;
+    fch.appendChild(mkChip(r,cap(r)+' ('+n2+')',rvar(r)));});
+  p.appendChild(fch);
+  var bar=el('<div class="cxbar"></div>');
+  var q=el('<input class="cxq" type="search" placeholder="Search item name or ID…" value="'+esc(lootState.q)+'">');
+  var qT=null;q.addEventListener('input',function(){lootState.q=q.value;clearTimeout(qT);qT=setTimeout(reset,130);});
+  bar.appendChild(q);
+  bar.appendChild(cxSelect([['ALL','Any origin'],['CUBE','⚒️ Cube (likely)'],['FOUND','✦ found'],['UNCLEAR','— unclear']],
+    lootState.origin,function(v){lootState.origin=v;reset();}));
+  bar.appendChild(cxSelect([['new','Sort: Newest'],['rarity','Sort: Rarity'],['name','Sort: Name']],
+    lootState.sort,function(v){lootState.sort=v;reset();}));
+  var csvBtn=el('<button title="Download the full timeline + offline rewards as CSV (everything stored, not just this filter)">⤓ CSV</button>');
+  csvBtn.addEventListener('click',function(){lootExport('csv');});
+  var jsonBtn=el('<button title="Download the full timeline + offline rewards as JSON">⤓ JSON</button>');
+  jsonBtn.addEventListener('click',function(){lootExport('json');});
+  bar.appendChild(csvBtn);bar.appendChild(jsonBtn);
+  var countEl=el('<span class="cxcount"></span>');bar.appendChild(countEl);
+  p.appendChild(bar);
+
+  var list=lootFiltered(), showN=Math.min(lootState.shown,list.length);
+  countEl.textContent='showing '+showN+' of '+list.length+(list.length!==lootLog.length?(' (of '+lootLog.length+' stored)'):'');
+  if(!list.length){p.appendChild(el('<div class="empty">No recorded items match this filter.</div>'));return;}
+  var lastDay=null, rows='';
+  list.slice(0,showN).forEach(function(l){
+    if(lootState.sort==='new'){var dl=lootDayLabel(l.t);
+      if(dl!==lastDay){lastDay=dl;rows+='<tr class="datesep"><td colspan="5">'+esc(dl)+'</td></tr>';}}
     var t=new Date(l.t), rare=rrank(l.grade)>=3;
     var orig=l.src==='cube'?'<span title="'+esc((l.mats||9)+'+ material instances were consumed in the same save update — the Cube\'s synthesis/craft pattern (likely, not a stored flag)')+'" style="color:var(--accent-alt)">⚒️ Cube</span>'
       :l.src==='found'?'<span title="No materials were consumed in this save update — dropped (or market-bought; the save can\'t tell those apart)" style="color:var(--good)">✦ found</span>'
       :'<span title="Several things changed in the same save update — origin unclear, so the HUD doesn\'t guess" style="color:var(--text-dim)">—</span>';
-    return '<tr'+(rare?' class="rare"':'')+'><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
+    rows+='<tr'+(rare?' class="rare"':'')+'><td class="loot-time">'+t.toLocaleTimeString()+'</td>'+
       '<td class="loot-time" style="color:var(--text-dim)">'+fmtUTC(l.t)+'</td>'+
       '<td><div '+(l.key?('class="click" data-key="'+esc(l.key)+'" title="Click for full details (Codex)" style="cursor:pointer;'):'style="')+'display:flex;align-items:center;gap:10px">'+
         '<div class="mini" style="border-color:'+rvar(l.grade)+'"><img src="'+SPRITE+(l.icon||'')+'.png" onerror="this.style.visibility=\'hidden\'"></div>'+
         '<span>'+(rare?'<span class="rarestar">★</span> ':'')+l.name+(l.lvl?(' <span style="color:var(--text-dim)">lvl'+l.lvl+'</span>'):'')+'</span></div></td>'+
       '<td><span class="pill" style="color:'+rvar(l.grade)+'">'+(l.grade||'—')+'</span></td>'+
       '<td>'+orig+'</td></tr>';
-  }).join('');
+  });
   var lootPanel=el('<div class="panel"><table><thead><tr><th>Your time</th><th>UTC</th><th>Item</th><th>Rarity</th><th>Origin</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
   // v1.0.13 — click a loot entry to open its Codex page (entries logged before this version carry no key)
   lootPanel.addEventListener('click',function(ev){
@@ -1866,6 +1990,12 @@ function renderLoot(d){
     openCodexDetail(ce,owned);
   });
   p.appendChild(lootPanel);
+  if(list.length>showN){
+    var more=el('<div class="lootmore"><button class="ghost">Show 80 more</button><button class="ghost">Show all '+list.length+'</button></div>');
+    more.children[0].addEventListener('click',function(){lootState.shown+=80;renderLoot(d);});
+    more.children[1].addEventListener('click',function(){lootState.shown=list.length;renderLoot(d);});
+    p.appendChild(more);
+  }
 }
 
 function runeIconImg(ic){var img=el('<img src="src/assets/runes/Rune_'+ic+'.png" alt="">');
@@ -3115,10 +3245,11 @@ function disconnect(){
   // (which would flood the timeline with false "drops") and no stale timeline bleeds across saves. Normal page
   // reloads don't call this, so the persisted loot timeline still survives reloads of the SAME save.
   lastUidMeta=null;lootLog=[];try{localStorage.removeItem('tbh_loot');}catch(e){}
+  lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};lootOffShown=20;   // v1.0.16: controls reset with the slate
   // Same clean-slate rule for the HUD's own snapshot history: a DIFFERENT save must never inherit (or pollute)
   // another save's trend history. Reloads of the same save don't pass here, so history survives refreshes.
   historyClear();
-  logData={offline:[],boxes:{}};
+  logData={offline:[],boxes:{},undelivered:{}};
   TABS.forEach(function(t){var pg=$('tab-'+t);pg.innerHTML='';pg.classList.add('hidden');});
   $('tabs').classList.add('hidden');
   $('gate').classList.remove('hidden');
@@ -3338,6 +3469,7 @@ function loadDemo(){
     pet:(DB.pets&&DB.pets['6003'])?{key:6003,n:DB.pets['6003'].n,desc:DB.pets['6003'].desc}:{key:6003,n:'Dragon'}};
   lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15,key:'423041',src:'cube',mats:9},
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,key:'322041',src:'found'}];
+  lootState={q:'',rarity:'ALL',origin:'ALL',sort:'new',shown:80};lootOffShown=20;   // stale filters from a real save can't blank the sample
   // Demo Player.log data — REPLACES any previously-loaded real log data so nothing real ever renders under the
   // SAMPLE badge (entering demo used to keep a connected save's offline rewards/box counts on the Loot tab).
   // Boxes are real catalog STAGEBOX entries (authoritative names/grades) with sample counts; the 15,400-gold
@@ -3345,10 +3477,13 @@ function loadDemo(){
   var demoBoxes={}, seenGrade={};
   for(var bk in (DB.items||{})){ var bi=DB.items[bk];
     if(bi.t==='STAGEBOX'&&bi.g&&!seenGrade[bi.g]){ seenGrade[bi.g]=1; demoBoxes[bk]=Object.keys(demoBoxes).length+1; if(Object.keys(demoBoxes).length>=3) break; } }
+  // sample "Steam hasn't delivered" count on the sample COMMON box (showcases the v1.0.16 note; replaced like
+  // the rest of logData so a previously-connected save's real undelivered counts can't render under SAMPLE)
+  var demoUndeliv={}; for(var uk in demoBoxes){ var ui=DB.items[uk]; if(ui&&ui.g==='COMMON'){demoUndeliv[uk]=4;break;} }
   logData={offline:[
     {t:Date.now()-9*3600000,saved:0,now:0,delta:32400,reward:32400,gold:15400,rate:15400/32400},
     {t:Date.now()-30*3600000,saved:0,now:0,delta:21600,reward:21600,gold:9800,rate:9800/21600}
-  ],boxes:demoBoxes};
+  ],boxes:demoBoxes,undelivered:demoUndeliv};
   var demoRuneSave=Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};});
   // seed a ~10-min session so the sample showcases live rates + per-hero level ETAs (deployed gain XP, bench don't)
   var demoXp0={}; heroes.forEach(function(h){demoXp0[h.key]=heroCumXp(h.level,h.exp)-(h.deployed?42000:0);});
