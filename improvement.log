@@ -1,16 +1,63 @@
 # TBH HUD — improvement.log
-Updated 2026-06-11 (cowork, session 18 · app v1.0.11). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-11 (session 22 · app v1.0.16). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
-Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.11**
-released (installer + latest.yml + blockmap → existing installs auto-update). **11 tabs** (Overview / Party / Inventory /
-Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render vs the test live save with 0 console errors,
-in **light (default) and dark themes**. **Crew API live** (Vercel serverless + Neon Postgres, opt-in only). Public patch
-notes: CHANGELOG.md + in-app "What's new".
+Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.16**
+released (installer + latest.yml, NO blockmap since v1.0.15 → installs on v1.0.6+ auto-update via one full-stream download).
+**11 tabs** (Overview / Party / Inventory / Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
+vs the test live save with 0 console errors, in **light (default) and dark themes**, now with Codex-grade Loot + Inventory
+controls, the measured blue-chest tracker, a desktop **mini-HUD**, settings and keyboard shortcuts. **Crew API live**
+(Vercel serverless + Neon Postgres, opt-in only). Public patch notes: CHANGELOG.md + in-app "What's new".
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S22 (v1.0.16) — the power-user wave (docs/GOAL-v1.0.16.md P1–P4, all shipped + verified).**
+  **(P1) Loot controls + export + the "where's my chest?" answer:** the timeline gained rarity chips, an origin
+  filter (⚒️ Cube / ✦ found / — unclear), free-text search, sort (newest/rarity/name), Today/Yesterday date headers
+  and paged rendering with honest "showing X of N" counts (nothing silently cut; stored cap 120→500); offline-rewards
+  table paged the same way; one-click CSV/JSON export of the full timeline + offline rewards (local+UTC, name, rarity,
+  origin, level — client-side download). NEW calibrated note: the game mints boxes Steam returns EMPTY for
+  ("CreateSteamItem … items is empty" — 1:1 with every mint, file-verified in COMMON-BOX-STEAM-ROUTING-FINDINGS.md,
+  now committed) — the Loot tab counts exactly those lines per box key (312 across the two reference logs) and
+  explains they're held Steam-side, not in the save → never a HUD loss claim.
+  **(P2) Inventory power tools + the provable "Safe to let go":** search/type/sort (rarity/level/type/enchanted-first)
+  + "enchanted only" + equipped/unequipped toggles (equip state from the heroes' own equippedItemIds; worn tiles get a
+  dot); ⚖ Compare mode lays two same-geartype items' inherent GearInfoData stats side by side (NEUTRAL — no per-stat
+  verdict, no upgrade direction; capture-phase click so compare never collides with the Codex click-through).
+  "Safe to let go" = the INVERSE of the gear-gap finder, structural proof only: an unequipped spare is flagged ONLY
+  when ≥ maxWearers(gt) DISTINCT same-gt pieces are strictly better AND wearable whenever it is (HIGHER rarity at
+  item level ≤ its own — level = the calibrated equip requirement; same-rarity-higher-level never counts).
+  maxWearers from calibrated structure only (class weapons 1 via the hero table's MainWeapon; one-slot-per-hero
+  types 6; accessories 18, conservative). Mirrored in BOTH engines (saveEngine.redundantDupes == redundantDupesD;
+  browser parity asserted in-page) + verify_save invariants (unequipped; independent dominator recount matches;
+  never simultaneously a gearGaps-advised upgrade) + a HAND-CHECK vs the full scepter dump (the flagged LEGENDARY
+  L20 is beaten by exactly the 2 IMMORTALs; the equipped IMMORTAL is never flagged). Labeled "redundant duplicates",
+  never "sell this" (salvage values uncalibrated → none quoted).
+  **(P3) Blue-chest tracker — measured, never asserted:** investigation first (BLUE-CHEST-DROP-RATE-FINDINGS.md,
+  committed): the "blue chest" IS the RARE Stage Boss Box; the game files contain NO base drop % and NO 12-minute
+  cooldown (no 720s outside combat stats) — so the HUD measures: every save-diffed RARE-STAGEBOX arrival is logged
+  {t, currentStageKey, playHours, n} (same-read boxes collapse into one event — gaps are only measurable between
+  reads; cap 400; persisted in tbh_loot; demo-isolated with clearly-sample events). The Loot panel shows the
+  player's OWN same-stage gap median/min/max and "gap after a stage switch" median, ALWAYS with sample size N;
+  gaps display in PLAYED time (the save's own play-hours counter) so closed-game periods don't stretch them, and
+  any gap containing a closed-game period is flagged via the calibrated 0.25h wall-vs-played detector (v1.0.9).
+  Verified by driving the REAL pipeline (real save baseline → a real-catalog 920201 instance on the next read →
+  event carries the real stage "Act 3-4 · Frozen Glacier Cavern" + real playHours; a 0.23h-played second box →
+  "Same-stage gap 13m 47s · median of 1" — played time correctly preferred over the 14m wall gap).
+  **(P4) Desktop mini-HUD + settings + shortcuts (the PRD's overlay intent, ban-safe):** a frameless alwaysOnTop
+  mini window (mini.html) shows gold · session gold/hr · stage · the offline timer (ticking locally off the save
+  anchor; log-learned cap countdown; AT CAP state) · the next rune step — fed by the dashboard renderer over IPC
+  (the exact numbers it already computes; NO new data lane; demo payloads carry a SAMPLE tag); bounds + opacity
+  persist in the HUD's own userData/mini-hud.json; screen-saver z-level; closes with the main window. ⚙ Settings
+  (all platforms): density comfortable/compact (one --s* token override re-scales every grid), motion
+  follow-system/on/off, default tab on launch (applied pre-render), rare-item alerts; desktop adds the mini
+  toggle + a 30–100% opacity slider. Shortcuts: 1–9/0 first ten tabs, ←/→ cycle all 11 (wrapping), "/" focuses
+  the active tab's search; inputs are never trapped, open dialogs own the keyboard.
+  **Ship + verification:** verify_save PASS throughout (incl. the new redundantDupes invariants + version sync
+  1.0.16); engines in parity; Electron boots clean; 11 tabs (+ gate + modals) × 375px × both themes = 0 horizontal
+  overflow, 0 console errors at every step; release v1.0.16 published (installer 68.8 MB + latest.yml, no blockmap)
+  and marked Latest; web auto-deployed on push (Pages + the owner's Vercel).
 - **S21 (v1.0.15) — extremely-slow-update fix (root-caused on the owner's install).** Evidence: the updater cache
   held the previous installer + blockmap and the 1.0.14 download sat at a 0-byte temp file → it was running a
   DIFFERENTIAL download. Measured on the same line: full-stream from GitHub releases = ~1.0 MB/s (79 MB ≈ 76 s),
@@ -228,16 +275,23 @@ the game's own tables/localization; honest fallback or omit. Verify EVERY change
 11 tabs, 0 console errors). The crew leaderboard is OPT-IN only and never receives the save.
 
 ## NEXT
-v1.0.4 shipped everywhere (Pages + owner's Vercel + desktop release + crew API live). To ship the NEXT version: bump
-package.json + `?v=` cache-bust, `npm run dist`, then
-`gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml dist/*.blockmap --latest`.
-Optional: move the crew API under the owner's taskbarheroburat Vercel project (attach Neon storage there + change the
-CREW_API constant in dashboard.html); sign the installer (cert); deepen the Codex (recipes/set bonuses); Clerk auth.
+v1.0.16 shipped everywhere (Pages + owner's Vercel auto-deploy on push + desktop release Latest + crew API live,
+unchanged this wave). Remaining GOAL-v1.0.16 items: **P5** — Codex recipes (Synthesis/Crafting/Cube* inputs→output,
+no guessed odds; NO set bonuses — sets don't exist), opt-in enchant-tuple crowd-calibration (gt, MaterialKey, rolled
+StatType — calibrates boots/gloves/rings/offhands), crew API prune endpoint + rate limiting (redeploy tbh-crew-api
+only when api/* changes). **P6** — targets/goals tracker with ETAs from the player's own measured rates only.
+To ship the NEXT version: bump package.json + APP_VERSION + `?v=` cache-bust + CHANGELOG (const + .md),
+`npm run dist`, then `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest` (NO blockmap).
+Optional: move the crew API under the owner's taskbarheroburat Vercel project; sign the installer (cert); Clerk auth;
+mini-HUD tray icon + global hotkey.
 
 ## CONFIDENCE 9/10
-Everything save-facing is verified against the committed real save: verify_save.js PASS incl. the new v1.0.4 invariants
-(per-stage rates consistent; gear gaps provable & 1:1; rune plan sums exactly & within gold; statTotals == base+gear+tree).
-Inline (browser) engine output matched the Node engine number-for-number on the same save. All 11 tabs 0 console errors
-(demo + real-save fetch), 0 horizontal overflow @375. Electron boots clean (v1.0.4, 0 real errors). Crew API verified
-live end-to-end (join/improve/board + achievements). −1: the crew flow hasn't been exercised by a second REAL person on
-other hardware yet, and the installer is unsigned (SmartScreen prompt).
+Everything save-facing is verified against the committed real save AND the owner's live save: verify_save.js PASS
+incl. the new v1.0.16 redundantDupes invariants (unequipped-only, independent dominator recount, never overlapping a
+gearGaps advice) and the version-sync assert at 1.0.16. The duplicates math was hand-checked against the full scepter
+dump; browser == Node parity re-asserted in-page. The blue-chest tracker was driven through the REAL pipeline with
+real catalog items (real stage + play-hours recorded; played-time gap math confirmed to the minute). 11 tabs × 375px
+× both themes = 0 overflow / 0 console errors at every step; Electron boots clean. −1: the mini-HUD window itself was
+exercised at the display-logic level (all states driven in-browser) and via a clean Electron boot, but the
+toggle→IPC→always-on-top flow hasn't been clicked by a human on real hardware yet, and the installer is unsigned
+(SmartScreen prompt).

@@ -213,6 +213,29 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S22 (v1.0.16)** — **the power-user wave (GOAL-v1.0.16 P1–P4).** (P1) **Loot controls:** rarity chips + origin
+  filter + search + sort + date headers + paged "show more" with real counts (stored cap 120→500); CSV/JSON export
+  (timeline + offline rewards, local+UTC); offline-rewards table paged the same way; honest **"where's my chest?"**
+  note counting the game's own `CreateSteamItem … items is empty` Player.log lines per box key (those boxes live
+  Steam-side, never reach the save — file-verified in COMMON-BOX-STEAM-ROUTING-FINDINGS.md, committed). (P2)
+  **Inventory controls:** search/type/sort + enchanted-only + equipped/unequipped toggles (worn dot), ⚖ Compare
+  (two same-gt items side-by-side, neutral GearInfoData facts, no verdicts), and **"Safe to let go"** — provably-
+  redundant spares: ≥ maxWearers(gt) strictly-better same-gt pieces wearable whenever it is (HIGHER rarity at
+  lvl ≤ its own; same-rarity-higher-level never counts — higher requirement). maxWearers from calibrated structure
+  only (class weapons 1 via hero-table MainWeapon; one-slot-per-hero types 6; accessories 18 conservative).
+  `redundantDupes`/`maxWearersGt` in BOTH engines + verify_save invariants (unequipped, independent dominator
+  recount, never simultaneously gearGaps-advised); hand-verified vs the scepter dump. NEVER "sell this" (salvage
+  uncalibrated). (P3) **Blue-chest tracker — measured, never asserted:** the blue chest = RARE Stage Boss Box;
+  NO drop % / NO 12-min cooldown in the game files (BLUE-CHEST-DROP-RATE-FINDINGS.md, committed) → the tracker
+  logs each save-diffed RARE-STAGEBOX arrival {t, stage, playHours, n} (same-read boxes collapse; cap 400; in
+  tbh_loot; demo-isolated), and the panel shows the player's OWN same-stage + after-stage-switch gap medians with
+  sample sizes, gaps in PLAYED time (closed-game periods flagged via the calibrated 0.25h detector). (P4)
+  **Desktop mini-HUD + settings + shortcuts:** frameless alwaysOnTop mini window (mini.html) fed by the dashboard
+  over IPC (gold · session gold/hr · stage · offline timer ticking off the save anchor · next rune step; SAMPLE
+  tag in demo; bounds+opacity persisted in userData/mini-hud.json; screen-saver z-level; closes with main);
+  ⚙ Settings modal (density compact via --s* token override, motion auto/on/off, default tab on launch,
+  rare alerts; mini controls Electron-gated); shortcuts 1–9/0 + ←/→ cycle + `/` focus-search (inputs never
+  trapped, dialogs own the keyboard). Loot/inventory control state resets on Disconnect + demo.
 - **S21 (v1.0.15)** — **slow-update fix.** Differential downloads were the culprit (solid-7z NSIS ⇒ diff ≈ full
   79 MB fetched as thousands of sequential range requests; measured full-stream 1 MB/s vs 68 ms/ranged-request on
   the owner's line; 1.0.14's temp file sat at 0 bytes). Now: `disableDifferentialDownload=true` (main.js),
@@ -313,7 +336,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.15 is SHIPPED everywhere** — desktop release (installer + latest.yml; **no blockmap since v1.0.15** —
+1. **v1.0.16 is SHIPPED everywhere** — desktop release (installer + latest.yml; **no blockmap since v1.0.15** —
    differential updates disabled for speed; auto-update WORKS from v1.0.6 on — older installs need one manual
    reinstall, see S13c), GitHub Pages on push, the owner's Vercel project (`mathew-mercado-s-projects/taskbarheroburat`)
    auto-deploys from the repo, and the **crew API is live** at `https://tbh-crew-api.vercel.app/api` (Vercel project
@@ -321,16 +344,22 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
    when api/* changes). To ship the NEXT version: bump `package.json` + `APP_VERSION` + the `?v=` cache-bust +
    add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`, then
    `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest`.
-2. **Optional:** move the crew API under the owner's `taskbarheroburat` Vercel project (attach Neon storage there →
+2. **GOAL-v1.0.16 P5/P6 (the remaining wave items):** P5 — Codex recipes (Synthesis/Crafting/Cube* tables;
+   NO set bonuses — sets don't exist), opt-in enchant gt→category crowd-calibration (tuple only), crew API
+   hardening (prune endpoint, rate limiting; redeploy tbh-crew-api only on api/* change). P6 — targets/goals
+   tracker with ETAs from the player's own measured rates (perStageRates gold/hr + runePlanD costs + session
+   XP/hr; honest measuring/not-gaining states; a hero-level ETA can serve locked-gear targets).
+3. **Optional:** move the crew API under the owner's `taskbarheroburat` Vercel project (attach Neon storage there →
    auto-injects DATABASE_URL → change the `CREW_API` constant in dashboard.html; ONE canonical API at a time or crews
-   split); sign the installer (cert); deepen the Codex (recipes, set bonuses, drop rates); Clerk auth on the crew API.
+   split); sign the installer (cert); Clerk auth on the crew API. The mini-HUD owner-wishlist: tray icon +
+   global hotkey (deferred from P4 — not in the AC).
 
 ### Deferred / deliberately NOT built (golden rule — ban-safe / uncalibrated)
 - **Phase 4 live telemetry** — per-run DPS, clear-time, gold/hr & xp/hr PER ACT, per-hero DPS share — needs reading game memory (CodeStage `[ACTk]` anti-cheat). Don't build unless provably ban-safe; the save + log lanes cover what's safe.
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.15 · light/dark themes · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.16 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (separate Vercel team — CLI scope recorded in `OPS-PRIVATE.local.md`, gitignored); env var
