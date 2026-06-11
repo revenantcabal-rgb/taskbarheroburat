@@ -213,6 +213,24 @@ dup.forEach(x => console.log('   ', x.name + ' (' + x.grade + ' L' + (x.lvl || 0
   console.log('recipes       ', C.length + ' crafting, ' + S.length + ' synth pools, ' +
     (((DB.cube || {}).subs || []).length) + ' cube subs, ' + (DB.extraction || []).length + ' extraction rows | ' +
     checked + ' lookup spot-checks vs independent re-derivation');
+  // cubeUnlocks (v1.0.18): the save's MaxUnlockRecipeKey per category must be 0 or a known sub-recipe key of
+  // that category, and every implied-unlocked sub must satisfy its own level gate (you can't buy above level).
+  const cu = eng.cubeUnlocks(psd);
+  if (cu) {
+    const cubeLvl = (psd.cubeSaveLevelData || {}).Level || 0;
+    const subs = ((DB.cube || {}).subs) || [];
+    Object.keys(cu).forEach(t => {
+      const maxK = cu[t];
+      if (maxK === 0) return;
+      const mine = subs.filter(x => x.t === t);
+      if (!mine.some(x => x.k === maxK)) problems.push('cubeUnlocks: ' + t + ' MaxUnlockRecipeKey ' + maxK + ' is not a known sub-recipe of that category');
+      mine.filter(x => x.k <= maxK && x.lvl != null).forEach(x => {
+        if (x.lvl > cubeLvl) problems.push('cubeUnlocks: ' + t + ' sub ' + x.k + ' unlocked below its level gate (' + x.lvl + ' > Cube ' + cubeLvl + ')');
+      });
+    });
+    const unlockedN = subs.filter(x => cu[x.t] > 0 && x.k <= cu[x.t]).length;
+    console.log('cubeUnlocks   ', 'Cube L' + cubeLvl + ' | ' + unlockedN + '/' + subs.length + ' sub-recipes unlocked (REAL state from cubeRecipeSaveDatas, not level-derived)');
+  }
 }
 // enchantStones: every stone must be an owned fx-bearing material (the calibrated enchant ingredients)
 const stones = eng.enchantStones(psd);

@@ -285,6 +285,15 @@ def main():
     synth_bands = {}
     synth_rows = rows("SynthesisRecipeInfoData.txt")
     assert all(r["MaterialAmount"] == "9" for r in synth_rows), "synthesis MaterialAmount != 9 — recalibrate"
+    # the grade-free band schema is only valid while every grade within a (type, tier) carries the IDENTICAL
+    # band set — assert it (a silent union of diverged grades would fabricate reachability claims).
+    _per_grade = {}
+    for r in synth_rows:
+        _per_grade.setdefault((r["ItemSynthesisType"], r["RecipeTier"]), {}).setdefault(r["GRADE"], set()).add(
+            (r["MinMaterialTier"], r["MinResultLevel"], r["MaxResultLevel"], r["MinMaterialAverageLevel"]))
+    for k_, grades_ in _per_grade.items():
+        sets_ = list(grades_.values())
+        assert all(s_ == sets_[0] for s_ in sets_), "synthesis bands diverge across grades at %s — recalibrate, don't ship" % (k_,)
     for r in synth_rows:
         key = r["ItemSynthesisType"] + "|" + r["RecipeTier"]
         e = synth_bands.setdefault(key, {"grades": [], "bands": []})
@@ -299,11 +308,14 @@ def main():
 
     cube_types = []
     for r in sorted(rows("CubeRecipeInfoData.txt"), key=lambda x: int(x["Index"] or 0)):
-        cube_types.append({"t": r["RECIPETYPE"], "tip": loc.get(r["TooltipStringKey"])})
+        # k = CubeKey: joins the save's cubeRecipeSaveDatas rows (real per-category unlock state) to the type
+        cube_types.append({"k": int(r["CubeKey"]), "t": r["RECIPETYPE"], "tip": loc.get(r["TooltipStringKey"])})
 
     cube_subs = []
     for r in rows("CubeSubRecipeInfoData.txt"):
-        e = {"t": r["RECIPETYPE"], "lvl": int(r["UnlockCubeLevel"]) if r.get("UnlockCubeLevel") else None,
+        # k = CubeSubRecipeKey: compared against the save's MaxUnlockRecipeKey (keys ascend within a category)
+        e = {"k": int(r["CubeSubRecipeKey"]),
+             "t": r["RECIPETYPE"], "lvl": int(r["UnlockCubeLevel"]) if r.get("UnlockCubeLevel") else None,
              "n": loc.get(r["SubRecipeNameStringKey"])}
         if r.get("RecipeTier"):
             e["tier"] = int(r["RecipeTier"])

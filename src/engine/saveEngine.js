@@ -86,6 +86,16 @@ function cubeUsesOf(itemKey){ const k=String(itemKey);
 }
 // the sub-recipe unlock row for a Cube recipe type (+tier where tiered): {lvl: UnlockCubeLevel, cost, n, ...}
 function cubeSubFor(type,tier){ return ((((DB&&DB.cube)||{}).subs)||[]).filter(e=>e.t===type&&(tier==null||e.tier===tier))[0]||null; }
+// v1.0.18 — the save's REAL per-category Cube unlock state: cubeRecipeSaveDatas[].MaxUnlockRecipeKey is the
+// highest unlocked CubeSubRecipeKey in that category (0 = none). CALIBRATED: unlocking is a PAID action, not
+// automatic at level — a real backup shows ENGRAVING MaxUnlockRecipeKey=0 at Cube level 17 despite its level-15
+// requirement, unlocking only in a later snapshot. Returns {RECIPETYPE: maxKey} or null when the save has no rows.
+function cubeUnlocks(psd){
+  const rows=(psd&&psd.cubeRecipeSaveDatas)||[]; if(!rows.length) return null;
+  const byKey={}; ((((DB&&DB.cube)||{}).types)||[]).forEach(t=>{ if(t.k!=null) byKey[t.k]=t.t; });
+  const out={}; rows.forEach(r=>{ const t=byKey[r.CubeKey]; if(t) out[t]=r.MaxUnlockRecipeKey||0; });
+  return out;
+}
 // the requirement bands for a synthesis (type, tier) — VERIFIED grade-independent at bake time
 function synthBandsFor(type,tier){ const b=(DB&&DB.synthBands)||{}; return b[type+'|'+tier]||null; }
 
@@ -439,4 +449,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,craftRecipesFor,synthPoolsFor,cubeUsesOf,cubeSubFor,synthBandsFor,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,craftRecipesFor,synthPoolsFor,cubeUsesOf,cubeSubFor,synthBandsFor,cubeUnlocks,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

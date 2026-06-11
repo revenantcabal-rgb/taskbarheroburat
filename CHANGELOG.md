@@ -4,6 +4,22 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.18 — 2026-06-11
+
+### Fixed
+*(All four found by an adversarial review pass over v1.0.17 and fixed the same day.)*
+- **The Cube panel's ✓/🔒 now come from your save's own unlock records** (`cubeRecipeSaveDatas.MaxUnlockRecipeKey`)
+  instead of being inferred from your Cube level. Unlocking is a **purchase**: a real backup showed Engraving still
+  locked at Cube 17 despite its level-15 gate, so level alone was the wrong signal. Saves without the records get
+  no ✓/🔒 claims at all (calibrate-or-omit).
+- **Synthesis "Reachable with…" lines state BOTH requirement columns** from the game's own row — minimum material
+  **tier** and average **level**. The tier requirement varies between the side-by-side alternatives and was
+  previously omitted, making the line a sufficiency claim the source data contradicted.
+- **Typing in the target picker no longer loses focus** when a save update re-renders the Overview mid-keystroke
+  (stray digits could even trigger the number-key tab shortcuts).
+- **The data build now hard-fails if a future game patch makes synthesis bands diverge across grades** — the
+  grade-free band display depends on that identity; it was verified but not previously enforced as an assertion.
+
 ## v1.0.17 — 2026-06-11
 
 ### Added
