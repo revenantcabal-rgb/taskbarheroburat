@@ -11,7 +11,20 @@ notes: CHANGELOG.md + in-app "What's new".
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
-- **S19 (v1.0.13) — Crew deep-dive + Advisor info-density + click-through everywhere (owner's 3 asks).**
+- **S20 (v1.0.14) — version clarity + Steam-boxes explained + demo log isolation (owner's 2 questions).**
+  (1) **game v vs app v:** the footer now shows "app v<APP_VERSION>" on EVERY platform (it was Electron-only —
+  browser users had NO visible app version); header "game v…" and footer "app v…" both carry tooltips spelling
+  out the difference; the Electron shell version is only surfaced if it ever DIFFERS from the renderer's (a
+  defensive mismatch flag, normally invisible). (2) **Loot → Steam boxes:** the owner asked whether the box
+  counts were real or placeholders — they are REAL (the game writes "GetBoxCount — Count : N // ItemKey : …"
+  into Player.log whenever it checks its Steam inventory; names/grades from ItemInfoData; the section simply
+  doesn't render without log lines). The section now says exactly that in a hint, the header says "real counts
+  from your own Player.log", and every box is CLICKABLE → its Codex page (possible contents + marketable flag).
+  (3) **Demo honesty fix:** entering demo mode previously KEPT a connected save's real Player.log data — real
+  offline rewards/box counts could render under the SAMPLE badge. loadDemo now replaces logData with clearly-
+  sample data (3 real catalog STAGEBOX entries with sample counts ×1/×2/×3 + two sample offline collections, the
+  15,400-gold one matching the sample night-away gap on Trends). Verified: 11 tabs × both themes × 375/1280 = 0
+  overflow; box card click → Codex contents; footer app-version present in browser; verify_save PASS (sync 1.0.14).
   (1) **Crew member pop-up:** the board's stat list was genuinely CUT — the v1.0.10 payload sent only the top-6 rune
   totals with names truncated at 32 chars ("Drop Chance Stage Boss Chest Per…"). Now the payload carries the
   COMPLETE list (≤40 effects, names ≤48 — the longest real name is 36) and clicking ANY member row opens a dialog

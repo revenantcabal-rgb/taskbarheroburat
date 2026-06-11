@@ -9,7 +9,7 @@
 <script>(function(){var t=null;try{t=localStorage.getItem('tbh_theme');}catch(e){}
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.13"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.14"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -730,7 +730,7 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
 </div>
 
 <footer>
-  <b>TBH HUD</b> · unofficial fan tool, not affiliated with Tesseract Studio / Nugem Studio · read-only,
+  <b>TBH HUD</b> <span id="appVer" title="The HUD's own version. The header's 'game v…' is a different thing — your game's version, read from the save."></span> · unofficial fan tool, not affiliated with Tesseract Studio / Nugem Studio · read-only,
   never writes to the game. · <a href="https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest" target="_blank" rel="noopener" style="color:var(--accent-2)">Get the Windows desktop app ↗</a><span id="lastSaved"></span>
 </footer>
 
@@ -1801,14 +1801,19 @@ function renderInventory(d){
 function renderLoot(d){
   var p=$('tab-loot');p.innerHTML='';
 
-  // Steam boxes currently held (from Player.log GetBoxCount) — names resolved authoritatively from the DB
+  // Steam boxes currently held — REAL counts parsed from the player's own Player.log: the game writes a
+  // "GetBoxCount — Count : N // ItemKey : …" line whenever it checks its Steam inventory. Names/grades resolve
+  // from the game's own item table. Never placeholders: no log lines → this section simply doesn't render.
   var boxKeys=Object.keys(logData.boxes||{}).filter(function(k){return logData.boxes[k]>0;});
   if(boxKeys.length){
-    p.appendChild(el('<h3 class="sec">Steam boxes held <span class="tag">from Player.log · tradeable on Steam</span></h3>'));
+    p.appendChild(el('<h3 class="sec">Steam boxes you\'re holding <span class="tag">real counts from your own Player.log · click a box to see what it can contain</span></h3>'));
+    p.appendChild(el('<div class="hint">These are your <b>Steam-inventory boxes</b> — the chest items the game stores on your Steam account rather than in the save. The game logs the count of each box every time it checks its Steam inventory, and the HUD reads those lines from <b>your own Player.log</b> (so “×1” means the game itself reported exactly 1, as of its last check). Names and rarities come from the game\'s item table. <b>Click a box</b> for its Codex page: what it can contain and whether it\'s marketable on Steam.</div>'));
     var bgrid=el('<div class="grid cards"></div>');
     boxKeys.sort().forEach(function(k){
       var info=itemInfo(k); var nm=(info.name&&info.name.charAt(0)!=='#')?info.name:('Box '+k);
-      bgrid.appendChild(el(card(nm,'×'+fmt(logData.boxes[k]),'',(info.grade?cap(info.grade)+' ':'')+'box','📦')));
+      var c=el(card(nm,'×'+fmt(logData.boxes[k]),'',(info.grade?cap(info.grade)+' ':'')+'box · click for contents','📦'));
+      wireCodexClick(c,'BOX',k);
+      bgrid.appendChild(c);
     });
     p.appendChild(bgrid);
   }
@@ -2374,7 +2379,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.13';
+var APP_VERSION='1.0.14';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -2384,6 +2389,12 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.14',d:'2026-06-11',sec:{
+    Added:[
+      'The app\'s own version now shows in the footer on EVERY platform (it was desktop-only) — "app v…" in the footer is this HUD; "game v…" in the header is your game\'s version from the save. Both carry explanatory tooltips.',
+      'Loot → "Steam boxes you\'re holding" now explains itself: these are real counts the game logs in your own Player.log whenever it checks its Steam inventory — never placeholders — and each box is clickable to see what it can contain.'],
+    Fixed:[
+      'Entering demo mode now replaces any previously-loaded Player.log data with clearly-sample data — real offline rewards / box counts can no longer appear under the SAMPLE badge.']}},
   {v:'1.0.13',d:'2026-06-11',sec:{
     Added:[
       'Crew member pop-up: click any member for their COMPLETE shared stats — every brag-stat, the grouped Stat List with the game\'s wording, and ALL rune totals (the board previously trimmed the list; names are no longer truncated either).',
@@ -3062,6 +3073,7 @@ function render(d){
   $('tabs').classList.remove('hidden');
   // labeled "game v…" so it can't be confused with the HUD's own version (shown in the footer as "app v…")
   $('ver').textContent='game v'+(d.version||'?')+(d.playHours?(' · '+d.playHours+'h played'):'');
+  $('ver').title='Your GAME\'s version, read from the save ('+(d.version||'?')+'). This HUD app is v'+APP_VERSION+' (shown in the footer) — two different things.';
   $('tabInvCount').textContent=d.owned.length;
   $('tabLootCount').textContent=lootLog.length||'';
   $('tabRuneCount').textContent=(d.runes&&d.runes.leveled)?(d.runes.leveled+'/'+d.runes.total):'';
@@ -3239,9 +3251,10 @@ if(window.tbhNative&&window.tbhNative.onSave){
     updBtn.addEventListener('click',function(){manualUpdateCheck=true;window.tbhNative.checkForUpdates();});
     document.querySelector('header .actions').appendChild(updBtn);
   }
-  // show which app version is installed (the header "v…" is the GAME save version, a different thing)
+  // the footer always shows app v<APP_VERSION> (set at startup for every platform). The installed shell's
+  // version should be identical — surface it ONLY if it ever differs (a defensive, honest mismatch flag).
   if(window.tbhNative.getVersion)window.tbhNative.getVersion().then(function(v){
-    if(v)document.querySelector('footer').appendChild(el('<span> · app v'+esc(v)+'</span>'));
+    if(v&&v!==APP_VERSION)document.querySelector('footer').appendChild(el('<span> · installed shell v'+esc(v)+'</span>'));
   }).catch(function(){});
   if(window.tbhNative.requestSave)window.tbhNative.requestSave();
   if(window.tbhNative.requestBackups)window.tbhNative.requestBackups();
@@ -3315,6 +3328,17 @@ function loadDemo(){
     pet:(DB.pets&&DB.pets['6003'])?{key:6003,n:DB.pets['6003'].n,desc:DB.pets['6003'].desc}:{key:6003,n:'Dragon'}};
   lootLog=[{t:Date.now()-45000,name:(DB.items['423041']||{}).n||'Orb',grade:'LEGENDARY',gt:'ORB',icon:'420004',lvl:15,key:'423041',src:'cube',mats:9},
     {t:Date.now()-220000,name:(DB.items['322041']||{}).n||'Staff',grade:'RARE',gt:'STAFF',icon:'320004',lvl:15,key:'322041',src:'found'}];
+  // Demo Player.log data — REPLACES any previously-loaded real log data so nothing real ever renders under the
+  // SAMPLE badge (entering demo used to keep a connected save's offline rewards/box counts on the Loot tab).
+  // Boxes are real catalog STAGEBOX entries (authoritative names/grades) with sample counts; the 15,400-gold
+  // offline collection matches the sample night-away gap shown on Trends.
+  var demoBoxes={}, seenGrade={};
+  for(var bk in (DB.items||{})){ var bi=DB.items[bk];
+    if(bi.t==='STAGEBOX'&&bi.g&&!seenGrade[bi.g]){ seenGrade[bi.g]=1; demoBoxes[bk]=Object.keys(demoBoxes).length+1; if(Object.keys(demoBoxes).length>=3) break; } }
+  logData={offline:[
+    {t:Date.now()-9*3600000,saved:0,now:0,delta:32400,reward:32400,gold:15400,rate:15400/32400},
+    {t:Date.now()-30*3600000,saved:0,now:0,delta:21600,reward:21600,gold:9800,rate:9800/21600}
+  ],boxes:demoBoxes};
   var demoRuneSave=Object.keys(DB.runes||{}).slice(0,56).map(function(k){return {RuneKey:k,Level:1};});
   // seed a ~10-min session so the sample showcases live rates + per-hero level ETAs (deployed gain XP, bench don't)
   var demoXp0={}; heroes.forEach(function(h){demoXp0[h.key]=heroCumXp(h.level,h.exp)-(h.deployed?42000:0);});
@@ -3395,6 +3419,9 @@ function applyTheme(t){
 })();
 $('whatsNewBtn').addEventListener('click',openWhatsNew);
 updateWnDot();   // show the dot until this version's notes have been opened once
+// app version in the footer on EVERY platform (browser included — it was Electron-only before v1.0.14);
+// the header's "game v…" is the GAME's version from the save. Two labels, two different things.
+$('appVer').textContent='· app v'+APP_VERSION+' ';
 historyLoad();   // the HUD's own snapshot history (IndexedDB) feeds trends + per-stage rates from the first paint
 if(location.search.indexOf('demo')>=0)loadDemo();
 else if(location.search.indexOf('codex')>=0)browseCatalog();

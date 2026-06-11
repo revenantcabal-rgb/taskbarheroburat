@@ -4,6 +4,21 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.14 — 2026-06-11
+
+### Added
+- **App version vs game version, made explicit** — the footer now shows "app v…" (this HUD) on every
+  platform, browser included (it was desktop-only); the header's "game v…" is your game's version read
+  from the save. Both carry tooltips spelling out the difference.
+- **Loot → "Steam boxes you're holding" explained** — these are **real counts**, not placeholders: the
+  game writes a count line into your own Player.log whenever it checks its Steam inventory, and the HUD
+  reads exactly that (names/rarities from the game's item table). Each box is now **clickable** — its
+  Codex page shows what it can contain and whether it's marketable.
+
+### Fixed
+- Entering demo mode now replaces any previously-loaded Player.log data with clearly-sample data — real
+  offline rewards / box counts can no longer appear under the SAMPLE badge.
+
 ## v1.0.13 — 2026-06-11
 
 ### Added
