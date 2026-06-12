@@ -4,6 +4,16 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.22 — 2026-06-12
+
+### Fixed
+- **Desktop mini-HUD now actually opens.** Its window file (`mini.html`) was never bundled into the installer —
+  a packaging gap present since the mini-HUD shipped in v1.0.16 — so on installed builds the **🗗 Mini-HUD**
+  button popped up a blank window. It's now included in the app. (It always worked when running from source in
+  development, which is why it slipped through.)
+- **Clarified:** the mini-HUD is a **desktop-only** always-on-top window — a browser can't float a window over a
+  fullscreen game, so it intentionally **does not appear in the web version**, only in the installed Windows app.
+
 ## v1.0.21 — 2026-06-12
 
 ### Added

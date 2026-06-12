@@ -213,6 +213,13 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S24b (v1.0.22)** — **desktop mini-HUD packaging fix.** `mini.html` was missing from electron-builder's
+  `files` glob (only `src/**/*` + `dashboard.html` + `package.json`), so `miniWin.loadFile('../mini.html')`
+  opened a BLANK window in every installer since v1.0.16 — it only worked under `npm start` (source, not asar).
+  Added `"mini.html"` to `build.files`; verified `\mini.html` is now inside `app.asar`. **RULE: any root-level
+  file `main.js` loadFile()s MUST be listed in `build.files` (it lists files explicitly — dashboard.html was,
+  mini.html wasn't).** Also clarified the mini-HUD is **DESKTOP-ONLY** (gated on `window.tbhNative.miniToggle`;
+  a browser can't float an always-on-top window over a fullscreen game) — its absence in the web build is by design.
 - **S24 (v1.0.20 + v1.0.21)** — **difficulty-labeled stages + an English/简体中文 language switch.** (v1.0.20) The
   leaderboard's meaningless **"Act 12-5"** is fixed: stage keys are BAND-CONTINUOUS, so `stageActLabel`/`stageLabel`
   (BOTH engines) decode the difficulty band — `2205 → "Act 3-5 · Torment"`. CALIBRATED from the game's OWN data: the
@@ -399,7 +406,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
    `mini.html`'s own labels (it already gets the localized stage label over IPC). Pattern + data: [[tbh-i18n-language-switch]].
    Also: the band difficulty map ([[tbh-stage-difficulty-decode]]) is corroborated but NOT save-verified past Normal —
    confirm the exact Nightmare key on the owner's first Nightmare clear.
-1. **v1.0.21 is SHIPPED everywhere — difficulty-labeled stages (v1.0.20) + the English/简体中文 language switch (v1.0.21)** — desktop release (installer +
+1. **v1.0.22 is SHIPPED everywhere — difficulty-labeled stages (v1.0.20) + the English/简体中文 language switch (v1.0.21) + the mini-HUD packaging fix (v1.0.22)** — desktop release (installer +
    latest.yml; **no blockmap since v1.0.15** — differential updates disabled for speed; auto-update WORKS from
    v1.0.6 on — older installs need one manual reinstall, see S13c), GitHub Pages on push, the owner's Vercel
    project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from the repo, and the **crew API is live**

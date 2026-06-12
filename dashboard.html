@@ -10,10 +10,10 @@
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';
 document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.21"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.22"></script>
 <!-- Official Simplified-Chinese game-term map (window.TBH_ZH) extracted from the game's own zh-Hans
      localization bundle (scripts/extract_localization_zh.py). Powers the EN/中文 language switch. -->
-<script src="src/engine/i18n_zh.min.js?v=1.0.21"></script>
+<script src="src/engine/i18n_zh.min.js?v=1.0.22"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -3296,7 +3296,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.21';
+var APP_VERSION='1.0.22';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -3306,6 +3306,9 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.22',d:'2026-06-12',sec:{
+    Fixed:[
+      'Desktop mini-HUD now actually opens. Its window file (mini.html) was never bundled into the installer (a packaging gap since v1.0.16), so on installed builds the 🗗 Mini-HUD button opened a blank window — it now ships inside the app. Note: the mini-HUD is a DESKTOP-ONLY always-on-top window (a browser can\'t float a window over a fullscreen game), so it never appears in the web version — only in the installed Windows app.']}},
   {v:'1.0.21',d:'2026-06-12',sec:{
     Added:[
       'Language switch — English / 简体中文. A 中/EN toggle in the header flips the whole HUD to Simplified Chinese (your choice is remembered on your device). Game terms — item, hero, stage, rune, rarity and difficulty names — come straight from the game\'s OWN Chinese localization, so nothing is machine-guessed; the HUD\'s own labels are translated on top. Stage labels show the difficulty too, e.g. "第3-5关 · 折磨".']}},

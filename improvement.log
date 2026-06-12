@@ -1,10 +1,10 @@
 # TBH HUD — improvement.log
-Updated 2026-06-12 (session 24 · app v1.0.21). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-12 (session 24 · app v1.0.22). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
 Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.19**
-released (installer + latest.yml, NO blockmap since v1.0.15 → installs on v1.0.6+ auto-update via one full-stream download). **DESKTOP now v1.0.21** (language switch + difficulty-labeled stages; i18n_zh.min.js verified packaged in the asar).
+released (installer + latest.yml, NO blockmap since v1.0.15 → installs on v1.0.6+ auto-update via one full-stream download). **DESKTOP now v1.0.22** (language switch + difficulty-labeled stages + **mini-HUD packaging fix**; both i18n_zh.min.js AND mini.html verified packaged in the asar).
 **11 tabs** (Overview / Party / Inventory / Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 vs the test live save with 0 console errors, in **light (default) and dark themes**, now with Codex-grade Loot + Inventory
 controls, the measured blue-chest tracker, a desktop **mini-HUD**, settings, keyboard shortcuts, **Codex recipes + the Cube
@@ -13,6 +13,14 @@ reference**, the **Targets** panel (measured-rate ETAs) and opt-in enchant crowd
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S24b (v1.0.22) — desktop mini-HUD packaging fix (owner: "mini-HUD … not even working in the web app or
+  the installed version?").** ROOT CAUSE: `mini.html` was never in electron-builder's `files` glob (only
+  `src/**/*` + `dashboard.html` + `package.json`), so `miniWin.loadFile('../mini.html')` opened a BLANK window
+  in every installer since v1.0.16 — it only worked under `npm start` (runs from source, not the asar). FIX:
+  added `"mini.html"` to `build.files`; rebuilt + verified `\mini.html` is now inside `app.asar`. Also clarified
+  (CHANGELOG + here) that the mini-HUD is **DESKTOP-ONLY** by design — a browser can't float an always-on-top
+  window over a fullscreen game, so the 🗗 button only exists in Electron (gated on `window.tbhNative.miniToggle`);
+  its absence in the web app is correct, not a bug.
 - **S24 (v1.0.20 + v1.0.21) — difficulty-labeled stages + an English/简体中文 language switch.** (v1.0.20)
   Owner report: the leaderboard showed the meaningless **"Act 12-5"**. The save numbers stages CONTINUOUSLY across
   the game's **4 difficulty bands** (Normal/Nightmare/Hell/Torment, 3 acts × 10 each), so `stageActLabel`/`stageLabel`

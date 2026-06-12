@@ -6,7 +6,10 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-12, after session 24 (v1.0.20 + v1.0.21). **v1.0.21 — English/简体中文 language switch:
+_Last updated: 2026-06-12, after session 24 (v1.0.20 → v1.0.22). **v1.0.22 — desktop mini-HUD packaging fix:
+`mini.html` was never in electron-builder's `files` glob, so the 🗗 Mini-HUD button opened a blank window in
+every installer since v1.0.16 (it only worked under `npm start`); added it to the bundle + verified it's inside
+the asar. The mini-HUD is DESKTOP-ONLY by design (no browser equivalent). v1.0.21 — English/简体中文 language switch:
 a 中/EN header toggle (persisted, applied pre-paint) flips the whole HUD; game terms (item/hero/stage/rune/rarity/
 difficulty names) come from the game's OWN zh-Hans localization bundle (extract_localization_zh.py → i18n_zh.min.js),
 the HUD's chrome is hand-translated on top, applied by a guarded MutationObserver DOM translator that restores English
