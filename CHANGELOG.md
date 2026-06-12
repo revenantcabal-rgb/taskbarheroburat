@@ -4,6 +4,18 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.20 — 2026-06-12
+
+### Fixed
+- **Stages now show the real act *and* difficulty.** A stage like `Act 3-5 · Torment` was previously displayed
+  as the meaningless `Act 12-5`. The game has **4 difficulty bands** (Normal / Nightmare / Hell / Torment) of
+  **3 acts each**, but the save numbers stages *continuously* across them — so anyone past Normal was shown an
+  inflated act number (6, 9, 12…). The HUD now decodes the band and labels the difficulty, with names taken
+  straight from the game's own data (`Difficulty_*` localization, corroborated by the four difficulty
+  Soulstones). Higher difficulties also show the **stage name** again (they replay the Normal-band maps, so the
+  name resolves via the equivalent Normal stage). On the **Crew board**, members still running an older app are
+  re-decoded from their shared stage key automatically — nobody shows the old `Act 12-5` form.
+
 ## v1.0.19 — 2026-06-11
 
 ### Added

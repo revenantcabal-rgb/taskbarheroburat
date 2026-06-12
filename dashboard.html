@@ -9,7 +9,7 @@
 <script>(function(){var t=null;try{t=localStorage.getItem('tbh_theme');}catch(e){}
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.19"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.20"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -791,17 +791,32 @@ function el(html){var t=document.createElement('template');t.innerHTML=html.trim
 // string contains multiple top-level elements (el() would silently drop all but the first).
 function frag(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content;}
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
-// Stage display (P2): NEVER show the raw stageKey. Decode act=floor(k/100)-10, stage=k%100 (VERIFIED:
-// 1208 -> "Act 2-8" Sacred Tomb; 1101 -> "Act 1-1" Pasture) and append the real StageName_<key> (DB.stages,
-// 30 names from the game's localization) where present, else just "Act X-Y". Mirror of saveEngine.stageLabel.
-function stageActLabel(stageKey){ // just "Act X-Y" (for compact / big-number slots) — never the raw key
-  if(stageKey==null||stageKey==='')return '—';
-  var k=Number(stageKey);if(!isFinite(k))return String(stageKey);
-  var act=Math.floor(k/100)-10, stg=k%100;
-  return (act<1||stg<1)?String(stageKey):('Act '+act+'-'+stg);
+// Stage display (P2): NEVER show the raw stageKey. The save's stageKey is BAND-CONTINUOUS: raw act =
+// floor(k/100)-10, stage = k%100 (VERIFIED: 1208 -> "Act 2-8" Sacred Tomb; 1101 -> "Act 1-1" Pasture).
+// DIFFICULTY (calibrated, not guessed): the game ships exactly 4 difficulties — Difficulty_NORMAL/NIGHTMARE/
+// HELL/TORMENT in its own localization, corroborated by the 4 Soulstones (ItemName_190001-4 "Material required
+// to summon <X> difficulty bosses") — and ONE difficulty band = 3 acts × 10 stages (the 30 named StageName_
+// keys span exactly acts 1-3). So the raw act runs 1..12 across the 4 bands: difficulty = floor((rawAct-1)/3)
+// (0 Normal … 3 Torment) and the act WITHIN that difficulty = ((rawAct-1)%3)+1. e.g. 2205 -> raw act 12 ->
+// "Act 3-5 · Torment" (previously mis-shown as the meaningless "Act 12-5"). Higher difficulties replay the
+// Normal-band maps, so the real stage NAME resolves via the equivalent Normal key. Mirror: saveEngine.stageLabel.
+var DIFFICULTIES=['Normal','Nightmare','Hell','Torment'];
+function stageParts(stageKey){ // -> {act,stg,diff,name} | {raw:'<key>'} | null
+  if(stageKey==null||stageKey==='')return null;
+  var k=Number(stageKey);if(!isFinite(k))return {raw:String(stageKey)};
+  var rawAct=Math.floor(k/100)-10, stg=k%100;
+  if(rawAct<1||stg<1)return {raw:String(stageKey)};
+  var di=Math.floor((rawAct-1)/3), act=((rawAct-1)%3)+1;
+  var nk=(10+act)*100+stg, nm=(DB.stages&&(DB.stages[nk]||DB.stages[String(nk)]))||'';
+  return {k:k, act:act, stg:stg, diff:DIFFICULTIES[di]||null, name:nm}; // unknown band -> no difficulty claim (golden rule)
 }
-function stageName(stageKey){ var k=Number(stageKey); var nm=DB.stages&&(DB.stages[k]||DB.stages[String(k)]); return nm||''; }
-function stageLabel(stageKey){ var a=stageActLabel(stageKey), nm=stageName(stageKey); return (nm&&a!=='—')?(a+' · '+nm):a; }
+function stageActLabel(stageKey){ // "Act X-Y · <Difficulty>" (compact / big-number slots) — never the raw key
+  var p=stageParts(stageKey); if(!p)return '—'; if(p.raw)return p.raw;
+  return 'Act '+p.act+'-'+p.stg+(p.diff?(' · '+p.diff):'');
+}
+function stageName(stageKey){ var p=stageParts(stageKey); return (p&&p.name)||''; }
+function stageLabel(stageKey){ var p=stageParts(stageKey); if(!p)return '—'; if(p.raw)return p.raw;
+  return 'Act '+p.act+'-'+p.stg+(p.diff?(' · '+p.diff):'')+(p.name?(' · '+p.name):''); }
 // compact duration: "2h 14m", "14m 03s", "0m 09s" (for idle/offline countdowns)
 function fmtDur(sec){sec=Math.max(0,Math.floor(sec));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
   if(h>0)return h+'h '+(m<10?'0':'')+m+'m'; if(m>0)return m+'m '+(s<10?'0':'')+s+'s'; return s+'s';}
@@ -3051,7 +3066,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.19';
+var APP_VERSION='1.0.20';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -3061,6 +3076,9 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.20',d:'2026-06-12',sec:{
+    Fixed:[
+      'Stages now show the real act AND difficulty — e.g. "Act 3-5 · Torment" instead of the meaningless "Act 12-5". The game has 4 difficulty bands (Normal / Nightmare / Hell / Torment) of 3 acts each, but the save numbers stages continuously across them, so higher difficulties were showing inflated acts (6, 9, 12…). The difficulty names come straight from the game\'s own data. Higher difficulties also show the stage name again (they replay the Normal maps). On the Crew board, friends still on an older app are re-decoded automatically, so nobody shows the old "Act 12-5" form.']}},
   {v:'1.0.19',d:'2026-06-11',sec:{
     Added:[
       'Loot tab: a "↻ Refresh now" button (re-reads the save, Player.log and backups on demand) and a "save written … ago" stamp — crafts and syntheses appear at the game\'s NEXT save write, and now you can see exactly how fresh the data is. One-time file drops say so honestly instead of offering a refresh they can\'t do.'],
@@ -3238,8 +3256,11 @@ function crewRankVal(st,key){ if(!st)return null;
   if(key==='topHero'){var m2=0;(st.topHeroes||[]).forEach(function(h){if(h.level>m2)m2=h.level;});return m2;}
   if(key.slice(0,3)==='sl:'){ var k2=key.slice(3), hit=null; (st.statList||[]).forEach(function(x){ if(x&&x.k===k2) hit=x.v; }); return hit; }
   return st[key]!=null?st[key]:null; }
+// Prefer re-decoding from the authoritative numeric maxStage key (always shared) over the cached label —
+// so members still on an older client that sent the old "Act 12-5" string get re-rendered as "Act 3-5 · Torment".
+function crewStage(st){ var v=st&&st.maxStage; return (v&&Number(v)>0)?stageActLabel(v):((st&&st.maxStageLabel)||'—'); }
 function crewRankDisp(st,key){ var v=crewRankVal(st,key); if(v==null)return '—';
-  if(key==='maxStage')return st.maxStageLabel||stageActLabel(v);
+  if(key==='maxStage')return crewStage(st);
   if(key==='playHours')return fmt(v)+' h';
   if(key.slice(0,3)==='sl:'){ var m3=STAT_LIST_BY_K[key.slice(3)]; if(m3) return m3.pct?((v/10)+'%'):('+'+fmt(v)); }
   return fmt(v); }
@@ -3285,7 +3306,7 @@ function openCrewMember(member,members){
   var html='';
   // ---- brag stats ----
   html+='<div class="cxsec"><div class="cxlbl">Brag stats</div>'+grid+head+
-    rowH('🗺️ Max stage',esc(st.maxStageLabel||stageActLabel(st.maxStage)),cst?esc(cst.maxStageLabel||stageActLabel(cst.maxStage)):null,st.maxStage||0,cst?(cst.maxStage||0):null)+
+    rowH('🗺️ Max stage',esc(crewStage(st)),cst?esc(crewStage(cst)):null,st.maxStage||0,cst?(cst.maxStage||0):null)+
     rowH('🪙 Lifetime gold',st.lifeGold!=null?fmt(st.lifeGold):null,cst&&cst.lifeGold!=null?fmt(cst.lifeGold):null,st.lifeGold,cst?cst.lifeGold:null)+
     rowH('💀 Total kills',st.kills!=null?fmt(st.kills):null,cst&&cst.kills!=null?fmt(cst.kills):null,st.kills,cst?cst.kills:null)+
     rowH('Gold balance',st.gold!=null?fmt(st.gold):null,cst&&cst.gold!=null?fmt(cst.gold):null,st.gold,cst?cst.gold:null)+
@@ -3441,7 +3462,7 @@ function renderCrew(d){
         row.appendChild(el('<span class="crewname"><b>'+esc(m2.name||'?')+(isMe?' <span style="color:var(--accent-2)">(you)</span>':'')+'</b><small>'+(m2.updatedAt?('updated '+fmtAgo(+new Date(m2.updatedAt))):'')+'</small></span>'));
         row.appendChild(el('<span class="crewstat" style="color:var(--gold)">'+esc(crewRankDisp(st,key))+'</span>'));
         var chips='';
-        chips+='<span class="chip">🗺️ <b>'+esc(st.maxStageLabel||stageActLabel(st.maxStage))+'</b></span>';
+        chips+='<span class="chip">🗺️ <b>'+esc(crewStage(st))+'</b></span>';
         if(st.lifeGold!=null)chips+='<span class="chip">🪙 <b>'+fmt(st.lifeGold)+'</b></span>';
         if(st.kills!=null)chips+='<span class="chip">💀 <b>'+fmt(st.kills)+'</b></span>';
         if(st.topHeroes&&st.topHeroes.length)chips+='<span class="chip">🦸 <b>'+st.topHeroes.map(function(h){return esc(h.cls)+' '+h.level;}).join(' · ')+'</b></span>';
@@ -3502,19 +3523,19 @@ function demoCrewBoard(){
   var now=Date.now();
   return [
     {id:'demo-you',name:'You (sample)',updatedAt:new Date(now-60000).toISOString(),
-      stats:{maxStage:1210,maxStageLabel:'Act 2-10',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},
+      stats:{maxStage:1210,maxStageLabel:'Act 2-10 · Normal',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},
       runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:2100},{e:'Drop Chance Normal Chest Percent',v:1050},{e:'Increase Exp Amount',v:700},{e:'Increase Gold Amount',v:700},{e:'Additional Gold Act Boss',v:500},{e:'All Hero Attack Damage Percent',v:350},{e:'Additional Exp Act Boss',v:300},{e:'Offline Reward Gold Percent',v:300},{e:'Additional Gold Stage Boss',v:280},{e:'All Hero Move Speed',v:210},{e:'All Hero Attack Speed',v:160},{e:'All Hero Armor Percent',v:150},{e:'Additional Exp Stage Boss',v:80},{e:'Max Inventory Slot',v:21},{e:'All Hero Attack Damage',v:10},{e:'Unlock Arrange Slot Count',v:2},{e:'Additional Exp',v:1}],
       statList:[{k:'IncreaseExpAmount',v:700},{k:'AdditionalExp',v:1},{k:'AdditionalExpStageBoss',v:80},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:210},{k:'AllHeroAttackSpeed',v:160},{k:'AllHeroAttackDamage',v:10}],
       playHours:34.4,ver:APP_VERSION},
-      achievement:{t:new Date(now-3600000).toISOString(),text:'Reached Act 2-10'}},
+      achievement:{t:new Date(now-3600000).toISOString(),text:'Reached Act 2-10 · Normal'}},
     {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-300000).toISOString(),
-      stats:{maxStage:1208,maxStageLabel:'Act 2-8',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},
+      stats:{maxStage:1208,maxStageLabel:'Act 2-8 · Normal',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},
       runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:1800},{e:'Drop Chance Normal Chest Percent',v:1200},{e:'Increase Exp Amount',v:800},{e:'Increase Gold Amount',v:500},{e:'All Hero Attack Speed',v:200},{e:'All Hero Move Speed',v:170},{e:'Additional Exp Act Boss',v:300},{e:'Additional Gold Stage Boss',v:340},{e:'Offline Reward Exp Percent',v:200},{e:'All Hero Armor',v:60},{e:'Additional Exp Stage Boss',v:120},{e:'Max Inventory Slot',v:18},{e:'All Hero Attack Damage',v:14},{e:'Unlock Arrange Slot Count',v:2}],
       statList:[{k:'IncreaseExpAmount',v:800},{k:'AdditionalExpStageBoss',v:120},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:170},{k:'AllHeroAttackSpeed',v:200},{k:'AllHeroAttackDamage',v:14}],
       playHours:41.2,ver:APP_VERSION},
       achievement:{t:new Date(now-7200000).toISOString(),text:'Slayer hit Lv 22'}},
     {id:'demo-3',name:'IdleQueen',updatedAt:new Date(now-7200000).toISOString(),
-      stats:{maxStage:1110,maxStageLabel:'Act 1-10',lifeGold:512000,kills:31000,gold:204000,topHeroes:[{cls:'Sorcerer',level:16},{cls:'Priest',level:15},{cls:'Hunter',level:14}],runesLeveled:30,runesTotal:197,trophies:1,tiers:{LEGENDARY:1},playHours:18.5,ver:'1.0.10'},
+      stats:{maxStage:1110,maxStageLabel:'Act 1-10 · Normal',lifeGold:512000,kills:31000,gold:204000,topHeroes:[{cls:'Sorcerer',level:16},{cls:'Priest',level:15},{cls:'Hunter',level:14}],runesLeveled:30,runesTotal:197,trophies:1,tiers:{LEGENDARY:1},playHours:18.5,ver:'1.0.10'},
       achievement:{t:new Date(now-86400000).toISOString(),text:'Found a new Legendary+ item'}}
   ];
 }

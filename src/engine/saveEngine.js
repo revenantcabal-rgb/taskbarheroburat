@@ -156,18 +156,24 @@ function runes(psd){ const a=psd.RuneSaveData||[]; return {total:a.length,levele
 function goldBySource(a){ const t=pick(a,2,0), c=pick(a,2,1), s2=pick(a,2,2), s3=pick(a,2,3); if(t==null) return null;
   const other=(s2||0)+(s3||0); const validated=(c!=null)&&((c+other)===t); return validated?{total:t,combat:c,other:other,validated:true}:null; }
 function aggregates(psd){ const a=psd.aggregateSaveDatas||[]; return { lifetimeGold:pick(a,2,0), totalKills:pick(a,0,0), goldBySource:goldBySource(a) }; }
-// Stage display (P2): NEVER show the raw stageKey. Decode act=floor(k/100)-10, stage=k%100 (VERIFIED:
-// 1208 -> "Act 2-8" (Sacred Tomb); 1101 -> "Act 1-1" (Pasture)). Append the real StageName_<key> where the
-// game ships one (DB.stages, 30 names baked from localization), else just "Act X-Y". Out-of-range keys
-// (act<1 / stage<1) return the raw key rather than a wrong guess. '' for null/empty.
+// Stage display (P2): NEVER show the raw stageKey. The save's stageKey is BAND-CONTINUOUS: raw act =
+// floor(k/100)-10, stage=k%100 (VERIFIED: 1208 -> "Act 2-8" Sacred Tomb; 1101 -> "Act 1-1" Pasture).
+// DIFFICULTY (calibrated): the game ships exactly 4 difficulties — Difficulty_NORMAL/NIGHTMARE/HELL/TORMENT in
+// localization, corroborated by the 4 Soulstones (ItemName_190001-4 "Material required to summon <X> difficulty
+// bosses") — and ONE band = 3 acts × 10 stages (the 30 named StageName_ keys span exactly acts 1-3). So raw act
+// runs 1..12 across the 4 bands: difficulty = floor((rawAct-1)/3) (0 Normal … 3 Torment); act WITHIN it =
+// ((rawAct-1)%3)+1. e.g. 2205 -> raw act 12 -> "Act 3-5 · Torment" (was the meaningless "Act 12-5"). Higher
+// difficulties replay the Normal-band maps, so the real name resolves via the equivalent Normal key. Out-of-range
+// keys (act<1 / stage<1) return the raw key rather than a wrong guess. '' for null/empty.
+const DIFFICULTIES=['Normal','Nightmare','Hell','Torment'];
 function stageLabel(stageKey){
   if(stageKey==null||stageKey==='') return '';
   const k=Number(stageKey); if(!isFinite(k)) return String(stageKey);
-  const act=Math.floor(k/100)-10, stg=k%100;
-  if(act<1||stg<1) return String(stageKey);
-  const label='Act '+act+'-'+stg;
-  const nm=DB&&DB.stages&&(DB.stages[k]||DB.stages[String(k)]);
-  return nm?(label+' · '+nm):label;
+  const rawAct=Math.floor(k/100)-10, stg=k%100;
+  if(rawAct<1||stg<1) return String(stageKey);
+  const di=Math.floor((rawAct-1)/3), act=((rawAct-1)%3)+1, diff=DIFFICULTIES[di]||null; // unknown band -> no difficulty claim
+  const nk=(10+act)*100+stg, nm=DB&&DB.stages&&(DB.stages[nk]||DB.stages[String(nk)]);
+  return 'Act '+act+'-'+stg+(diff?(' · '+diff):'')+(nm?(' · '+nm):'');
 }
 function summary(psd){ const c=psd.commonSaveData||{}; return {version:c.version,playTimeHours:c.playTime?+(c.playTime/3600).toFixed(1):null,maxCompletedStage:c.maxCompletedStage,maxStageLabel:stageLabel(c.maxCompletedStage),currentStage:c.currentStageKey,currentStageLabel:stageLabel(c.currentStageKey),currentWave:c.currentStageWave,arrangedParty:(c.arrangedHeroKey||[]).map(heroClass),activePet:c.ArrangedPetKey,lastSaved:netTicksToDate(c.lastSavedTime)}; }
 function snapshotFromPsd(psd){ return {capturedAt:new Date().toISOString(),summary:summary(psd),gold:gold(psd),heroes:heroes(psd),inventory:inventory(psd),byRarity:byRarity(psd),trophies:trophies(psd),runes:runes(psd),aggregates:aggregates(psd)}; }
