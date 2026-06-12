@@ -213,6 +213,23 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S24 (v1.0.20 + v1.0.21)** — **difficulty-labeled stages + an English/简体中文 language switch.** (v1.0.20) The
+  leaderboard's meaningless **"Act 12-5"** is fixed: stage keys are BAND-CONTINUOUS, so `stageActLabel`/`stageLabel`
+  (BOTH engines) decode the difficulty band — `2205 → "Act 3-5 · Torment"`. CALIBRATED from the game's OWN data: the
+  4 `Difficulty_*` localization keys + the 4 difficulty Soulstones (`ItemName_190001-4`), with the 4-band × 3-act ×
+  10-stage structure corroborated by `OfflineRewardInfoData`'s 116-stage total (= 30+30+30+26; Torment's last act is
+  short). The Crew board re-decodes from the authoritative numeric `maxStage` key (`crewStage()`) so members on older
+  clients render the new form without re-pushing. NOTE: no confirmed Nightmare+ key exists on the owner's Normal-only
+  save — the band map is corroborated, not save-verified past Normal (confirm on the first Nightmare clear). (v1.0.21)
+  **Language switch (中/EN, `tbh_lang`, applied pre-paint).** Game terms come from the game's OWN zh-Hans Addressable
+  bundle — `scripts/extract_localization_zh.py` (READ-ONLY) emits `src/engine/i18n_zh.min.js` (`window.TBH_ZH` = game
+  811 / stages 30 / diff 4 / grades 11; 39 rune effects joined by STATTYPE) + `localization.zh.min.json`. Runtime is
+  renderer-only: `I18N_UI` (hand-translated chrome) + `zhT()` exact lookup (quote-insensitive via `_i18nNorm`) + a
+  guarded **MutationObserver** translating the live DOM (text + title/placeholder/aria-label), restoring per-node
+  originals on toggle-back; composites via a `\b`-safe word regex + punctuation phrases (**single short words MUST go
+  in the word-regex, never plain substring** — `'ago'→前` corrupted "Dragon"→"Dr前n"; fixed). Stage labels localized
+  at the source (`第3-5关 · 折磨`). ~100% Overview/Runes; long FRAGMENTED help-text + `mini.html` are the known tail.
+  Shipped everywhere (web on push; desktop v1.0.20 + v1.0.21 — **i18n file verified inside the installer asar**).
 - **S23c (v1.0.19)** — **loot freshness (owner: "crafted/synthesized, nothing appeared; no refresh").** Detection
   verified sound (craft → untagged entry, 9-mat synthesis → ⚒️ Cube — on the next save READ); real causes: items
   land at the game's next save WRITE, long-uptime desktops can lose fs.watch silently (frozen HUD, no error), and
@@ -377,14 +394,19 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 **Foundation (sessions ≤6, v1.0.0 → v1.0.1):** authoritative DB from the game's own CSV TextAssets (build_gamedata.py) — items / gear / stats / skills / heroes / attributes / passives / pets / monsters / runes / levels / stages / drop chain + en-US localization; 535 item + 39 rune icons. Premium 9-tab dashboard incl. **Codex** (full catalog, audit 100% / 6177), Party "who's carrying" source breakdown, real XP-to-next (LevelInfoData), Loot/Player.log, **Trends** (save backups), offline-rewards card (cap LEARNED from logs, TZ-corrected). NSIS installer + electron-updater + GitHub Pages (HTTPS); Releases v1.0.0 & v1.0.1 published. Fully responsive; Vercel-ready. (Full trace: improvement.log + git log.)
 
 ## Next (priority order) — acceptance criteria in docs/PRD.md
-1. **v1.0.19 is SHIPPED everywhere — the GOAL-v1.0.16 wave is COMPLETE (P1–P6) + the review patch + loot freshness** — desktop release (installer +
+0. **i18n follow-up (started v1.0.21):** finish the long FRAGMENTED help/advisor sentences (split by inline `<b>`/
+   `<span>` so the DOM translator can't exact-match — need source-level wrapping or de-fragmenting) and translate
+   `mini.html`'s own labels (it already gets the localized stage label over IPC). Pattern + data: [[tbh-i18n-language-switch]].
+   Also: the band difficulty map ([[tbh-stage-difficulty-decode]]) is corroborated but NOT save-verified past Normal —
+   confirm the exact Nightmare key on the owner's first Nightmare clear.
+1. **v1.0.21 is SHIPPED everywhere — difficulty-labeled stages (v1.0.20) + the English/简体中文 language switch (v1.0.21)** — desktop release (installer +
    latest.yml; **no blockmap since v1.0.15** — differential updates disabled for speed; auto-update WORKS from
    v1.0.6 on — older installs need one manual reinstall, see S13c), GitHub Pages on push, the owner's Vercel
    project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from the repo, and the **crew API is live**
    at `https://tbh-crew-api.vercel.app/api` (Vercel project `tbh-crew-api` — scope noted in `OPS-PRIVATE.local.md`,
    gitignored; Neon Postgres; DATABASE_URL in Vercel env only; redeploy it ONLY when api/* changes — last redeploy
    S23 with rate limiting + prune + enchant-report). To ship the NEXT version: bump `package.json` + `APP_VERSION`
-   + the `?v=` cache-bust + add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`,
+   + the `?v=` cache-bust (gamedata.min.js AND i18n_zh.min.js) + add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`,
    then `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest`.
 2. **Calibrations awaiting data:** the enchant gt→category map for GLOVES/BOOTS/RING/AMULET/EARING/BRACER +
    offhands — the opt-in crowd-calibration (S23) now collects tuples in `tbh_enchant_reports`; when a gt has

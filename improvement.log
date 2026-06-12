@@ -1,10 +1,10 @@
 # TBH HUD — improvement.log
-Updated 2026-06-11 (session 23 · app v1.0.19). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-12 (session 24 · app v1.0.21). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
 Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.19**
-released (installer + latest.yml, NO blockmap since v1.0.15 → installs on v1.0.6+ auto-update via one full-stream download).
+released (installer + latest.yml, NO blockmap since v1.0.15 → installs on v1.0.6+ auto-update via one full-stream download). **DESKTOP now v1.0.21** (language switch + difficulty-labeled stages; i18n_zh.min.js verified packaged in the asar).
 **11 tabs** (Overview / Party / Inventory / Loot / Runes / **Advisor** / Lifetime / Trends / **Crew** / Codex / Tips) render
 vs the test live save with 0 console errors, in **light (default) and dark themes**, now with Codex-grade Loot + Inventory
 controls, the measured blue-chest tracker, a desktop **mini-HUD**, settings, keyboard shortcuts, **Codex recipes + the Cube
@@ -13,6 +13,24 @@ reference**, the **Targets** panel (measured-rate ETAs) and opt-in enchant crowd
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S24 (v1.0.20 + v1.0.21) — difficulty-labeled stages + an English/简体中文 language switch.** (v1.0.20)
+  Owner report: the leaderboard showed the meaningless **"Act 12-5"**. The save numbers stages CONTINUOUSLY across
+  the game's **4 difficulty bands** (Normal/Nightmare/Hell/Torment, 3 acts × 10 each), so `stageActLabel`/`stageLabel`
+  (both engines) now decode the band: `2205 → "Act 3-5 · Torment"`. Calibrated from the game's OWN data — the 4
+  `Difficulty_*` localization keys + the 4 difficulty Soulstones (`ItemName_190001-4`), and the 116-stage
+  `OfflineRewardInfoData` total = exactly 30+30+30+26 (Torment's last act is short). The Crew board re-decodes from
+  the authoritative numeric `maxStage` key (`crewStage()`), so members on older clients show the new form too.
+  Verified against the live save (current Normal 3-9 / max Normal 3-10) — there was NO confirmed Nightmare+ data
+  point, so the band map is corroborated (not save-verified past Normal); confirm on the owner's first Nightmare clear.
+  (v1.0.21) **Language switch (中/EN, persisted in `tbh_lang`, applied pre-paint).** The game ships its OWN zh-Hans
+  Addressable bundle → `scripts/extract_localization_zh.py` (read-only) emits `src/engine/i18n_zh.min.js`
+  (`window.TBH_ZH` = game 811 / stages 30 / diff 4 / grades 11; rune effects joined by STATTYPE) + a reference
+  `localization.zh.min.json`. Runtime is renderer-only: `I18N_UI` (hand-translated chrome) + `zhT()` exact lookup
+  (quote-insensitive via `_i18nNorm`) + a guarded **MutationObserver** that translates the live DOM and restores
+  per-node originals on toggle-back; composites via a `\b`-safe word regex + punctuation phrases (a naive substring
+  rule had corrupted "Dragon"→"Dr前n" — fixed). Stage labels localized at the source (`第3-5关 · 折磨`). Coverage
+  ~100% Overview/Runes; long FRAGMENTED help-text + `mini.html` labels are the known tail. Both shipped everywhere
+  (web on push + desktop releases v1.0.20 / v1.0.21; **i18n file verified inside the installer asar**).
 - **S23c (v1.0.19) — loot freshness (owner report: "crafted + synthesized, nothing appeared; no refresh").**
   DIAGNOSIS: detection is sound (verified end-to-end: a craft logs untagged, a 9-mat synthesis logs ⚒️ Cube —
   both on the next save READ); the real causes are (a) items only land at the game's NEXT save WRITE (its own

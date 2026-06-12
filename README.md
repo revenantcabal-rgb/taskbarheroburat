@@ -6,12 +6,15 @@ It **never writes to, modifies, or injects into the game** — it only reads fil
 
 Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 
-## Status — current as of v1.0.15
+## Status — current as of v1.0.21
 - **Live & free in the browser:** [GitHub Pages](https://revenantcabal-rgb.github.io/taskbarheroburat/) and a
   [Vercel mirror](https://taskbarheroburat.vercel.app/) (both auto-update from this repo on every push).
 - **Windows desktop app:** [latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)
   (one-click installer, auto-finds your save, **auto-updates itself** — fast single-stream downloads since v1.0.15).
 - **11 tabs** — Overview · Party · Inventory · Loot · Runes · Advisor · Lifetime · Trends · Crew · Codex · Tips.
+- **English / 简体中文 language switch** (v1.0.21) — a 中/EN toggle in the header; game terms come straight from
+  the game's own Simplified-Chinese localization, so nothing is machine-guessed.
+- **Stage labels show the difficulty** (v1.0.20) — e.g. `Act 3-5 · Torment` (4 bands: Normal / Nightmare / Hell / Torment).
 - **Light & dark themes** (light default), fully responsive, WCAG AA in both.
 - **Opt-in Crew leaderboard** — a private, code-gated board (Vercel + Neon Postgres); brag-stats only, never your save.
 - **Read-only & calibrated throughout** — every number traces to the game's own data tables or your save, or it's
@@ -112,7 +115,7 @@ No save handy? Click **See a demo** for sample data, or **Browse the full item c
 save. (`?demo` and `?codex` also work as URL shortcuts.)
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.15.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.15/TBH-HUD-Setup-1.0.15.exe)** (direct, ~72 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.21.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.21/TBH-HUD-Setup-1.0.21.exe)** (direct, ~72 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background (in one fast stream, with a live size/speed readout since

@@ -6,7 +6,15 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-11, after sessions 18–23 (v1.0.11 → v1.0.17). **v1.0.17 — GOAL-v1.0.16 P5+P6, the wave
+_Last updated: 2026-06-12, after session 24 (v1.0.20 + v1.0.21). **v1.0.21 — English/简体中文 language switch:
+a 中/EN header toggle (persisted, applied pre-paint) flips the whole HUD; game terms (item/hero/stage/rune/rarity/
+difficulty names) come from the game's OWN zh-Hans localization bundle (extract_localization_zh.py → i18n_zh.min.js),
+the HUD's chrome is hand-translated on top, applied by a guarded MutationObserver DOM translator that restores English
+on toggle-back; ~100% coverage on Overview/Runes, long fragmented help-text + mini.html are the known tail. v1.0.20 —
+stages decode the difficulty band: the meaningless "Act 12-5" → "Act 3-5 · Torment" (4 bands Normal/Nightmare/Hell/
+Torment × 3 acts × 10, calibrated from the game's Difficulty_* keys + the 4 Soulstones + the 116-stage offline table);
+the Crew board re-decodes from the numeric maxStage key so older clients show the new form. Both shipped to web +
+desktop (installer verified to contain the i18n file via asar list).** Earlier — sessions 18–23 (v1.0.11 → v1.0.17): **v1.0.17 — GOAL-v1.0.16 P5+P6, the wave
 is COMPLETE (P1–P6): Codex recipes from 7 game tables (5 newly extracted) — per-item "the Cube can make this"
 (crafting ingredients/unlock levels/pool sizes + synthesis bands with the game's own rule quoted) and "the Cube
 uses this", the Advisor Cube reference (8 localized categories, sub-recipes ✓/🔒 vs the player's Cube level),
