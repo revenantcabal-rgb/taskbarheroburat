@@ -213,6 +213,14 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S24c (v1.0.23)** — **i18n restore bug — UI stayed Chinese after switching back to English (owner-reported).**
+  `_i18nTextNode`'s `if(!cur||!/[A-Za-z]/.test(cur))return;` ran BEFORE the lang branch, so on RESTORE (en) every
+  pure-Chinese node (no Latin — 总览, 断开连接, …) returned early and never reverted. Only the persistent CHROME
+  was affected (header/nav/gate/footer/modals); tab content re-renders fresh so it was fine. FIX: moved the Latin
+  fast-skip INSIDE the `LANG==='zh'` branch, testing the English original — restore is never Latin-gated.
+  `_i18nAttrs` was already correct. **RULE: the latin/empty fast-skip is a TRANSLATE-only optimization — never let
+  it gate the RESTORE path (translated text is usually pure Chinese).** Verified 0 leftover Chinese across
+  load-in-zh→en + repeated toggles. Bug present since v1.0.21. See [[tbh-i18n-language-switch]].
 - **S24b (v1.0.22)** — **desktop mini-HUD packaging fix.** `mini.html` was missing from electron-builder's
   `files` glob (only `src/**/*` + `dashboard.html` + `package.json`), so `miniWin.loadFile('../mini.html')`
   opened a BLANK window in every installer since v1.0.16 — it only worked under `npm start` (source, not asar).
@@ -406,7 +414,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
    `mini.html`'s own labels (it already gets the localized stage label over IPC). Pattern + data: [[tbh-i18n-language-switch]].
    Also: the band difficulty map ([[tbh-stage-difficulty-decode]]) is corroborated but NOT save-verified past Normal —
    confirm the exact Nightmare key on the owner's first Nightmare clear.
-1. **v1.0.22 is SHIPPED everywhere — difficulty-labeled stages (v1.0.20) + the English/简体中文 language switch (v1.0.21) + the mini-HUD packaging fix (v1.0.22)** — desktop release (installer +
+1. **v1.0.23 is SHIPPED everywhere — difficulty-labeled stages (v1.0.20) + the English/简体中文 language switch (v1.0.21) + the mini-HUD packaging fix (v1.0.22) + the i18n EN-restore fix (v1.0.23)** — desktop release (installer +
    latest.yml; **no blockmap since v1.0.15** — differential updates disabled for speed; auto-update WORKS from
    v1.0.6 on — older installs need one manual reinstall, see S13c), GitHub Pages on push, the owner's Vercel
    project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from the repo, and the **crew API is live**

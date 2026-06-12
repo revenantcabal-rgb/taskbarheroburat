@@ -4,6 +4,16 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.23 — 2026-06-12
+
+### Fixed
+- **Switching back to English now fully restores the UI.** The header, tab bar and connect screen were staying
+  in Chinese after toggling 中 → EN. Cause: the restore step skipped any text node with no Latin letters as an
+  optimization — but that's exactly every pure-Chinese label (`总览`, `断开连接`, …), so they were never restored.
+  The page chrome is never re-rendered (unlike tab content, which rebuilds in the active language), so it stayed
+  stuck in Chinese. The Latin fast-skip now applies only while translating, never while restoring. Verified across
+  load-in-Chinese → English and repeated toggles, with zero leftover Chinese.
+
 ## v1.0.22 — 2026-06-12
 
 ### Fixed

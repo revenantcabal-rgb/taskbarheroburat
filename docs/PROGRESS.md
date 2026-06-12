@@ -6,7 +6,10 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-12, after session 24 (v1.0.20 → v1.0.22). **v1.0.22 — desktop mini-HUD packaging fix:
+_Last updated: 2026-06-12, after session 24 (v1.0.20 → v1.0.23). **v1.0.23 — i18n EN-restore fix: switching back
+to English left the header/tabs/connect-screen in Chinese because the restore step skipped no-Latin nodes (= every
+pure-Chinese label); the chrome is never re-rendered so it stuck. The Latin fast-skip now applies only while
+translating. v1.0.22 — desktop mini-HUD packaging fix:
 `mini.html` was never in electron-builder's `files` glob, so the 🗗 Mini-HUD button opened a blank window in
 every installer since v1.0.16 (it only worked under `npm start`); added it to the bundle + verified it's inside
 the asar. The mini-HUD is DESKTOP-ONLY by design (no browser equivalent). v1.0.21 — English/简体中文 language switch:

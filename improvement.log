@@ -1,5 +1,5 @@
 # TBH HUD — improvement.log
-Updated 2026-06-12 (session 24 · app v1.0.22). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-12 (session 24 · app v1.0.23). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
@@ -13,6 +13,16 @@ reference**, the **Targets** panel (measured-rate ETAs) and opt-in enchant crowd
 
 ## CHANGELOG
 Golden rule throughout: every number calibrated from the game's own data, or omitted — never fabricated.
+- **S24c (v1.0.23) — i18n restore bug: chrome stayed Chinese after switching back to English (owner-reported).**
+  ROOT CAUSE: `_i18nTextNode`'s fast-skip `if(!cur||!/[A-Za-z]/.test(cur))return;` ran BEFORE the lang branch, so
+  during RESTORE (LANG='en') any node whose current text is pure Chinese (no Latin — i.e. every translated label
+  like 总览 / 断开连接) returned early and never restored. Only the persistent CHROME was hit (header/nav/gate/
+  footer/modals) because tab content re-renders fresh in the active language; chrome is never re-rendered, so it
+  stuck in Chinese. FIX (one function): the Latin fast-skip now lives INSIDE the `LANG==='zh'` branch and tests the
+  English ORIGINAL — the restore branch is never Latin-gated. `_i18nAttrs` was already correct (its guard was
+  already scoped to the translate branch). Verified in-preview: load-in-zh → en, en→zh→en, all 11 tabs + chrome =
+  0 leftover Chinese (only the 中 toggle label + its intentionally bilingual title remain, by design). Present since
+  v1.0.21 (the i18n debut). See [[tbh-i18n-language-switch]].
 - **S24b (v1.0.22) — desktop mini-HUD packaging fix (owner: "mini-HUD … not even working in the web app or
   the installed version?").** ROOT CAUSE: `mini.html` was never in electron-builder's `files` glob (only
   `src/**/*` + `dashboard.html` + `package.json`), so `miniWin.loadFile('../mini.html')` opened a BLANK window

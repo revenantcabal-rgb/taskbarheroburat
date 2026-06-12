@@ -6,7 +6,7 @@ It **never writes to, modifies, or injects into the game** — it only reads fil
 
 Unofficial fan tool. Not affiliated with Tesseract Studio / Nugem Studio.
 
-## Status — current as of v1.0.22
+## Status — current as of v1.0.23
 - **Live & free in the browser:** [GitHub Pages](https://revenantcabal-rgb.github.io/taskbarheroburat/) and a
   [Vercel mirror](https://taskbarheroburat.vercel.app/) (both auto-update from this repo on every push).
 - **Windows desktop app:** [latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)
@@ -115,7 +115,7 @@ No save handy? Click **See a demo** for sample data, or **Browse the full item c
 save. (`?demo` and `?codex` also work as URL shortcuts.)
 
 ### 2. Desktop app / installer (Windows)
-**⬇ [Download TBH-HUD-Setup-1.0.22.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.22/TBH-HUD-Setup-1.0.22.exe)** (direct, ~72 MB) — or grab whatever's newest from the
+**⬇ [Download TBH-HUD-Setup-1.0.23.exe](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/download/v1.0.23/TBH-HUD-Setup-1.0.23.exe)** (direct, ~72 MB) — or grab whatever's newest from the
 **[latest release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases/latest)** ([all releases](https://github.com/revenantcabal-rgb/taskbarheroburat/releases)) — then run it. It auto-finds the save,
 watches it (+ backups + log), updates live, and **auto-updates itself** from future GitHub releases — when a new
 release is published it downloads in the background (in one fast stream, with a live size/speed readout since
