@@ -4,6 +4,17 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.21 — 2026-06-12
+
+### Added
+- **Language switch — English / 简体中文.** A **中 / EN** toggle in the header flips the entire HUD to
+  Simplified Chinese (your choice is remembered on your device). **Game terms** — item, hero, stage, rune,
+  rarity and difficulty names — are taken straight from the game's **own** zh-Hans localization bundle, so
+  nothing is machine-guessed (golden rule); the HUD's own chrome is translated on top of that. Stage labels
+  read out the difficulty too, e.g. `第3-5关 · 折磨` (Torment). Switching back to English restores everything.
+  Coverage is highest on the core stat views (Overview / Runes ≈ 100%); some long explanatory help-text is
+  still being translated.
+
 ## v1.0.20 — 2026-06-12
 
 ### Fixed

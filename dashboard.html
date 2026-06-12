@@ -6,10 +6,14 @@
 <title>TBH HUD — Task Bar Hero companion</title>
 <!-- Theme is applied BEFORE first paint so a dark-mode user never sees a light flash.
      Light is the default (owner's call); the choice persists in localStorage (HUD-own storage only). -->
-<script>(function(){var t=null;try{t=localStorage.getItem('tbh_theme');}catch(e){}
-document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();</script>
+<script>(function(){var t=null,l=null;try{t=localStorage.getItem('tbh_theme');l=localStorage.getItem('tbh_lang');}catch(e){}
+document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';
+document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.20"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.21"></script>
+<!-- Official Simplified-Chinese game-term map (window.TBH_ZH) extracted from the game's own zh-Hans
+     localization bundle (scripts/extract_localization_zh.py). Powers the EN/中文 language switch. -->
+<script src="src/engine/i18n_zh.min.js?v=1.0.21"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -690,6 +694,7 @@ document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';})();
     <button class="primary" id="connectFolderBtn">Connect folder</button>
     <button class="ghost" id="whatsNewBtn" title="What changed in this version">✨&nbsp;What's new<span class="wn-dot hidden" id="wnDot"></span></button>
     <button class="ghost" id="settingsBtn" title="Settings — density, default tab, motion, shortcuts (and the mini-HUD on desktop)" aria-label="Settings">⚙</button>
+    <button class="ghost" id="langBtn" title="切换语言 / Switch language (English · 简体中文)" aria-label="Switch language">中</button>
     <button class="ghost" id="themeBtn" title="Switch between light and dark theme" aria-label="Switch theme">🌙</button>
     <button class="ghost hidden" id="disconnectBtn" title="Clear the loaded save and return to the connect screen">↩&nbsp;Disconnect</button>
   </div>
@@ -785,6 +790,227 @@ var RARITY=['COMMON','UNCOMMON','RARE','LEGENDARY','IMMORTAL','ARCANA','BEYOND',
 var DB=window.TBH_DB||{items:{},heroes:{}};
 var SPRITE='src/assets/sprites/Item_', HERO='src/assets/heroes/Hero_';
 
+/* =========================================================================
+   LANGUAGE SWITCH — English / 简体中文  (v1.0.21)
+   Game terms (item / stat / hero / stage / rune / rarity names) come from the GAME'S OWN
+   zh-Hans localization bundle (window.TBH_ZH, built by scripts/extract_localization_zh.py) —
+   authoritative, never machine-guessed. The HUD's own chrome is hand-translated in I18N_UI.
+   A guarded MutationObserver translates the live DOM (text nodes + title/placeholder/aria-label)
+   so every dynamically-rendered view is covered without wrapping each string; toggling back to
+   English restores the per-node originals. Presentation only — never touches the save (READ-ONLY).
+   ========================================================================= */
+var LANG=(function(){try{return localStorage.getItem('tbh_lang')==='zh'?'zh':'en';}catch(e){return 'en';}})();
+var ZG=window.TBH_ZH||{game:{},stages:{},diff:{},grades:{}};
+var I18N_UI={
+  // —— tabs ——
+  'Overview':'总览','Party':'队伍','Inventory':'背包','Loot':'战利品','Runes':'符文','Advisor':'顾问',
+  'Lifetime':'生涯','Trends':'趋势','Crew':'战队','Codex':'图鉴','Tips':'提示',
+  // —— header / chrome ——
+  'no save':'无存档','See a demo':'查看演示','Connect file':'连接文件','Connect folder':'连接文件夹',
+  'Connect folder':'连接文件夹','✨ What\'s new':'✨ 更新内容','↩ Disconnect':'↩ 断开连接',
+  'Disconnect':'断开连接','Reconnect':'重新连接','Browse the Codex':'浏览图鉴','See seconds':'显示秒',
+  // —— card titles ——
+  'Current stage':'当前关卡','Max stage':'最高关卡','Furthest stage':'最远关卡','Gold':'金币',
+  'Gold / hr':'金币/小时','Gold earned':'已赚金币','Kills / hr':'击杀/小时','XP / hr':'经验/小时',
+  'Total kills':'总击杀','Play time':'游戏时长','Session length':'本次时长','Latest gold / hr':'最新金币/小时',
+  'Peak gold / hr':'峰值金币/小时','Level-locked finds':'等级限制发现','Open enchant slots':'空附魔槽',
+  'Rune steps affordable':'可负担符文升级','Upgrades ready':'可用升级','Chests recorded':'已记录宝箱',
+  'Gap after a stage switch':'换关后间隔','Same-stage gap':'同关间隔','Kills tracked':'已追踪击杀',
+  'Span':'跨度','Lifetime gold':'生涯金币','Lifetime stats':'生涯统计','Latest gold / hr ':'最新金币/小时',
+  // —— section headers ——
+  'Account-wide buffs':'账号增益','Active party':'出战队伍','All rune totals':'全部符文总计',
+  'At a glance':'一览','Better gear waiting in your stash':'仓库里更好的装备','Blue-chest tracker':'蓝箱追踪',
+  'Build sources':'构筑来源','Cheapest next upgrades':'最便宜的下一步升级','Crew leaderboard':'战队排行榜',
+  'Enchanting workshop':'附魔工坊','Farming rate by stage':'各关卡刷取效率','Flex card':'炫耀卡',
+  'Game tips':'游戏提示','Gear upgrades you can equip right now':'现在就能装备的升级','Gold by source':'金币来源',
+  'Help calibrate enchant categories':'协助校准附魔类别','Heroes':'英雄','History & trends':'历史与趋势',
+  'Kills by monster':'各怪物击杀','New items':'新物品','Notes':'备注','Offline rewards':'离线奖励',
+  'Online vs offline':'在线与离线','Owned by rarity':'按稀有度持有','Roster detail':'阵容详情',
+  'Rune plan':'符文计划','Rune tree':'符文树','Safe to let go':'可安全舍弃','Snapshots':'快照',
+  'Stat List':'属性列表','Steam boxes':'Steam 箱子','Steam boxes you\'re holding':'你持有的 Steam 箱子',
+  'Suggestions for you':'给你的建议','The Cube':'魔方','This session':'本次会话','Trophies':'珍藏',
+  'Who\'s carrying?':'谁在带队？','Your enchanting stones':'你的附魔石','Your target':'你的目标',
+  // —— common labels / chips / units ——
+  'deployed heroes':'出战英雄','(you)':'（你）','played':'已游玩','wave':'波次','cleared':'已通关',
+  'max cleared':'最高通关','highest cleared':'最高通关','ahead of you':'领先于你','behind you':'落后于你',
+  'tied with you':'与你持平','full stats & compare':'完整数据与对比','⤢ full stats & compare':'⤢ 完整数据与对比',
+  'updated just now':'刚刚更新','Rank by':'排序方式','Refresh':'刷新','Max stage ':'最高关卡',
+  'combat':'战斗','other':'其他','found':'发现','online':'在线','offline':'离线'
+};
+// —— longer static help / disclaimer lines (keys in plain ASCII; the runtime normalizes the app's curly
+//    quotes & em-dashes before lookup, so these match the typographic source text) ——
+Object.assign(I18N_UI,{
+  "pin a goal - the ETA uses only your own measured rates":"固定一个目标 — 预计时间仅依据你自己的实测速率",
+  "idle accrual since your last save · calibrated from Player.log, no assumed cap":"自上次存档以来的挂机累积 · 依据 Player.log 校准，不假设上限",
+  "Offline rewards keep accruing from your last save. The exact cap isn't in the game's data tables, so the HUD will learn it from your Player.log the first time you idle past it - no assumed cap.":"离线奖励会从你上次存档起持续累积。游戏的数据表中没有确切上限，因此当你首次挂机超过上限时，HUD 会从你的 Player.log 中学习它 — 不假设上限。",
+  "strongest gear by hero - not a live DPS meter":"按英雄统计的最强装备 — 并非实时 DPS 计量器",
+  "where each deployed hero's power comes from · gear/build, not live DPS":"每个出战英雄的战力来源 · 装备/构筑，而非实时 DPS",
+  "redundant duplicates · provable only - never a sell recommendation":"冗余的重复物品 · 仅限可证明的 — 绝非出售建议",
+  "exactly as the game shows it - grouped, worded and scaled like the in-game panel · click a line to see its runes":"与游戏中显示完全一致 — 分组、措辞和数值均与游戏内面板相同 · 点击某行查看其符文",
+  "Lines, wording and values are calibrated against the game's own Stat List screen (the wording is the game's own text). Stats whose group in that screen isn't verified yet are left out here - every raw total still appears below. If any line differs from your in-game panel, that's a bug - please report it.":"各行的措辞与数值均依据游戏自身的「属性列表」界面校准（措辞采用游戏自己的文本）。在该界面中分组尚未确认的属性此处暂不显示 — 但所有原始总计仍显示在下方。若某行与你的游戏内面板不符，那就是 bug — 请反馈。",
+  "every effect · raw table values (the game displays %-type stats divided by 10) · click to see the runes behind a stat":"全部效果 · 原始表格数值（游戏将百分比类属性除以 10 显示）· 点击查看某属性背后的符文",
+  "Each total = the per-level table values of your leveled runes, summed to their current levels (the game prices every level, and every level grants its value).":"每项总计 = 你已升级符文的每级表格数值，按当前等级累加（游戏为每一级定价，且每一级都授予其数值）。",
+  "what's actionable right now - details below":"现在就能采取的行动 — 详情见下",
+  "free upgrades - equip them in the game (this tool is read-only and never changes anything).":"免费升级 — 在游戏中装备它们（本工具为只读，绝不更改任何内容）。",
+  "level-locked - keep leveling to unlock":"等级锁定 — 继续升级以解锁",
+  "what each gives, straight from the game's tables":"每个能提供什么，直接来自游戏的数据表",
+  "recipes & unlock levels - the game's own tables":"配方与解锁等级 — 来自游戏自身的数据表",
+  "sum-validated split of your lifetime gold":"经求和验证的生涯金币拆分",
+  "The save splits lifetime gold into buckets that sum exactly to the total.":"存档将生涯金币拆分为若干桶，其总和恰好等于总额。",
+  "game backups + the HUD's own snapshot history (read-only)":"游戏备份 + HUD 自己的快照历史（只读）",
+  "lowest gold cost first":"金币成本最低优先","Enchanted first":"已附魔优先","Equipped only":"仅已装备",
+  "Unequipped only":"仅未装备","✨ Enchanted":"✨ 已附魔","Worn + spare":"已穿戴 + 备用","Worn":"已穿戴",
+  "spare":"备用","Best gear owned":"最佳装备","Top hero":"最强英雄","Top heroes":"最强英雄",
+  // —— gate / connect screen (single-node strings) ——
+  "See your Task Bar Hero stats":"查看你的 Task Bar Hero 数据",
+  "👋 Welcome back — reconnect your last save folder.":"👋 欢迎回来 — 重新连接你上次的存档文件夹。",
+  "Copy":"复制","Copied!":"已复制！","Select Folder":"选择文件夹","Enter":"回车",
+  "Trouble connecting? (e.g. “this folder contains system files”)":"连接遇到问题？（例如「此文件夹包含系统文件」）",
+  "Preview with sample data →":"使用示例数据预览 →","Browse the full item catalog →":"浏览完整物品图鉴 →",
+  "Download for Windows →":"下载 Windows 版 →","Just one file?":"只有一个文件？","No save handy?":"手边没有存档？"
+});
+// normalize "smart" punctuation (curly quotes, em/en dashes, ellipsis) so dictionary keys written with
+// plain ASCII match the app's typographic text — fixes apostrophe headers ("Who's carrying?") + long help notes.
+function _i18nNorm(s){ return String(s).replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[–—]/g,'-').replace(/…/g,'...'); }
+// unified exact-match term lookup (trimmed English -> 简体中文); '' when there's no translation
+function zhT(s){ if(s==null)return ''; var k=String(s), n=_i18nNorm(k); return I18N_UI[k]||I18N_UI[n]||(ZG.game&&(ZG.game[k]||ZG.game[n]))||''; }
+
+// COMPOSITE handling: many strings are "<term> + number/level" in ONE text node (e.g. "Priest Lv 20",
+// "5 Legendary", "lifetime 1,574,858", "· wave 2") which an exact match can't catch. We apply (1) multi-word
+// PHRASE substitutions and (2) a whole-word regex over a SAFE curated set (hero classes + rarities + a few
+// units — proper nouns that can't collide). Full item/stat names render standalone and hit the exact path.
+var _i18nWordRe=null, _i18nWordMap=null, _i18nPhrases=null;
+function _reEsc(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function _i18nBuildRules(){
+  var g=ZG.game||{}, gr=ZG.grades||{}, m={};
+  // WORD MAP — translated via a \b…\b regex so a term NEVER matches inside another word
+  // (e.g. "ago"→前 can't corrupt "Dragon", "Top hero" can't eat "Top heroes"). Safe for alphanumeric
+  // terms/phrases. Proper nouns (hero classes, rarities) + common units + a few fixed UI phrases.
+  ['Knight','Ranger','Sorcerer','Priest','Hunter','Slayer'].forEach(function(c){ if(g[c])m[c]=g[c]; });
+  Object.keys(gr).forEach(function(k){ m[k]=gr[k]; });                 // rarity words (Legendary, Immortal, …)
+  var add={
+    'Lv':'等级','Lvl':'等级','Level':'等级','level':'等级','lifetime':'生涯','played':'已游玩','wave':'波次',
+    'cleared':'已通关','ago':'前','earned':'已赚','kills':'击杀','items':'件','pts':'点','leveled':'已升级',
+    'nodes':'节点','stash':'仓库','found':'发现','combat':'战斗','online':'在线','offline':'离线',
+    'all heroes':'所有英雄','max cleared':'最高通关','highest cleared':'最高通关','leveled nodes':'已升级节点',
+    'Top heroes':'最强英雄','Top hero level':'最强英雄等级','Top hero':'最强英雄','Best gear owned':'最佳装备',
+    'best':'最佳','deployed':'已部署','in stash':'在仓库中','Total gear level':'总装备等级','to Level':'升至等级',
+    'since you connected':'自连接以来','idle since last save':'自上次存档以来挂机','rewards while away':'离开期间奖励',
+    'Save up gold':'攒金币','Rune level':'符文等级','Clear a stage':'通关一关','Pin target':'固定目标',
+    'Wear a locked find':'装备锁定的发现','Purchase the Supporter Pack':'购买支持者礼包','Runes leveled':'已升级符文',
+    'unspent ability point':'未分配能力点','unspent ability points':'未分配能力点','in your stash':'在你的仓库中',
+    'gear':'装备','Deployed':'已部署','DEPLOYED':'已部署','accruing':'累积中','and above':'及以上','has':'有',
+    'scepter':'权杖','staff':'法杖','crossbow':'弩','axe':'斧','sword':'剑','bow':'弓','orb':'法珠','dagger':'匕首',
+    'min':'分钟','Active pet':'出战宠物','reward':'奖励','rewards':'奖励','over':'历时',
+    // —— rune effects (39) — authoritative, from the game's OWN zh-Hans localization (STATTYPE-joined) ——
+    'All Hero Attack Damage Percent':'全英雄攻击伤害','All Hero Attack Damage':'全英雄攻击伤害',
+    'All Hero Armor Percent':'全英雄护甲','All Hero Armor':'全英雄护甲','All Hero Attack Speed':'全英雄攻击速度',
+    'All Hero Move Speed':'全英雄移动速度','Additional Gold Stage Boss':'关卡首领金币','Additional Gold Act Boss':'幕首领金币',
+    'Additional Gold Normal Monster':'普通怪物金币','Additional Gold':'额外金币','Additional Exp Stage Boss':'关卡首领经验',
+    'Additional Exp Act Boss':'幕首领经验','Additional Exp Normal Monster':'普通怪物经验','Additional Exp':'额外经验',
+    'Increase Gold Amount':'击杀怪物金币','Increase Exp Amount':'增加经验','Max Inventory Slot':'背包格子数',
+    'Unlock Arrange Slot Count':'英雄编成槽','Unlock Skill Slot Count':'技能槽','Unlock Stash Page Count':'仓库页数',
+    'Drop Chance Stage Boss Chest Percent':'关卡首领宝箱掉落率','Drop Chance Normal Chest Percent':'普通宝箱掉落率',
+    'Max Amount Stage Boss Chest':'关卡首领宝箱最大容量','Max Amount Act Boss Chest':'幕首领宝箱最大容量',
+    'Max Amount Normal Chest':'普通宝箱最大容量','Wave Count Reduction':'总波数减少','Cube Alchemy Gold Percent':'魔方炼金金币',
+    'Cube Exp Percent':'魔方获得经验','Offline Reward Gold Percent':'离线奖励金币','Offline Reward Exp Percent':'离线奖励经验',
+    'Open All Type Chest All At Once':'一次性打开所有宝箱','Open One Type Chest All At Once':'一次性打开同类宝箱',
+    'Reduce Auto Open Act Boss Chest Time':'幕首领宝箱自动开启时间','Reduce Auto Open Stage Boss Chest Time':'关卡首领宝箱自动开启时间',
+    'Reduce Auto Open Normal Chest Time':'普通宝箱自动开启时间','Unlock Auto Open Act Boss Chest':'解锁幕首领宝箱自动开启',
+    'Unlock Auto Open Stage Boss Chest':'解锁关卡首领宝箱自动开启','Unlock Auto Open Normal Chest':'解锁普通宝箱自动开启',
+    'Unlock Offline Reward':'解锁离线奖励',
+    // —— Stat List display wording (the game's own AccountStat_ phrasing) ——
+    'Increased Exp Gain':'经验获取提高','Increased Gold Gain':'金币获取提高','Exp From Stage Boss Kill':'击杀关卡首领经验',
+    'Exp From Act Boss Kill':'击杀幕首领经验','Exp From Normal Monster Kill':'击杀普通怪物经验','Gold From Act Boss Kill':'击杀幕首领金币',
+    'Increased All Hero Movement Speed':'全英雄移动速度提高','Increased All Hero Move Speed':'全英雄移动速度提高',
+    'Increased All Hero Attack Speed':'全英雄攻击速度提高','Increased All Hero Attack Damage':'全英雄攻击伤害提高',
+    'Increased All Hero Armor':'全英雄护甲提高','Hero Slot':'英雄槽',
+    // —— group headers / control labels ——
+    'Exploration':'探索','Combat':'战斗','Bench':'替补','unlocked':'已解锁','Materials':'材料','Any type':'所有类型',
+    'Sort':'排序','Rarity':'稀有度','Type':'类型','type':'类型','Newest':'最新','Oldest':'最早','Join crew':'加入战队',
+    'Share my progress':'分享我的进度','slots used':'格已用','slots':'格','used':'已用','enchanted only':'仅已附魔',
+    'equipped':'已装备','unequipped':'未装备','Compare':'对比','Search':'搜索','Export':'导出','Show more':'显示更多',
+    'leveled nodes':'已升级节点','authoritative names & effects':'权威名称与效果','at':'于',
+    'next':'下一级','BENCH':'替补','all time':'全部时间','owned':'拥有','showing':'显示',
+    'socketable':'可镶嵌','stones':'石头','not gaining XP right now':'目前未获得经验','measuring':'测量中',
+    'Worn + spare':'已穿戴+备用','brag-stats only':'仅炫耀数据','never your save':'绝不含你的存档',
+    'opt-in':'自愿加入','private':'私密','Join crew':'加入战队','Leave crew':'退出战队','Display name':'显示名称',
+    'Crew code':'战队代码','Share my progress':'分享我的进度','Remove my data':'移除我的数据','Compare with':'对比对象'
+  };
+  Object.keys(add).forEach(function(k){ m[k]=add[k]; });
+  _i18nWordMap=m;
+  var keys=Object.keys(m).sort(function(a,b){return b.length-a.length;}).map(_reEsc);  // longest-first
+  _i18nWordRe=keys.length?new RegExp('(^|[^A-Za-z])('+keys.join('|')+')(?![A-Za-z])','g'):null;
+  // PHRASES — distinctive strings that contain punctuation (·, &, —, →) so a \b regex is awkward; plain
+  // substring is safe because these can't appear inside other words. Applied longest-first.
+  _i18nPhrases=[
+    ['your bragging rights · copy & share with friends','你的炫耀资本 · 复制并分享给朋友'],
+    ['Straight from your save — nothing inflated.','直接来自你的存档 — 数值无虚高。'],
+    ['copy & share with friends','复制并分享给朋友'],['Copy to share with friends','复制并分享给朋友'],
+    ['(sample)','（样本）'],['tips →','条提示 →']
+  ].sort(function(a,b){return b[0].length-a[0].length;});
+}
+function _i18nXlate(s){
+  var t=s.trim(); var ex=zhT(t); if(ex&&ex!==t) return s.replace(t,ex);   // exact (preserves whitespace)
+  if(!/[A-Za-z]/.test(s)) return s;                                        // nothing latin to translate
+  var out=s, i;
+  for(i=0;i<_i18nPhrases.length;i++){ if(out.indexOf(_i18nPhrases[i][0])>=0) out=out.split(_i18nPhrases[i][0]).join(_i18nPhrases[i][1]); }
+  if(_i18nWordRe) out=out.replace(_i18nWordRe,function(_,pre,w){return pre+(_i18nWordMap[w]||w);});
+  return out;
+}
+
+var _i18nOrigText=new WeakMap(), _i18nOrigAttr=new WeakMap();
+var I18N_ATTRS=['title','placeholder','aria-label'];
+var _i18nObs=null, _i18nBusy=false;
+function _i18nTextNode(n){
+  var cur=n.nodeValue; if(!cur||!/[A-Za-z]/.test(cur))return;            // skip nodes with no latin text
+  if(LANG==='zh'){
+    var orig=_i18nOrigText.has(n)?_i18nOrigText.get(n):cur;
+    var out=_i18nXlate(orig);
+    if(out!==orig){ if(!_i18nOrigText.has(n))_i18nOrigText.set(n,orig); if(n.nodeValue!==out)n.nodeValue=out; }
+  }else if(_i18nOrigText.has(n)){ n.nodeValue=_i18nOrigText.get(n); _i18nOrigText.delete(n); }
+}
+function _i18nAttrs(elm){
+  if(!elm||elm.nodeType!==1)return;
+  for(var i=0;i<I18N_ATTRS.length;i++){ var a=I18N_ATTRS[i]; if(!elm.hasAttribute(a))continue;
+    var cur=elm.getAttribute(a);
+    if(LANG==='zh'){ var store=_i18nOrigAttr.get(elm)||{}; var orig=(a in store)?store[a]:cur; if(!orig||!/[A-Za-z]/.test(orig))continue;
+      var out=_i18nXlate(orig); if(out!==orig){ store[a]=orig; _i18nOrigAttr.set(elm,store); if(elm.getAttribute(a)!==out)elm.setAttribute(a,out); }
+    }else{ var s2=_i18nOrigAttr.get(elm); if(s2&&(a in s2)){ elm.setAttribute(a,s2[a]); delete s2[a]; } }
+  }
+}
+function _i18nWalk(node){
+  if(node.nodeType===3){ _i18nTextNode(node); return; }
+  if(node.nodeType!==1||node.tagName==='SCRIPT'||node.tagName==='STYLE')return;
+  _i18nAttrs(node);
+  for(var c=node.firstChild;c;c=c.nextSibling)_i18nWalk(c);
+}
+function applyLang(){
+  document.documentElement.lang=(LANG==='zh')?'zh-Hans':'en';
+  var b=$('langBtn'); if(b){ b.textContent=(LANG==='zh')?'EN':'中'; }
+  if(_i18nObs)_i18nObs.disconnect();
+  _i18nBusy=true; if(document.body)_i18nWalk(document.body); _i18nBusy=false;
+  if(_i18nObs&&document.body)_i18nObs.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:I18N_ATTRS});
+}
+function setLang(l){ LANG=(l==='zh')?'zh':'en'; try{localStorage.setItem('tbh_lang',LANG);}catch(e){}
+  try{ if(typeof current!=='undefined'&&current&&typeof renderTab==='function')renderTab(activeTab,current); }catch(e){}
+  applyLang();
+}
+function _i18nStart(){
+  _i18nBuildRules();
+  _i18nObs=new MutationObserver(function(muts){
+    if(_i18nBusy||LANG!=='zh')return;
+    _i18nBusy=true; _i18nObs.disconnect();
+    for(var j=0;j<muts.length;j++){ var m=muts[j];
+      if(m.type==='characterData')_i18nTextNode(m.target);
+      else if(m.type==='attributes')_i18nAttrs(m.target);
+      else for(var i=0;i<m.addedNodes.length;i++)_i18nWalk(m.addedNodes[i]);
+    }
+    _i18nBusy=false; _i18nObs.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:I18N_ATTRS});
+  });
+  applyLang();
+}
+
 function $(id){return document.getElementById(id);}
 function el(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
 // frag(): returns the WHOLE parsed fragment (all siblings), not just firstChild. Use when an HTML
@@ -801,22 +1027,26 @@ function fmt(n){return n==null?'—':Number(n).toLocaleString();}
 // "Act 3-5 · Torment" (previously mis-shown as the meaningless "Act 12-5"). Higher difficulties replay the
 // Normal-band maps, so the real stage NAME resolves via the equivalent Normal key. Mirror: saveEngine.stageLabel.
 var DIFFICULTIES=['Normal','Nightmare','Hell','Torment'];
-function stageParts(stageKey){ // -> {act,stg,diff,name} | {raw:'<key>'} | null
+// language-aware "Act X-Y" core: English "Act 3-9" / 简体中文 "第3-9关" (the game's own term: 第{0}章 / 关)
+function actCore(a,s){ return (LANG==='zh')?('第'+a+'-'+s+'关'):('Act '+a+'-'+s); }
+function stageParts(stageKey){ // -> {act,stg,diff,name} | {raw:'<key>'} | null  (diff/name already localized)
   if(stageKey==null||stageKey==='')return null;
   var k=Number(stageKey);if(!isFinite(k))return {raw:String(stageKey)};
   var rawAct=Math.floor(k/100)-10, stg=k%100;
   if(rawAct<1||stg<1)return {raw:String(stageKey)};
-  var di=Math.floor((rawAct-1)/3), act=((rawAct-1)%3)+1;
-  var nk=(10+act)*100+stg, nm=(DB.stages&&(DB.stages[nk]||DB.stages[String(nk)]))||'';
-  return {k:k, act:act, stg:stg, diff:DIFFICULTIES[di]||null, name:nm}; // unknown band -> no difficulty claim (golden rule)
+  var di=Math.floor((rawAct-1)/3), act=((rawAct-1)%3)+1, zh=(LANG==='zh');
+  var diffEn=DIFFICULTIES[di]||null, diff=diffEn?((zh&&ZG.diff[diffEn])||diffEn):null; // unknown band -> no difficulty claim
+  var nk=(10+act)*100+stg, nmEn=(DB.stages&&(DB.stages[nk]||DB.stages[String(nk)]))||'';
+  var nm=nmEn?((zh&&ZG.stages[String(nk)])||nmEn):'';
+  return {k:k, act:act, stg:stg, diff:diff, name:nm};
 }
 function stageActLabel(stageKey){ // "Act X-Y · <Difficulty>" (compact / big-number slots) — never the raw key
   var p=stageParts(stageKey); if(!p)return '—'; if(p.raw)return p.raw;
-  return 'Act '+p.act+'-'+p.stg+(p.diff?(' · '+p.diff):'');
+  return actCore(p.act,p.stg)+(p.diff?(' · '+p.diff):'');
 }
 function stageName(stageKey){ var p=stageParts(stageKey); return (p&&p.name)||''; }
 function stageLabel(stageKey){ var p=stageParts(stageKey); if(!p)return '—'; if(p.raw)return p.raw;
-  return 'Act '+p.act+'-'+p.stg+(p.diff?(' · '+p.diff):'')+(p.name?(' · '+p.name):''); }
+  return actCore(p.act,p.stg)+(p.diff?(' · '+p.diff):'')+(p.name?(' · '+p.name):''); }
 // compact duration: "2h 14m", "14m 03s", "0m 09s" (for idle/offline countdowns)
 function fmtDur(sec){sec=Math.max(0,Math.floor(sec));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
   if(h>0)return h+'h '+(m<10?'0':'')+m+'m'; if(m>0)return m+'m '+(s<10?'0':'')+s+'s'; return s+'s';}
@@ -3066,7 +3296,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.20';
+var APP_VERSION='1.0.21';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -3076,6 +3306,9 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.21',d:'2026-06-12',sec:{
+    Added:[
+      'Language switch — English / 简体中文. A 中/EN toggle in the header flips the whole HUD to Simplified Chinese (your choice is remembered on your device). Game terms — item, hero, stage, rune, rarity and difficulty names — come straight from the game\'s OWN Chinese localization, so nothing is machine-guessed; the HUD\'s own labels are translated on top. Stage labels show the difficulty too, e.g. "第3-5关 · 折磨".']}},
   {v:'1.0.20',d:'2026-06-12',sec:{
     Fixed:[
       'Stages now show the real act AND difficulty — e.g. "Act 3-5 · Torment" instead of the meaningless "Act 12-5". The game has 4 difficulty bands (Normal / Nightmare / Hell / Torment) of 3 acts each, but the save numbers stages continuously across them, so higher difficulties were showing inflated acts (6, 9, 12…). The difficulty names come straight from the game\'s own data. Higher difficulties also show the stage name again (they replay the Normal maps). On the Crew board, friends still on an older app are re-decoded automatically, so nobody shows the old "Act 12-5" form.']}},
@@ -4386,6 +4619,8 @@ document.addEventListener('keydown',function(ev){
   if(b){ b.textContent=(t==='light')?'🌙':'☀️'; b.title=(t==='light')?'Switch to dark theme':'Switch to light theme';
     b.addEventListener('click',function(){ applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'); }); }
 })();
+// language switch (EN / 简体中文): wire the toggle + start the live DOM translator
+(function(){ var b=$('langBtn'); if(b)b.addEventListener('click',function(){ setLang(LANG==='zh'?'en':'zh'); }); _i18nStart(); })();
 $('whatsNewBtn').addEventListener('click',openWhatsNew);
 updateWnDot();   // show the dot until this version's notes have been opened once
 // app version in the footer on EVERY platform (browser included — it was Electron-only before v1.0.14);
