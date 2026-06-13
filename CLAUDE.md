@@ -213,6 +213,19 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S27 (v1.0.26)** — **Crew rows: rare-drops showcase + full zh i18n + dead-code cleanup (owner-requested).** Replaced the
+  row's stat-list PREVIEW (redundant — the full Stat List is in the ⤢ pop-up) with each member's **last 3 rare drops**:
+  Immortal+ gear OR Soulstones (keys 190001-4), each with the dropper's OWN local clock. Read from the player's `lootLog`
+  (real save/log diffs — `isRareDrop` = `rrank(grade)>=4 || isSoulstone(key)`); shared as `{k,t,lt}` only (board re-resolves
+  name/icon/rarity from its own DB; zh name via `ZG.game`). NEW shared field → whitelisted in `cleanStats` + disclosure
+  hint updated (honesty). **i18n:** retrofitted Simplified Chinese across ALL of crew-comes-alive (records/head/rival/feed/
+  momentum/ETA + rare-drops) via inline `loc(en,zh)` (toggle-safe because `setLang` RE-RENDERS the active tab, then the
+  walker skips pure-zh nodes / restores en from a WeakMap); `feedText()` re-localizes server milestones (server now emits
+  language-NEUTRAL stage labels via `cb.label`, not the dropper's localized `maxStageLabel`); `fmtAgo` is now zh-aware.
+  **Verified the switch is bug-free: a zh→en→zh→en cycle returns the crew tab to BYTE-IDENTICAL html (cycleStable=true),
+  0 console errors.** **Cleanup:** removed now-dead `statListFromPayload` + `.crewsl` CSS; a full function-usage scan of
+  dashboard.html (255 fns) + saveEngine.js (61) reports 0 dead. tbh-crew-api REDEPLOYED (whitelist + stage-event change).
+  All read-only / save-derived; nothing touches the game. See [[tbh-i18n-language-switch]].
 - **S26 (v1.0.25)** — **"Crew comes alive" — activity feed + records + momentum + presence + ETA + rival (owner-requested
   Crew deep-dive).** BAN-SAFE by construction: every feature is derived from the SAME opt-in brag-stats already shared +
   the crew API's OWN history; nothing touches the game (no memory read/write/inject). Backend (tbh-crew-api **REDEPLOYED**,

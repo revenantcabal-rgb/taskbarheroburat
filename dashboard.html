@@ -10,10 +10,10 @@
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';
 document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.25"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.26"></script>
 <!-- Official Simplified-Chinese game-term map (window.TBH_ZH) extracted from the game's own zh-Hans
      localization bundle (scripts/extract_localization_zh.py). Powers the EN/中文 language switch. -->
-<script src="src/engine/i18n_zh.min.js?v=1.0.25"></script>
+<script src="src/engine/i18n_zh.min.js?v=1.0.26"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -344,12 +344,6 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
     font-weight:700;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:4px}
   .slline{font-size:13px;color:var(--text);padding:5px 0;border-bottom:1px dashed color-mix(in srgb, var(--border) 60%, transparent)}
   .slline:last-child{border-bottom:none}
-  .crewsl{flex-basis:100%;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
-    gap:2px 18px;padding:8px 0 2px 43px;font-size:12px}
-  .crewsl .crewsl-g{grid-column:1/-1;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;
-    color:var(--text-dim);font-weight:700;margin-top:4px}
-  .crewsl .crewsl-l{color:var(--text-muted)}
-  @media(max-width:680px){.crewsl{padding-left:0}}
 
   /* tooltip */
   #tip{position:fixed;z-index:100;pointer-events:none;max-width:260px;opacity:0;transform:translateY(4px);
@@ -665,6 +659,14 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
   .rivalgrid .rl{text-align:right;font-variant-numeric:tabular-nums} .rivalgrid .rr{text-align:left;font-variant-numeric:tabular-nums}
   .rivalgrid .rk{text-align:center;color:var(--text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
   .rivalgrid .win{color:var(--good);font-weight:700}
+  /* last-3 rare drops on each member row (v1.0.26) — replaces the old stat-list preview */
+  .crewdrops{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding-left:43px;font-size:11.5px}
+  @media(max-width:680px){.crewdrops{padding-left:0}}
+  .crewdrops-h{color:var(--text-dim);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:700}
+  .crewdrop{display:inline-flex;align-items:center;gap:5px;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:2px 8px;max-width:100%}
+  .crewdrop-ic{width:16px;height:16px;object-fit:contain;image-rendering:pixelated;flex:0 0 auto}
+  .crewdrop b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+  .crewdrop-t{color:var(--text-dim);font-variant-numeric:tabular-nums;flex:0 0 auto}
   /* member pop-up: stat compare grid */
   .cmpbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:14px 0 4px}
   .cmpbar select{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
@@ -861,7 +863,10 @@ var I18N_UI={
   'max cleared':'最高通关','highest cleared':'最高通关','ahead of you':'领先于你','behind you':'落后于你',
   'tied with you':'与你持平','full stats & compare':'完整数据与对比','⤢ full stats & compare':'⤢ 完整数据与对比',
   'updated just now':'刚刚更新','Rank by':'排序方式','Refresh':'刷新','Max stage ':'最高关卡',
-  'combat':'战斗','other':'其他','found':'发现','online':'在线','offline':'离线'
+  'combat':'战斗','other':'其他','found':'发现','online':'在线','offline':'离线',
+  'Recent rare drops':'最近稀有掉落','online now':'当前在线','to pass':'即可超越','Rival':'对手',
+  'Deepest':'最深','Richest':'最富','Deadliest':'最致命','Most runes':'最多符文','Rarest gear':'最稀有装备',
+  'Crew activity':'战队动态','recent milestones · newest first':'近期里程碑 · 最新在前'
 };
 // —— longer static help / disclaimer lines (keys in plain ASCII; the runtime normalizes the app's curly
 //    quotes & em-dashes before lookup, so these match the typographic source text) ——
@@ -1046,6 +1051,8 @@ function el(html){var t=document.createElement('template');t.innerHTML=html.trim
 // string contains multiple top-level elements (el() would silently drop all but the first).
 function frag(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content;}
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
+// pick the active-language string (re-evaluated on every tab re-render, which setLang triggers — toggle-safe)
+function loc(en,zh){ return LANG==='zh'?zh:en; }
 // Stage display: NEVER show the raw stageKey. CALIBRATED from the game's OWN StageInfoData (columns
 // StageKey, STAGEDIFFICULITY, Act, StageNo): the key is DIFFICULTY-PREFIXED, NOT band-continuous —
 //   stageKey = difficulty*1000 + act*100 + stageNo,  difficulty 1..4 = Normal/Nightmare/Hell/Torment,
@@ -1358,16 +1365,6 @@ function statListFullD(runeSave){
     var line={k:m.k,eff:m.eff,raw:s.total,disp:disp,pct:m.pct,text:m.t.replace('{0}',String(disp)),runes:s.runes,levels:s.levels};
     if(!byG[m.g]){byG[m.g]={group:m.g,lines:[]};groups.push(byG[m.g]);}
     byG[m.g].lines.push(line); });
-  return groups;
-}
-// render one member's {k,v} statList payload back into grouped, game-worded lines (crew board)
-function statListFromPayload(sl){
-  var byK={}; (sl||[]).forEach(function(x){ if(x&&x.k&&x.v>0) byK[x.k]=x.v; });
-  var groups=[], byG={};
-  STAT_LIST.forEach(function(m){ var v=byK[m.k]; if(!(v>0)) return;
-    var disp=m.pct?(v/10):v;
-    if(!byG[m.g]){byG[m.g]={group:m.g,lines:[]};groups.push(byG[m.g]);}
-    byG[m.g].lines.push({k:m.k,raw:v,disp:disp,text:m.t.replace('{0}',String(disp))}); });
   return groups;
 }
 // "2 Immortal · 6 Legendary" — best tier first; '' when none
@@ -3326,7 +3323,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.25';
+var APP_VERSION='1.0.26';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -3336,6 +3333,13 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.26',d:'2026-06-13',sec:{
+    Added:[
+      'Crew rows now showcase each member\'s last 3 rare drops — Immortal-and-above gear plus Soulstones — with the time they got it on their own computer. (Their full Stat List is still one click away under "full stats & compare".) Drops are read from your own loot timeline; only Immortal+ and Soulstones are ever shared.'],
+    Changed:[
+      'Simplified Chinese now covers the whole new Crew experience — the activity feed, records, momentum, rival card and the rare-drops row all translate, and switching 中 ⇄ EN (and back) stays clean.'],
+    Fixed:[
+      'Removed dead code left over from the old crew stat-list preview.']}},
   {v:'1.0.25',d:'2026-06-13',sec:{
     Added:[
       'Crew comes alive — a new Activity feed of recent milestones across your whole crew (first Nightmare/Hell/Torment clear, first Immortal/Arcana gear, gold & kill milestones, hero level-ups, rune milestones), a Crew records strip (deepest / richest / deadliest / most runes / rarest gear, with the holder crowned), per-member momentum chips and a gold sparkline (how fast each friend is gaining, measured from their own snapshots), a live 🟢 "online now" dot, a measured "~Xd to pass <leader>" ETA on your row, and a pinned Rival head-to-head card. Everything is derived from the same opt-in brag-stats you already share — no new data leaves your device, and the HUD still only reads your local save.']}},
@@ -3480,6 +3484,13 @@ try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','n
 function crewSave(){try{localStorage.setItem('tbh_crew',JSON.stringify(crewCfg));}catch(e){}}
 function crewId(){ if(!crewCfg.id){ crewCfg.id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('m'+Date.now()+Math.random().toString(36).slice(2,10)); crewSave(); } return crewCfg.id; }
 function crewCodeOk(c){return /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/.test(c||'');}
+// ---- rare-drops showcase (v1.0.26) — the member's last 3 Immortal+ gear / Soulstone drops, from their OWN
+//      loot timeline (real save/log diffs; nothing fabricated). Each entry carries only the item key + the
+//      epoch time + the dropper's LOCAL clock string; the board re-resolves name/icon/rarity from its own DB. ----
+function isSoulstone(key){ var n=(DB.items[String(key)]||{}).n||''; return /^soulstone/i.test(n); }
+function isRareDrop(l){ return !!l && (rrank(l.grade)>=4 || isSoulstone(l.key)); }   // Immortal+ (rank 4) OR a Soulstone
+function dropClock(t){ var d2=new Date(t); function z(n){return (n<10?'0':'')+n;} return z(d2.getMonth()+1)+'-'+z(d2.getDate())+' '+z(d2.getHours())+':'+z(d2.getMinutes()); }
+function rareDropsShare(){ var out=[]; for(var i=0;i<lootLog.length&&out.length<3;i++){ var l=lootLog[i]; if(isRareDrop(l)) out.push({k:l.key,t:l.t,lt:dropClock(l.t)}); } return out; }
 // the COMPLETE brag-stats payload — every field calibrated, nothing else ever leaves the machine
 function crewStats(d){
   var top=(d.heroes||[]).slice().sort(function(a,b){return (b.level||0)-(a.level||0);}).slice(0,3)
@@ -3494,7 +3505,7 @@ function crewStats(d){
     kills:d.kills!=null?d.kills:null, gold:d.gold!=null?d.gold:null, topHeroes:top,
     runesLeveled:d.runes?d.runes.leveled:0, runesTotal:d.runes?d.runes.total:0,
     trophies:(d.trophies||[]).length, tiers:d.tiers||{},   // gear-only per-tier counts (Legendary/Immortal/…)
-    runeStats:rstats, statList:slines.slice(0,12),
+    runeStats:rstats, statList:slines.slice(0,12), rareDrops:rareDropsShare(),
     playHours:d.playHours!=null?d.playHours:null, ver:APP_VERSION};
 }
 var _crewLastPush=0,_crewBoard=null,_crewBoardAt=0,_crewErr=null,_crewTimer=null,_crewFeed=null,_crewFeedAt=0;
@@ -3539,8 +3550,15 @@ function crewRankDisp(st,key){ var v=crewRankVal(st,key); if(v==null)return '—
   if(key==='playHours')return fmt(v)+' h';
   if(key.slice(0,3)==='sl:'){ var m3=STAT_LIST_BY_K[key.slice(3)]; if(m3) return m3.pct?((v/10)+'%'):('+'+fmt(v)); }
   return fmt(v); }
-function fmtAgo(ms){ var s=Math.max(0,(Date.now()-ms)/1000);
-  if(s<90)return 'just now'; if(s<3600)return Math.round(s/60)+'m ago'; if(s<172800)return Math.round(s/3600)+'h ago'; return Math.round(s/86400)+'d ago'; }
+function fmtAgo(ms){ var s=Math.max(0,(Date.now()-ms)/1000), zh=(LANG==='zh');
+  if(s<90)return zh?'刚刚':'just now';
+  if(s<3600)return Math.round(s/60)+(zh?'分钟前':'m ago');
+  if(s<172800)return Math.round(s/3600)+(zh?'小时前':'h ago');
+  return Math.round(s/86400)+(zh?'天前':'d ago'); }
+// rarity word in the active language (zh from the game's own grade map) + an English "Act X-Y · Diff" relocalizer
+function gradeWord(g){ var en=cap(g); return (LANG==='zh'&&ZG.grades&&ZG.grades[en])?ZG.grades[en]:en; }
+function localizeStageText(s){ if(LANG!=='zh')return s; var m=String(s).match(/^Act (\d+)-(\d+)(?: · ([A-Za-z]+))?/); if(!m)return s;
+  var diff=m[3]?((ZG.diff&&ZG.diff[m[3]])||m[3]):''; return actCore(+m[1],+m[2])+(diff?(' · '+diff):''); }
 
 /* ---------- Crew member pop-up (v1.0.13) ----------
    Click any member row → their COMPLETE shared stats in a dialog: every brag-stat, the full grouped Stat List
@@ -3662,17 +3680,31 @@ function crewRecords(members){
   if(!members||members.length<1) return [];
   function lead(valFn){ var best=null; members.forEach(function(m){ var v=valFn(m.stats||{}); if(v!=null&&isFinite(v)&&(best==null||v>best.v)) best={m:m,v:v}; }); return best; }
   var recs=[];
-  var deep=lead(function(s){return s.maxStage||0;}); if(deep&&deep.v>0) recs.push({ic:'🏔',lbl:'Deepest',m:deep.m,val:esc(crewStage(deep.m.stats||{}))});
-  var rich=lead(function(s){return s.lifeGold;}); if(rich&&rich.v>0) recs.push({ic:'🪙',lbl:'Richest',m:rich.m,val:fmt(rich.v)+' lifetime'});
-  var dead=lead(function(s){return s.kills;}); if(dead&&dead.v>0) recs.push({ic:'💀',lbl:'Deadliest',m:dead.m,val:fmt(dead.v)+' kills'});
-  var rune=lead(function(s){return s.runesLeveled;}); if(rune&&rune.v>0) recs.push({ic:'🔮',lbl:'Most runes',m:rune.m,val:fmt(rune.v)+' leveled'});
+  var deep=lead(function(s){return s.maxStage||0;}); if(deep&&deep.v>0) recs.push({ic:'🏔',lbl:loc('Deepest','最深'),m:deep.m,val:esc(crewStage(deep.m.stats||{}))});
+  var rich=lead(function(s){return s.lifeGold;}); if(rich&&rich.v>0) recs.push({ic:'🪙',lbl:loc('Richest','最富'),m:rich.m,val:fmt(rich.v)+loc(' lifetime','生涯')});
+  var dead=lead(function(s){return s.kills;}); if(dead&&dead.v>0) recs.push({ic:'💀',lbl:loc('Deadliest','最致命'),m:dead.m,val:fmt(dead.v)+loc(' kills','击杀')});
+  var rune=lead(function(s){return s.runesLeveled;}); if(rune&&rune.v>0) recs.push({ic:'🔮',lbl:loc('Most runes','最多符文'),m:rune.m,val:fmt(rune.v)+loc(' leveled','已升级')});
   function tierRank(s){ var best=-1,cnt=0,t=s.tiers||{}; Object.keys(t).forEach(function(k){ var i=RARITY.indexOf(k); if(t[k]>0&&i>best){best=i;cnt=t[k];} }); return {r:best,c:cnt}; }
   var rare=null; members.forEach(function(m){ var tr=tierRank(m.stats||{}); if(tr.r>=0&&(rare==null||tr.r>rare.r||(tr.r===rare.r&&tr.c>rare.c))) rare={m:m,r:tr.r,c:tr.c}; });
-  if(rare){ var tk=RARITY[rare.r]; recs.push({ic:'💎',lbl:'Rarest gear',m:rare.m,val:'<span style="color:'+rvar(tk)+'">'+cap(tk)+'</span> ×'+rare.c}); }
+  if(rare){ var tk=RARITY[rare.r]; recs.push({ic:'💎',lbl:loc('Rarest gear','最稀有装备'),m:rare.m,val:'<span style="color:'+rvar(tk)+'">'+esc(gradeWord(tk))+'</span> ×'+rare.c}); }
   return recs;
 }
+// localize a server-generated feed milestone (English) into the active language — templated by kind, numbers kept
+function feedText(e){
+  if(LANG!=='zh') return e&&e.text||''; var t=(e&&e.text)||'', m, DZ={Normal:'普通',Nightmare:'噩梦',Hell:'地狱',Torment:'折磨'};
+  if(e.kind==='difficulty'&&(m=t.match(/Broke into (\w+) difficulty/))) return '突破到'+(DZ[m[1]]||m[1])+'难度';
+  if(e.kind==='tier'&&(m=t.match(/First (\w+) gear/))) return '首件'+gradeWord(m[1].toUpperCase())+'装备！';
+  if(e.kind==='gear') return '发现新的传奇+物品';
+  if(e.kind==='gold'&&(m=t.match(/Passed (\S+) lifetime gold/))) return '生涯金币突破 '+m[1];
+  if(e.kind==='kills'&&(m=t.match(/Passed (\S+) kills/))) return '击杀数突破 '+m[1];
+  if(e.kind==='hero'&&(m=t.match(/(\w+) hit Lv (\d+)/))) return ((ZG.game&&ZG.game[m[1]])||m[1])+' 达到 '+m[2]+' 级';
+  if(e.kind==='runes'&&(m=t.match(/(\d+) runes leveled/))) return '已升级 '+m[1]+' 个符文';
+  if(e.kind==='stage'&&(m=t.match(/^Reached (.+)$/))) return '到达 '+localizeStageText(m[1]);
+  if(e.kind==='join') return '加入了战队';
+  return t;
+}
 // ETA for ME to pass the leader in the current rank stat — from my OWN measured momentum; null when not knowable (honest)
-function etaPass(days){ if(days==null||!isFinite(days)||days<=0) return null; if(days<1)return '~'+Math.max(1,Math.round(days*24))+'h'; if(days<=99)return '~'+Math.round(days)+'d'; return null; }
+function etaPass(days){ if(days==null||!isFinite(days)||days<=0) return null; var zh=(LANG==='zh'); if(days<1)return '~'+Math.max(1,Math.round(days*24))+(zh?'小时':'h'); if(days<=99)return '~'+Math.round(days)+(zh?'天':'d'); return null; }
 function crewLeaderEta(me,leader,key){
   if(!me||!leader||me.id===leader.id) return null;
   var mo=me.momentum; if(!mo) return null; var ms=me.stats||{}, ls=leader.stats||{};
@@ -3684,9 +3716,9 @@ function crewLeaderEta(me,leader,key){
 function renderCrewHead(p,members){
   var online=members.filter(crewFresh).length;
   var head=el('<div class="crewhead"></div>');
-  head.appendChild(el('<span>Crew <b>'+esc(crewCfg.code||'—')+'</b></span>'));
-  head.appendChild(el('<span><b>'+members.length+'</b> member'+(members.length===1?'':'s')+'</span>'));
-  if(online>0) head.appendChild(el('<span class="online"><span class="pdot live"></span>'+online+' online now</span>'));
+  head.appendChild(el('<span>'+loc('Crew','战队')+' <b>'+esc(crewCfg.code||'—')+'</b></span>'));
+  head.appendChild(el('<span><b>'+members.length+'</b> '+loc(members.length===1?'member':'members','名成员')+'</span>'));
+  if(online>0) head.appendChild(el('<span class="online"><span class="pdot live"></span>'+online+' '+loc('online now','当前在线')+'</span>'));
   p.appendChild(head);
 }
 function renderCrewRecords(p,members){
@@ -3701,35 +3733,35 @@ function renderCrewRival(p,members){
   var me=members.filter(isMeMember)[0];
   var rival=null; if(crewCfg.rivalId) others.forEach(function(m){ if(m.id===crewCfg.rivalId) rival=m; });
   var card=el('<div class="rivalcard"></div>');
-  var bar=el('<div class="rivalbar"><span style="font-size:12px;color:var(--text-dim)">📌 Rival</span></div>');
-  var opts=[['','— pick a rival —']].concat(others.map(function(m){ return [m.id, m.name+(isMeMember(m)?' (you)':'')]; }));
+  var bar=el('<div class="rivalbar"><span style="font-size:12px;color:var(--text-dim)">📌 '+loc('Rival','对手')+'</span></div>');
+  var opts=[['',loc('— pick a rival —','— 选择对手 —')]].concat(others.map(function(m){ return [m.id, m.name+(isMeMember(m)?loc(' (you)','（你）'):'')]; }));
   bar.appendChild(cxSelect(opts,(rival?rival.id:''),function(v){ crewCfg.rivalId=v||null; crewSave(); renderCrew(current); }));
   card.appendChild(bar);
   if(rival&&me){
-    var keys=[['maxStage','Max stage'],['lifeGold','Lifetime gold'],['kills','Kills'],['runesLeveled','Runes'],['topHero','Top hero'],['playHours','Play hrs']];
+    var keys=[['maxStage',loc('Max stage','最高关卡')],['lifeGold',loc('Lifetime gold','生涯金币')],['kills',loc('Kills','击杀')],['runesLeveled',loc('Runes','符文')],['topHero',loc('Top hero','最强英雄')],['playHours',loc('Play hrs','时长')]];
     var wins=0,total=0,rows='';
     keys.forEach(function(kk){
       var k=kk[0], mv=crewRankVal(me.stats,k), rv=crewRankVal(rival.stats,k);
       if(mv==null&&rv==null) return; total++;
       var mw='',rw=''; if(mv!=null&&rv!=null&&mv!==rv){ if(mv>rv){mw=' win';wins++;} else rw=' win'; }
-      function disp(s,val){ if(val==null)return '—'; if(k==='maxStage')return esc(crewStage(s)); if(k==='playHours')return fmt(val)+'h'; if(k==='topHero')return 'Lv '+val; return fmt(val); }
+      function disp(s,val){ if(val==null)return '—'; if(k==='maxStage')return esc(crewStage(s)); if(k==='playHours')return fmt(val)+'h'; if(k==='topHero')return loc('Lv ','等级 ')+val; return fmt(val); }
       rows+='<div class="rl'+mw+'">'+disp(me.stats,mv)+'</div><div class="rk">'+kk[1]+'</div><div class="rr'+rw+'">'+disp(rival.stats,rv)+'</div>';
     });
-    card.appendChild(el('<div class="rivalbar"><span class="rivalwins">You vs <b>'+esc(rival.name)+'</b> — ahead in <b>'+wins+' of '+total+'</b></span></div>'));
-    card.appendChild(el('<div class="rivalgrid"><div class="rk" style="text-align:right">You</div><div class="rk"></div><div class="rk" style="text-align:left">'+esc(rival.name)+'</div>'+rows+'</div>'));
+    card.appendChild(el('<div class="rivalbar"><span class="rivalwins">'+loc('You vs ','你 对 ')+'<b>'+esc(rival.name)+'</b>'+loc(' — ahead in ',' — 领先 ')+'<b>'+wins+loc(' of ','/')+total+'</b>'+loc('','项')+'</span></div>'));
+    card.appendChild(el('<div class="rivalgrid"><div class="rk" style="text-align:right">'+loc('You','你')+'</div><div class="rk"></div><div class="rk" style="text-align:left">'+esc(rival.name)+'</div>'+rows+'</div>'));
   } else if(!me&&rival){
-    card.appendChild(el('<div class="crewnote" style="margin-top:4px">Turn on <b>Share my progress</b> above to see your side of the head-to-head.</div>'));
+    card.appendChild(el('<div class="crewnote" style="margin-top:4px">'+loc('Turn on <b>Share my progress</b> above to see your side of the head-to-head.','在上方开启 <b>分享我的进度</b> 即可查看你这一侧的对比。')+'</div>'));
   }
   p.appendChild(card);
 }
 function renderCrewFeed(p,feed){
   feed=feed||_crewFeed||[]; if(!feed.length) return;
   var sec=el('<div style="margin-top:22px"></div>');
-  sec.appendChild(el('<h3 class="sec">Crew activity <span class="tag">recent milestones · newest first</span></h3>'));
+  sec.appendChild(el('<h3 class="sec">'+loc('Crew activity','战队动态')+' <span class="tag">'+loc('recent milestones · newest first','近期里程碑 · 最新在前')+'</span></h3>'));
   var list=el('<div class="crewfeed"></div>');
   feed.slice(0,30).forEach(function(e){
     var ic=FEED_ICON[e.kind]||'✨', big=(e.kind==='difficulty'||e.kind==='tier');
-    list.appendChild(el('<div class="feeditem'+(big?' big':'')+'"><span class="fic">'+ic+'</span><span class="ftx"><b>'+esc(e.name||'?')+'</b> '+esc(e.text||'')+'</span><span class="fago">'+(e.t?fmtAgo(+new Date(e.t)):'')+'</span></div>'));
+    list.appendChild(el('<div class="feeditem'+(big?' big':'')+'"><span class="fic">'+ic+'</span><span class="ftx"><b>'+esc(e.name||'?')+'</b> '+esc(feedText(e))+'</span><span class="fago">'+(e.t?fmtAgo(+new Date(e.t)):'')+'</span></div>'));
   });
   sec.appendChild(list);
   p.appendChild(sec);
@@ -3741,7 +3773,7 @@ function renderCrew(d){
 
   // ---- setup / privacy panel ----
   var setup=el('<div class="panel"></div>');
-  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes their <b>brag-stats</b> — max stage, lifetime gold, kills, gold, top-3 hero levels, runes, your <b>Legendary/Immortal/Arcana gear counts</b> (gear only — stones never count), play hours, and your <b>complete Stat List</b> (the grouped panel plus every rune total) — and sees everyone else\'s, live. <b>Click any member for their full stats and a side-by-side compare.</b> <b>Nothing else ever leaves your device</b>: not your save file, not your items, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
+  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes their <b>brag-stats</b> — max stage, lifetime gold, kills, gold, top-3 hero levels, runes, your <b>Legendary/Immortal/Arcana gear counts</b> (gear only — stones never count), play hours, your <b>complete Stat List</b> (the grouped panel plus every rune total), and your <b>last 3 rare drops</b> (Immortal+ gear &amp; Soulstones only, with the time you got them) — and sees everyone else\'s, live. <b>Click any member for their full stats and a side-by-side compare.</b> <b>Nothing else ever leaves your device</b>: not your save file, not your full item list, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
   var form=el('<div class="crewform"></div>');
   var inCode=el('<input id="crewCode" maxlength="32" placeholder="Crew code (3-32 letters/numbers)" value="'+esc(crewCfg.code)+'">');
   var inName=el('<input id="crewName" maxlength="24" placeholder="Your display name" value="'+esc(crewCfg.name)+'">');
@@ -3834,7 +3866,7 @@ function renderCrew(d){
         var row=el('<div class="crewrow'+(isMe?' me':'')+'"'+(stale?' style="opacity:.55"':'')+'></div>');
         row.appendChild(el('<span class="crewrank">'+(i===0?'🥇':(i===1?'🥈':(i===2?'🥉':'#'+(i+1))))+'</span>'));
         var liveDot='<span class="pdot'+(crewFresh(m2)?' live':'')+'" title="'+(crewFresh(m2)?'Online now':('Last shared '+(m2.updatedAt?fmtAgo(+new Date(m2.updatedAt)):'a while ago')))+'"></span>';
-        row.appendChild(el('<span class="crewname"><b>'+liveDot+esc(m2.name||'?')+(isMe?' <span style="color:var(--accent-2)">(you)</span>':'')+'</b><small>'+(m2.updatedAt?('updated '+fmtAgo(+new Date(m2.updatedAt))):'')+'</small></span>'));
+        row.appendChild(el('<span class="crewname"><b>'+liveDot+esc(m2.name||'?')+(isMe?' <span style="color:var(--accent-2)">'+loc('(you)','（你）')+'</span>':'')+'</b><small>'+(m2.updatedAt?(loc('updated ','')+fmtAgo(+new Date(m2.updatedAt))):'')+'</small></span>'));
         row.appendChild(el('<span class="crewstat" style="color:var(--gold)">'+esc(crewRankDisp(st,key))+crewSpark(m2.spark)+'</span>'));
         var chips='';
         chips+='<span class="chip">🗺️ <b>'+esc(crewStage(st))+'</b></span>';
@@ -3850,24 +3882,19 @@ function renderCrew(d){
         chips+=crewMomentumChip(m2);   // "📈 gaining X/hr" — measured from their own snapshots, only when positive
         row.appendChild(el('<span class="crewchips">'+chips+'</span>'));
         row.appendChild(el('<span class="crewmore">⤢ full stats &amp; compare</span>'));
-        // compact Stat-List preview (v1.0.13) — first lines only; the FULL list (grouped + every rune total)
-        // lives in the click-through member pop-up, so nothing is ever truly cut.
-        var slGroups=statListFromPayload(st.statList);
-        if(slGroups.length){
-          var flat=[]; slGroups.forEach(function(g3){ g3.lines.forEach(function(l){ flat.push(l); }); });
-          // distinct stats this member shared = the larger of (grouped lines, all raw rune totals)
-          var totalStats=Math.max(flat.length,(st.runeStats||[]).length);
-          var shown=flat.slice(0,4);
-          var moreN=totalStats-shown.length;
-          var slHtml=shown.map(function(l){
-            var hot=('sl:'+l.k)===key;
-            return '<span class="crewsl-l"'+(hot?' style="color:var(--accent-2);font-weight:600"':'')+'>'+esc(l.text)+'</span>';
-          }).join('')+
-          (moreN>0?('<span class="crewsl-l" style="color:var(--accent-2)">+'+moreN+' more stat'+(moreN>1?'s':'')+' — click for the full list</span>'):'');
-          row.appendChild(el('<span class="crewsl">'+slHtml+'</span>'));
-        } else if(st.runeStats&&st.runeStats.length){
-          var rline=st.runeStats.slice(0,4).map(function(x){return esc(x.e)+' <b style="color:var(--accent-alt)">+'+fmt(x.v)+'</b>';}).join(' · ');
-          row.appendChild(el('<span class="crewach" style="color:var(--text-muted)">🧬 '+rline+(st.runeStats.length>4?(' <span class="gap">+'+(st.runeStats.length-4)+' more — click the row</span>'):'')+'</span>'));
+        // RARE DROPS showcase (v1.0.26) — the member's last 3 Immortal+ / Soulstone drops with their OWN local
+        // drop time. Replaces the stat-list preview (the full Stat List lives in "⤢ full stats & compare").
+        // Name/icon/rarity are re-resolved from OUR copy of the game DB via the shared item key; zh at source.
+        var rd=st.rareDrops||[];
+        if(rd.length){
+          var rdHtml=rd.map(function(r){
+            var it=DB.items[String(r.k)]||{}, nmEn=it.n||('#'+r.k), isS=/^soulstone/i.test(nmEn);
+            var nm=(LANG==='zh')?((ZG.game&&ZG.game[nmEn])||nmEn):nmEn;
+            var color=isS?'var(--accent-alt)':rvar(it.g);
+            var ic=it.ic?('<img class="crewdrop-ic" src="'+SPRITE+esc(it.ic)+'.png" alt="" onerror="this.style.display=\'none\'">'):'';
+            return '<span class="crewdrop" title="'+esc(nm)+(r.t?(' · '+fmtAgo(r.t)):'')+'">'+ic+'<b style="color:'+color+'">'+esc(nm)+'</b><span class="crewdrop-t">'+esc(r.lt||'')+'</span></span>';
+          }).join('');
+          row.appendChild(el('<span class="crewdrops"><span class="crewdrops-h">'+(LANG==='zh'?'最近稀有掉落':'Recent rare drops')+'</span>'+rdHtml+'</span>'));
         } else if(st.ver&&st.ver!==APP_VERSION){
           // older client: their HUD sends an older payload — that's why their chips show less detail
           row.appendChild(el('<span class="crewach"><span class="gap" title="This member\'s HUD is on an older version, so it shares fewer stats. v1.0.6+ updates itself; v1.0.5 or older needs a one-time reinstall.">app v'+esc(st.ver)+' — fewer stats until they update</span></span>'));
@@ -3883,7 +3910,7 @@ function renderCrew(d){
             achBits.push('<span class="gap">'+(diff2>0?((key==='maxStage'?'ahead of you':('+'+fmt(diff2)+' ahead of you'))):(key==='maxStage'?'behind you':(fmt(-diff2)+' behind you')))+'</span>');}
           else if(tv===meVal)achBits.push('<span class="gap">tied with you</span>');}
         // my own row: measured ETA to overtake the current leader (only when my momentum makes it knowable)
-        if(isMe&&sorted[0]&&!isMeMember(sorted[0])){ var eta=crewLeaderEta(m2,sorted[0],key); if(eta) achBits.push('<span class="gap">📈 '+eta+' to pass '+esc(sorted[0].name)+'</span>'); }
+        if(isMe&&sorted[0]&&!isMeMember(sorted[0])){ var eta=crewLeaderEta(m2,sorted[0],key); if(eta) achBits.push('<span class="gap">📈 '+esc(eta)+' '+loc('to pass','后超越')+' '+esc(sorted[0].name)+'</span>'); }
         if(achBits.length)row.appendChild(el('<span class="crewach">'+achBits.join(' ')+'</span>'));
         panel.appendChild(row);
       });
@@ -3905,12 +3932,14 @@ function demoCrewBoard(){
       stats:{maxStage:2103,maxStageLabel:'Act 1-3 · Nightmare',lifeGold:2455000,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},
       runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:2100},{e:'Drop Chance Normal Chest Percent',v:1050},{e:'Increase Exp Amount',v:700},{e:'Increase Gold Amount',v:700},{e:'Additional Gold Act Boss',v:500},{e:'All Hero Attack Damage Percent',v:350},{e:'Additional Exp Act Boss',v:300},{e:'Offline Reward Gold Percent',v:300},{e:'Additional Gold Stage Boss',v:280},{e:'All Hero Move Speed',v:210},{e:'All Hero Attack Speed',v:160},{e:'All Hero Armor Percent',v:150},{e:'Additional Exp Stage Boss',v:80},{e:'Max Inventory Slot',v:21},{e:'All Hero Attack Damage',v:10},{e:'Unlock Arrange Slot Count',v:2},{e:'Additional Exp',v:1}],
       statList:[{k:'IncreaseExpAmount',v:700},{k:'AdditionalExp',v:1},{k:'AdditionalExpStageBoss',v:80},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:210},{k:'AllHeroAttackSpeed',v:160},{k:'AllHeroAttackDamage',v:10}],
+      rareDrops:[{k:304011,t:now-180000,lt:'06-13 18:40'},{k:190002,t:now-3600000,lt:'06-13 17:15'}],
       playHours:34.4,ver:APP_VERSION},
       achievement:{t:new Date(now-3600000).toISOString(),text:'Broke into Nightmare difficulty'}},
     {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-90000).toISOString(),momentum:{goldPerHr:128000,killsPerHr:4100,stagePerDay:0.9},spark:[1700000,1850000,1980000,2050000,2100400],
       stats:{maxStage:2108,maxStageLabel:'Act 1-8 · Nightmare',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},
       runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:1800},{e:'Drop Chance Normal Chest Percent',v:1200},{e:'Increase Exp Amount',v:800},{e:'Increase Gold Amount',v:500},{e:'All Hero Attack Speed',v:200},{e:'All Hero Move Speed',v:170},{e:'Additional Exp Act Boss',v:300},{e:'Additional Gold Stage Boss',v:340},{e:'Offline Reward Exp Percent',v:200},{e:'All Hero Armor',v:60},{e:'Additional Exp Stage Boss',v:120},{e:'Max Inventory Slot',v:18},{e:'All Hero Attack Damage',v:14},{e:'Unlock Arrange Slot Count',v:2}],
       statList:[{k:'IncreaseExpAmount',v:800},{k:'AdditionalExpStageBoss',v:120},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:170},{k:'AllHeroAttackSpeed',v:200},{k:'AllHeroAttackDamage',v:14}],
+      rareDrops:[{k:305041,t:now-300000,lt:'06-13 18:37'},{k:304021,t:now-7200000,lt:'06-13 16:42'},{k:190003,t:now-9000000,lt:'06-13 16:10'}],
       playHours:41.2,ver:APP_VERSION},
       achievement:{t:new Date(now-300000).toISOString(),text:'First Immortal gear!'}},
     {id:'demo-3',name:'IdleQueen',updatedAt:new Date(now-7200000).toISOString(),momentum:null,spark:[480000,495000,505000,512000],

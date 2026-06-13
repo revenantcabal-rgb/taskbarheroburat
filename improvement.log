@@ -1,6 +1,17 @@
 # TBH HUD — improvement.log
-Updated 2026-06-13 (session 26 · app v1.0.25). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
-Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
+Updated 2026-06-13 (session 27 · app v1.0.26). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S27 (v1.0.26) — Crew rows: rare-drops showcase + full zh i18n + dead-code cleanup (owner-requested)
+The crew row's stat-list preview was redundant (full Stat List is already in the ⤢ pop-up), so it now showcases each
+member's LAST 3 RARE DROPS instead — Immortal+ gear or Soulstones, each stamped with the dropper's own local clock.
+Computed from the player's real loot timeline (lootLog; isRareDrop = rrank>=4 OR isSoulstone); shared as {k,t,lt} only,
+the board re-resolves name/icon/rarity from its own DB. New shared field → whitelisted in cleanStats + the privacy hint
+updated. i18n: retrofitted Simplified Chinese over the entire crew-comes-alive surface (records/head/rival/feed/momentum/
+ETA + rare-drops) using inline loc(en,zh) — toggle-safe because setLang re-renders the active tab; feedText() re-localizes
+server milestones (server now emits language-neutral stage labels); fmtAgo is zh-aware. VERIFIED switch is bug-free: a
+zh→en→zh→en cycle returns the crew tab to byte-identical HTML, 0 console errors. Cleanup: removed dead statListFromPayload
++ .crewsl CSS; full function scan = 0 dead in both files. Crew API redeployed. Read-only; nothing touches the game.
 
 ## S26 (v1.0.25) — "Crew comes alive" (owner-requested Crew deep-dive; BAN-SAFE, save-derived only)
 Turned the static Crew board into a living, competitive space using data we already had. KEY UNLOCK: the crew API

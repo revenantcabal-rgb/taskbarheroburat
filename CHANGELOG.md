@@ -4,6 +4,23 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.26 — 2026-06-13
+
+### Added
+- **Rare drops on every crew row.** Each member now showcases their **last 3 rare drops** — **Immortal-and-above**
+  gear plus **Soulstones** — each with the **time they got it on their own computer**. Read straight from your own
+  loot timeline; only Immortal+ and Soulstones are ever shared. (The full Stat List is still one click away under
+  **⤢ full stats & compare**, which is why this replaced the old stat-list preview on the row.)
+
+### Changed
+- **Simplified Chinese now covers the whole new Crew experience** — the activity feed (milestones re-localized,
+  e.g. "突破到噩梦难度"), records, momentum, the rival card and the rare-drops row all translate, and switching
+  **中 ⇄ EN** (and back) is verified clean — a full zh→en→zh→en cycle returns the board to byte-identical state.
+
+### Fixed / cleanup
+- Removed dead code left over from the old crew stat-list preview (`statListFromPayload` + its CSS); a full
+  dead-function scan of the renderer and engine now comes back empty.
+
 ## v1.0.25 — 2026-06-13
 
 ### Added — "Crew comes alive"

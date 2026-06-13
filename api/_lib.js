@@ -137,6 +137,12 @@ function cleanStats(raw) {
   const statList = Array.isArray(raw.statList) ? raw.statList.slice(0, 12).map((s) => ({
     k: str(s && s.k, 32) || '', v: num(s && s.v) || 0,
   })).filter((s) => STATLIST_KEYS.indexOf(s.k) >= 0 && s.v > 0) : [];
+  // v1.0.26 — last 3 RARE DROPS the member chose to showcase: only an item key, the epoch time, and the
+  // dropper's own local clock string. The client only ever puts Immortal+ gear or Soulstones here; the board
+  // re-resolves the name/icon/rarity from its OWN copy of the game data, so no item names are transmitted.
+  const rareDrops = Array.isArray(raw.rareDrops) ? raw.rareDrops.slice(0, 3).map((r) => ({
+    k: num(r && r.k) || 0, t: num(r && r.t) || 0, lt: str(r && r.lt, 16) || '',
+  })).filter((r) => r.k > 0) : [];
   return {
     maxStage: num(raw.maxStage) || 0,
     maxStageLabel: str(raw.maxStageLabel, 40) || '',
@@ -150,6 +156,7 @@ function cleanStats(raw) {
     tiers,
     runeStats,
     statList,
+    rareDrops,
     playHours: num(raw.playHours),
     ver: str(raw.ver, 12),
   };
@@ -181,7 +188,8 @@ function deriveEvents(prevStats, stats) {
   // 1) difficulty first-clear (the biggest moment) > a deeper stage in the same difficulty
   const pb = stageBits(prevStats.maxStage), cb = stageBits(stats.maxStage);
   if (cb && ((!pb && cb.di > 0) || (pb && cb.di > pb.di))) ev.push({ kind: 'difficulty', text: 'Broke into ' + cb.diff + ' difficulty' });
-  else if ((stats.maxStage || 0) > (prevStats.maxStage || 0)) ev.push({ kind: 'stage', text: 'Reached ' + (stats.maxStageLabel || (cb ? cb.label : ('stage ' + stats.maxStage))) });
+  // use the key-derived ENGLISH label (language-neutral) so clients can re-localize the feed — NOT the dropper's localized maxStageLabel
+  else if ((stats.maxStage || 0) > (prevStats.maxStage || 0)) ev.push({ kind: 'stage', text: 'Reached ' + (cb ? cb.label : (stats.maxStageLabel || ('stage ' + stats.maxStage))) });
   // 2) first time a higher gear rarity tier ever appears
   const pt = prevStats.tiers || {}, ct = stats.tiers || {};
   for (let i = TIER_ORDER.length - 1; i >= 0; i--) { const t = TIER_ORDER[i]; if ((ct[t] || 0) > 0 && !(pt[t] > 0)) { ev.push({ kind: 'tier', text: 'First ' + capWord(t) + ' gear!' }); break; } }
