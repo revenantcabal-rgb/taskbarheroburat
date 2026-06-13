@@ -4,6 +4,14 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.29 — 2026-06-13
+
+### Changed
+- **Crew leaderboard moved to its own dedicated server.** This activates the *server-side* half of the v1.0.28
+  duplicate-row fix: stray rows of the same friend are now folded into one canonical row **permanently** the moment
+  anyone shares, and rows idle for 48 hours auto-clear. **One-time effect:** your crew board resets and repopulates
+  within about a minute as you and your friends keep playing and sharing.
+
 ## v1.0.28 — 2026-06-13
 
 ### Fixed

@@ -29,9 +29,13 @@ function applyCors(req, res) {
 }
 
 let _sql = null;
+// Accept whichever connection-string env var the host provides: the Neon integration sets DATABASE_URL; Vercel
+// Postgres sets POSTGRES_URL (pooled, also Neon-backed). This lets the crew API run on any of the three hosts
+// (FDC tbh-crew-api, the owner's taskbarheroburat project, or local) with no per-host code change.
 function sql() {
-  if (!process.env.DATABASE_URL) return null;
-  if (!_sql) _sql = neon(process.env.DATABASE_URL);
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!url) return null;
+  if (!_sql) _sql = neon(url);
   return _sql;
 }
 
