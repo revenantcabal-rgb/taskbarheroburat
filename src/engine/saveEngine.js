@@ -420,6 +420,26 @@ function gtGroup(gt){
   if(gt==='HELMET'||gt==='ARMOR') return 'ARMOR';
   return null;
 }
+// v1.0.28 — EMPIRICAL gt->category from the player's OWN applied enchants (golden-rule: read, never guessed).
+// Each applied enchant's rolled stat equals exactly one of its stone's per-category fx entries (the game's own
+// deterministic table), so the matching fx category IS the gear type's slot category. This extends the static
+// gtGroup() baseline to whatever the player has actually enchanted — dropping the "category unknown" asterisk
+// wherever the save can prove the answer (gloves/boots/rings/amulets/etc. the moment they hold one enchant).
+function _statNorm(s){ return String(s||'').replace(/\s+/g,'').toLowerCase(); }
+function gtGroupFromEnchants(psd){
+  const map={};
+  (psd&&psd.itemSaveDatas||[]).forEach(it=>{
+    const info=itemInfo(it.ItemKey), gt=info.gt; if(!gt||info.mat||map[gt]) return;
+    resolveMods(it.EnchantData).forEach(md=>{
+      if(map[gt]||!md||md.matKey==null) return;
+      const stone=DB&&DB.items&&(DB.items[md.matKey]||DB.items[String(md.matKey)]); if(!stone||!stone.fx) return;
+      const rolled=_statNorm(md.name)||_statNorm(md.stat);
+      const hit=stone.fx.filter(f=>_statNorm(f.sn)===rolled)[0];
+      if(hit&&hit.g) map[gt]=hit.g;
+    });
+  });
+  return map;
+}
 
 // runePlan: greedy cheapest-first rune-upgrade path within a gold budget. Rune level costs are GOLD (verified:
 // all rune-level costs use the Gold currency). Walks the full per-level cost table (DB.runes[].lv) so multi-step
@@ -435,8 +455,11 @@ function runePlan(psd,gold){
     if(!best) break;
     steps.push({name:best.r.name,from:best.r.level,to:best.r.level+1,max:best.r.max,cost:best.c,eff:best.r.eff});
     budget-=best.c; best.r.level++; if(steps.length>=12) break; }
+  // save-for = the cheapest UNAFFORDABLE next step (cost beyond the leftover budget). Must exclude anything still
+  // affordable: when the 12-step list is capped but gold remains, the next rune is affordable, not a save-for goal
+  // (labelling it "save for" would be misleading — data-honesty). null when every remaining step is affordable.
   let cheapestNext=null;
-  runes.forEach(r=>{ const c=nextCost(r); if(c==null) return; if(cheapestNext==null||c<cheapestNext.cost) cheapestNext={name:r.name,level:r.level,max:r.max,cost:c,eff:r.eff}; });
+  runes.forEach(r=>{ const c=nextCost(r); if(c==null||c<=budget) return; if(cheapestNext==null||c<cheapestNext.cost) cheapestNext={name:r.name,level:r.level,max:r.max,cost:c,eff:r.eff}; });
   return {gold:(gold||0),steps,spent:(gold||0)-budget,remaining:budget,cheapestNext};
 }
 
@@ -456,4 +479,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,craftRecipesFor,synthPoolsFor,cubeUsesOf,cubeSubFor,synthBandsFor,cubeUnlocks,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,gtGroupFromEnchants,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,craftRecipesFor,synthPoolsFor,cubeUsesOf,cubeSubFor,synthBandsFor,cubeUnlocks,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

@@ -4,6 +4,43 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.28 — 2026-06-13
+
+### Fixed
+- **The same friend no longer appears as several crew rows** — the bug that showed up most often after someone was
+  **away and came back**, opened the HUD on a **different PC**, reinstalled, or was on an **older app version**. Root
+  cause: a member's id was minted on their own machine and stored as-is, so every one of those situations created a
+  brand-new row the server never reconciled. **The crew server now owns identity:** your row is keyed by your
+  normalized **display name**, and on every share the server **folds any stray duplicate rows of you into one** — no
+  matter which app version, machine, or capitalisation/spacing produced them. The duplicates disappear the instant
+  you next share (and the board also merges any it still sees on the spot, so the fix is visible immediately).
+
+### Added
+- **Live tab — a ban-safe live-stat lane.** A 1-second session scoreboard (gold this session + measured **gold/hr**,
+  **kills/hr**, current stage, a live elapsed clock) plus a real-time **loot ticker** that surfaces drops the moment
+  your save records them, times ticking. It even **projects** your gold between save writes from your own measured
+  pace. Read entirely from your **save file + Player.log** — the same read-only sources as the rest of the HUD. There
+  is no live DPS (that would require reading the game itself), but everything shown is real, and ban-safe by design.
+- **Self-calibrating enchant categories.** The Advisor now learns a gear type's enchant **stat category** from the
+  game's own deterministic roll the moment you apply one enchant to that type (gloves, boots, rings, amulets…), so it
+  stops showing "category unknown" as soon as your save can prove the answer — instead of waiting on a hand-built map.
+- **Crew Arena (PvP).** Every crew is now a head-to-head ladder. Each member gets an **Arena Power** score and a
+  **tier** (Bronze → Silver → Gold → Platinum → Diamond → Master → Cosmic), and any two players **duel** across
+  weighted categories: **Progression, Wealth, Combat, Heroes, Runes, Arsenal** and a **Momentum** bonus round.
+- **Every duel explains itself.** A full **scorecard** shows who won each category and by how much, a plain-English
+  **verdict** on *why* one side won or lost, and a **coaching line** with the closest result to flip
+  (e.g. *"+2 hero levels passes them in Heroes"*). Plus a crew **W–L ladder**, a featured **"your duel"** card
+  (vs your chosen rival or your nearest ladder neighbour), and a **who-beats-whom matrix**.
+- **Duel from anywhere.** Open any member and hit **⚔ Arena duel** for an instant you-vs-them breakdown.
+- **Ban-safe by design.** The Arena is built entirely from the **opt-in brag-stats you already share** — no new data
+  leaves your device, nothing reads the game's memory, and the save is never touched.
+
+### Changed
+- **Foundations for staying correct as it grows.** The crew identity + PvP Arena logic now lives in a small shared
+  module (`src/engine/crewEngine.js`) with a committed **test suite that runs in CI** on every change — covering the
+  duplicate-row fix, the duel math, client/server hash agreement, the runePlan data-honesty rule, and the
+  **ban-safety guarantees** (read-only · no process access · crew-only · payload-whitelist). `npm test` runs it locally.
+
 ## v1.0.27 — 2026-06-13
 
 ### Added

@@ -1,0 +1,24 @@
+name: CI
+
+# Runs the committed unit + guard tests on every push / PR. Pure Node (no game, no save, no secrets) — the suite
+# covers the crew identity & dedupe (the dup-row fix), the PvP Arena math, client/server hash parity, the runePlan
+# data-honesty invariant, and the BAN-SAFETY guard (read-only · no process access · crew-only · whitelist-airtight).
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Only @neondatabase/serverless is needed to load api/_lib.js (the tests stub the DB / never connect).
+      - name: Install the one runtime dep the tests load
+        run: npm install --no-save @neondatabase/serverless@^0.10.4
+      - name: Run tests
+        run: node --test "tests/**/*.test.js"

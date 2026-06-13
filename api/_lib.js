@@ -112,6 +112,22 @@ const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
 // strip control characters, trim, clamp length — applied to every string that gets stored or echoed
 const str = (v, max) => { if (typeof v !== 'string') return null; let out = ''; for (const ch of v) { const c = ch.charCodeAt(0); if (c >= 32 && c !== 127) out += ch; } return out.trim().slice(0, max); };
 
+// ---- CANONICAL CREW IDENTITY (v1.0.28) — the fix for "the same friend shows up as several rows" ----
+// Root cause: the member_id was minted on the CLIENT and stored verbatim, so a new PC, a reinstall, a stale
+// pre-v1.0.27 build (random UUID) or a name typed with different case/spacing each created a brand-new row that
+// the server never reconciled. The server is the only place that sees a whole crew at once, so it must own
+// identity: a member's canonical id is a deterministic hash of their NORMALIZED display name, computed here.
+// Same name (any case / spacing / unicode form, any client version, any machine) => the exact same row.
+// normName + _crewHash are BYTE-FOR-BYTE identical to the client (UTF-8 bytes), so client and server agree.
+function normName(n) { let s = String(n == null ? '' : n); try { s = s.normalize('NFKC'); } catch (e) {} return s.trim().toLowerCase().replace(/\s+/g, ' '); }
+// two interleaved 32-bit FNV-1a streams over a byte sequence -> a stable ~14-char base36 id (mirrors the client's _crewHash)
+function _crewHash(bytes) {
+  let h1 = 0x811c9dc5 >>> 0, h2 = 0x1000193 >>> 0;
+  for (let i = 0; i < bytes.length; i++) { const c = bytes[i] & 0xff; h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0; h2 = Math.imul(h2 ^ c, 0x85ebca6b) >>> 0; }
+  return ('0000000' + (h1 >>> 0).toString(36)).slice(-7) + ('0000000' + (h2 >>> 0).toString(36)).slice(-7);
+}
+function canonMemberId(name) { return 'cm_' + _crewHash(Buffer.from(normName(name), 'utf8')); }
+
 // whitelist + clamp the brag-stats payload — anything not listed here is dropped, never stored
 const TIER_KEYS = ['LEGENDARY', 'IMMORTAL', 'ARCANA', 'BEYOND', 'CELESTIAL', 'DIVINE', 'COSMIC'];
 // the calibrated Stat List line keys (v1.0.11) — mirrors STAT_LIST in the dashboard/saveEngine
@@ -206,12 +222,6 @@ function deriveEvents(prevStats, stats) {
   if (!ev.some((e) => e.kind === 'tier') && (stats.trophies || 0) > (prevStats.trophies || 0)) ev.push({ kind: 'gear', text: 'Found a new Legendary+ item' });
   return ev;
 }
-// member-row "latest achievement" = the top event of this push, else keep the previous one.
-function deriveAchievement(prevStats, prevAch, stats) {
-  const ev = deriveEvents(prevStats, stats);
-  return ev.length ? { t: new Date().toISOString(), text: ev[0].text } : (prevAch || null);
-}
-
 // MOMENTUM from a member's own snapshot history (oldest->newest [{t,g,k,s,ph}]): measured rates only, null when
 // there isn't a real delta to measure (never projected/invented). gold/kills over PLAYED hours; stage over wall days.
 function computeMomentum(hist) {
@@ -232,4 +242,4 @@ function computeMomentum(hist) {
 
 function sendJson(res, code, obj) { res.status(code).json(obj); }
 
-module.exports = { CODE_RE, applyCors, sql, ensureSchema, cleanStats, deriveAchievement, deriveEvents, computeMomentum, stageIndex, sendJson, str, rateLimited, clientIp };
+module.exports = { CODE_RE, applyCors, sql, ensureSchema, cleanStats, deriveEvents, computeMomentum, stageIndex, sendJson, str, rateLimited, clientIp, normName, canonMemberId };

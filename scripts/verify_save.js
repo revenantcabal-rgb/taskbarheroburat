@@ -72,6 +72,14 @@ else {
 // --- Data-honesty assertions (P1): nothing the app surfaces may claim progress the save doesn't support ---
 console.log('--- data honesty ---');
 const problems = [];
+// v1.0.28 — EMPIRICAL enchant gt->category (derived from the save's own applied enchants) must AGREE with the
+// static gtGroup baseline wherever both have a claim (the empirical map reads the game's deterministic roll, so a
+// contradiction would mean a parsing/data bug). New entries (no static claim) are the calibration win — logged.
+const eMap = eng.gtGroupFromEnchants(psd);
+console.log('enchant cat   ', Object.keys(eMap).length
+  ? Object.keys(eMap).map(gt => gt + '=' + eMap[gt] + (eng.gtGroup(gt) === null ? ' (NEW)' : '')).join(', ')
+  : '(no applied enchants on this save)');
+Object.keys(eMap).forEach(gt => { const base = eng.gtGroup(gt); if (base !== null && base !== eMap[gt]) problems.push('gtGroupFromEnchants: ' + gt + ' empirical=' + eMap[gt] + ' contradicts static=' + base); });
 // 1) The fabricated "per-difficulty completions" must NOT be surfaced by the engine anymore.
 if ('perDifficultyCompletions' in snap.aggregates) problems.push('aggregates still exposes perDifficultyCompletions (uncalibrated Type 16)');
 // 2) Only CALIBRATED aggregates may appear. Whitelist: lifetimeGold (Type2/Sub0, delta-matched a gold gain),

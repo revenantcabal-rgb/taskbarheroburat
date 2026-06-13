@@ -10,10 +10,12 @@
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';
 document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.27"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.28"></script>
 <!-- Official Simplified-Chinese game-term map (window.TBH_ZH) extracted from the game's own zh-Hans
      localization bundle (scripts/extract_localization_zh.py). Powers the EN/中文 language switch. -->
-<script src="src/engine/i18n_zh.min.js?v=1.0.27"></script>
+<script src="src/engine/i18n_zh.min.js?v=1.0.28"></script>
+<!-- shared, dependency-free crew logic (identity hash + board dedup + Arena math); unit-tested in CI. Same file runs here and under require() in Node. -->
+<script src="src/engine/crewEngine.js?v=1.0.28"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -682,6 +684,84 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
   .rivalgrid .rl{text-align:right;font-variant-numeric:tabular-nums} .rivalgrid .rr{text-align:left;font-variant-numeric:tabular-nums}
   .rivalgrid .rk{text-align:center;color:var(--text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
   .rivalgrid .win{color:var(--good);font-weight:700}
+  /* ===== Crew Arena (PvP) — v1.0.28 ===== */
+  .arena{margin:16px 0 4px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);padding:13px 14px}
+  .arenahead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px}
+  .arenatitle{font-size:14px;font-weight:800;letter-spacing:.01em}
+  .arenaladder{display:flex;flex-direction:column;gap:1px;margin-bottom:4px}
+  .alrow{display:grid;grid-template-columns:34px minmax(0,1fr) auto 54px 46px 52px;gap:8px;align-items:center;padding:6px 6px;border-top:1px solid var(--border);font-size:12.5px}
+  .alrow.alhead{border-top:none;color:var(--text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .alrow.me{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:6px}
+  .alname{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .alrank{font-variant-numeric:tabular-nums} .alwl,.alwr,.alpow{text-align:right;font-variant-numeric:tabular-nums}
+  .alpow{font-weight:800;color:var(--accent-2)}
+  .altier,.ftier{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.03em;padding:1px 7px;border-radius:999px;border:1px solid;white-space:nowrap}
+  .t-bronze{color:#c8843c;border-color:#c8843c66;background:#c8843c1f} .t-silver{color:#8c98ab;border-color:#8c98ab66;background:#8c98ab1f}
+  .t-gold{color:#cf9d12;border-color:#cf9d1266;background:#cf9d121f} .t-plat{color:#2f9e92;border-color:#2f9e9266;background:#2f9e921f}
+  .t-dia{color:#2f86e6;border-color:#2f86e666;background:#2f86e61f} .t-master{color:#9a55ff;border-color:#9a55ff66;background:#9a55ff1f}
+  .t-cosmic{color:#e0489a;border-color:#e0489a66;background:linear-gradient(90deg,#e0489a1f,#6f8bff1f)}
+  [data-theme="dark"] .t-silver{color:#b6c0cf} [data-theme="dark"] .t-gold{color:#f3c33e} [data-theme="dark"] .t-plat{color:#4fd3c5}
+  [data-theme="dark"] .t-dia{color:#5fb0ff} [data-theme="dark"] .t-master{color:#b888ff} [data-theme="dark"] .t-cosmic{color:#ff77be}
+  .arenafeat{margin-top:10px}
+  .arenafeatbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+  .arenasub{font-size:12px;color:var(--text-dim);font-weight:700}
+  .duelcard{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);padding:12px 13px}
+  .duelhead{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+  .fighter{text-align:center;min-width:0;position:relative;padding:7px 4px 4px;border-radius:8px}
+  .fighter.win{background:color-mix(in srgb,var(--good) 13%,transparent)}
+  .fname{font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ftier{margin:3px 0}
+  .fpow{font-size:15px;font-weight:800;color:var(--accent-2)} .fpow span{font-size:9px;color:var(--text-dim);font-weight:700}
+  .duelcrown{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:15px}
+  .duelvs{text-align:center}
+  .vsbadge{font-size:11px;font-weight:900;color:var(--text-dim);letter-spacing:.08em}
+  .duelscore{font-size:21px;font-weight:900;font-variant-numeric:tabular-nums} .duelscore span{color:var(--text-dim);font-size:14px;margin:0 2px}
+  .duelbar{display:flex;height:17px;border-radius:999px;overflow:hidden;margin:11px 0 12px;font-size:10px;font-weight:800;color:#fff}
+  .duelbar .da{background:var(--accent);display:flex;align-items:center;justify-content:flex-start;padding-left:7px}
+  .duelbar .db{background:color-mix(in srgb,var(--bad) 82%,#000);display:flex;align-items:center;justify-content:flex-end;padding-right:7px}
+  .duelgrid{display:grid;grid-template-columns:1fr auto 1fr;gap:3px 10px;font-size:12.5px;align-items:center}
+  .duelgrid .dca{text-align:right;font-variant-numeric:tabular-nums;color:var(--text-muted)}
+  .duelgrid .dcb{text-align:left;font-variant-numeric:tabular-nums;color:var(--text-muted)}
+  .duelgrid .dck{text-align:center;color:var(--text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+  .duelgrid .win{color:var(--good);font-weight:800}
+  .duelverdict{margin-top:11px;font-size:12.5px;font-weight:700;line-height:1.45}
+  .duelcoach{margin-top:5px;font-size:12px;color:var(--text-muted);line-height:1.45}
+  .duelbtn{margin-top:12px;width:100%;background:linear-gradient(90deg,var(--accent),var(--accent-alt));color:#fff;border:none;border-radius:var(--radius-sm);padding:9px;font:inherit;font-weight:800;cursor:pointer}
+  .duelbtn:hover{filter:brightness(1.08)}
+  .arenamtx{margin-top:12px}
+  .amxhead{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);font-weight:700;margin-bottom:5px}
+  .amxgrid{display:grid;gap:2px;font-size:11px}
+  .amxc{display:flex;align-items:center;justify-content:center;padding:3px 4px;border-radius:4px;min-width:0}
+  .amxch{color:var(--text-dim);font-weight:700}
+  .amxrh{justify-content:flex-start;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;font-size:10.5px}
+  .amxrh.me{color:var(--accent-2)}
+  .amxself{color:var(--text-dim)}
+  .amxw{background:color-mix(in srgb,var(--good) 20%,transparent);color:var(--good);font-weight:800}
+  .amxl{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+  .amxlegend{margin-top:6px;font-size:10.5px;color:var(--text-dim)} .amxlegend .amxw,.amxlegend .amxl{padding:0 3px;border-radius:3px}
+  @media(max-width:680px){ .alrow{grid-template-columns:26px minmax(0,1fr) auto 46px 50px} .alrow .alwr{display:none} .alrow.alhead span:nth-child(5){display:none} .duelhead{gap:5px} .duelscore{font-size:18px} }
+  /* ===== Live tab — ban-safe live-stat lane (v1.0.28) ===== */
+  .livedot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--good);margin-left:2px;vertical-align:middle;animation:livepulse 1.8s ease-in-out infinite}
+  @keyframes livepulse{0%,100%{opacity:.3}50%{opacity:1}}
+  .livegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:6px 0 4px}
+  .livecard{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;min-width:0}
+  .livecard .livelbl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);font-weight:700}
+  .livecard .liveval{font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .livecard .livesub{font-size:11.5px;color:var(--text-muted);margin-top:3px}
+  .livehot{color:var(--good);font-weight:700}
+  .liveproj{margin-top:12px;padding:9px 12px;background:color-mix(in srgb,var(--accent) 9%,transparent);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12.5px;color:var(--text-muted)}
+  .liveproj b{color:var(--accent-2);font-variant-numeric:tabular-nums}
+  .livepulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:7px;vertical-align:middle;animation:livepulse 1.4s ease-in-out infinite}
+  .livesub2{color:var(--text-dim);font-size:11px}
+  .livenext{margin-top:8px;font-size:12.5px;color:var(--text-muted)} .livenext b{color:var(--text)}
+  .liveloot{display:flex;flex-direction:column;gap:1px}
+  .lootrow{display:flex;align-items:center;gap:9px;padding:7px 2px;border-top:1px solid var(--border);font-size:13px}
+  .lootrow.rare{background:color-mix(in srgb,var(--gold) 10%,transparent)}
+  .lootic{width:22px;height:22px;object-fit:contain;image-rendering:pixelated;flex:0 0 auto}
+  .lootnm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}
+  .lootmeta{color:var(--text-dim);font-size:11px;white-space:nowrap;flex:0 0 auto}
+  .lootago{color:var(--text-dim);font-size:11px;font-variant-numeric:tabular-nums;flex:0 0 auto;min-width:54px;text-align:right}
+  @media(max-width:680px){ .lootmeta{display:none} .livecard .liveval{font-size:20px} }
   /* last-3 rare drops on each member row (v1.0.26) — replaces the old stat-list preview */
   .crewdrops{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding-left:43px;font-size:11.5px}
   @media(max-width:680px){.crewdrops{padding-left:0}}
@@ -754,6 +834,7 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 
 <nav class="tabs hidden" id="tabs">
   <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="live">Live <span class="livedot" aria-hidden="true"></span></button>
   <button data-tab="party">Party</button>
   <button data-tab="inventory">Inventory <span class="count" id="tabInvCount"></span></button>
   <button data-tab="loot">Loot <span class="count" id="tabLootCount"></span></button>
@@ -804,6 +885,7 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
   </div>
 
   <div id="tab-overview" class="tab-page hidden"></div>
+  <div id="tab-live" class="tab-page hidden"></div>
   <div id="tab-party" class="tab-page hidden"></div>
   <div id="tab-inventory" class="tab-page hidden"></div>
   <div id="tab-loot" class="tab-page hidden"></div>
@@ -854,7 +936,7 @@ var LANG=(function(){try{return localStorage.getItem('tbh_lang')==='zh'?'zh':'en
 var ZG=window.TBH_ZH||{game:{},stages:{},diff:{},grades:{}};
 var I18N_UI={
   // —— tabs ——
-  'Overview':'总览','Party':'队伍','Inventory':'背包','Loot':'战利品','Runes':'符文','Advisor':'顾问',
+  'Overview':'总览','Live':'实时','Party':'队伍','Inventory':'背包','Loot':'战利品','Runes':'符文','Advisor':'顾问',
   'Lifetime':'生涯','Trends':'趋势','Crew':'战队','Codex':'图鉴','Tips':'提示',
   // —— header / chrome ——
   'no save':'无存档','See a demo':'查看演示','Connect file':'连接文件','Connect folder':'连接文件夹',
@@ -1308,8 +1390,29 @@ function enchantStonesD(owned){
 // slot-category for a GEARTYPE — ONLY where calibrated: the game's own hero table defines main-weapon types
 // (HeroInfoData MainWeapon -> WEAPON group; observed in applied enchants for STAFF + CROSSBOW), and
 // HELMET/ARMOR were observed rolling the ARMOR-group effect. Everything else: null (no category claim).
+// v1.0.28 — EMPIRICAL gt->category map, derived from the player's OWN applied enchants (read, never guessed):
+// each applied enchant's rolled stat equals exactly one of its stone's per-category fx entries, so that category
+// IS the gear type's slot category. Refreshed from the current save on every render() and consulted FIRST below,
+// so gloves/boots/rings/amulets/etc. show their real category the moment the player holds one enchant on them.
+var _gtEmap={};
+function gtGroupFromEnchantsD(owned){
+  var map={}, norm=function(s){return String(s||'').replace(/\s+/g,'').toLowerCase();};
+  (owned||[]).forEach(function(o){
+    if(!o||!o.gt||o.mat||map[o.gt]||!o.mods||!o.mods.length)return;
+    o.mods.forEach(function(md){
+      if(map[o.gt]||!md||md.matKey==null)return;
+      var stone=DB.items[md.matKey]||DB.items[String(md.matKey)]; if(!stone||!stone.fx)return;
+      var rolled=norm(md.name)||norm(md.stat);
+      var hit=stone.fx.filter(function(f){return norm(f.sn)===rolled;})[0];
+      if(hit&&hit.g)map[o.gt]=hit.g;
+    });
+  });
+  return map;
+}
+function refreshGtEmap(owned){ _gtEmap=gtGroupFromEnchantsD(owned); }
 function gtGroupD(gt){
   if(!gt) return null;
+  if(_gtEmap[gt]) return _gtEmap[gt];   // the player's own save proved this category — use it over the static baseline
   var H=DB.heroes||{}, k;
   for(k in H){ if(H[k].mw===gt) return 'WEAPON'; }
   if(gt==='HELMET'||gt==='ARMOR') return 'ARMOR';
@@ -1327,8 +1430,10 @@ function runePlanD(list,gold){
     if(!best) break;
     steps.push({name:best.r.name,from:best.r.level,to:best.r.level+1,max:best.r.max,cost:best.c,eff:best.r.eff});
     budget-=best.c; best.r.level++; if(steps.length>=12) break; }
+  // save-for = the cheapest UNAFFORDABLE next step (cost beyond the leftover budget); exclude anything still
+  // affordable so a 12-step-capped list with gold left over never mislabels an affordable rune as a "save for" goal.
   var cheapestNext=null;
-  runes.forEach(function(r){ var c=nextCost(r); if(c==null) return; if(cheapestNext==null||c<cheapestNext.cost) cheapestNext={name:r.name,level:r.level,max:r.max,cost:c,eff:r.eff}; });
+  runes.forEach(function(r){ var c=nextCost(r); if(c==null||c<=budget) return; if(cheapestNext==null||c<cheapestNext.cost) cheapestNext={name:r.name,level:r.level,max:r.max,cost:c,eff:r.eff}; });
   return {gold:(gold||0),steps:steps,spent:(gold||0)-budget,remaining:budget,cheapestNext:cheapestNext};
 }
 // enchantStatus: equipped items on DEPLOYED heroes that still have open enchant slots (each item holds up to 3).
@@ -3442,7 +3547,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.27';
+var APP_VERSION='1.0.28';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -3452,6 +3557,17 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.28',d:'2026-06-13',sec:{
+    Fixed:[
+      'Crew: the same friend no longer shows up as several rows — especially after they were away and came back, or opened the HUD on a different PC. Your spot on the board is now tied to your display name and reconciled by the crew server itself, so a new computer, a reinstall, an older app version, or your name typed with different capitalisation/spacing all fold back into ONE row the instant you next share. Any leftover duplicates also disappear from the board immediately (the HUD merges them on sight while the server cleans them for good).'],
+    Added:[
+      'Live tab: a 1-second live session scoreboard — gold this session + your measured gold/hr, kills/hr, current stage, and a live elapsed clock — plus a real-time loot ticker that surfaces drops the moment your save records them, with times that tick. It even projects your gold between save writes from your own measured pace. All of it is read from your save file + Player.log (the same read-only sources as the rest of the HUD); there is no live DPS because that would mean reading the game itself, but everything shown is real and ban-safe.',
+      'Crew Arena (PvP): every crew is now a head-to-head ladder. Each member gets an Arena Power score and a tier (Bronze → Cosmic), and any two players can duel across weighted categories — Progression, Wealth, Combat, Heroes, Runes, Arsenal and Momentum.',
+      'Every duel shows a full scorecard: who won each category and by how much, a plain-English verdict on WHY they won or lost, and a coaching line telling you the closest result to flip (e.g. "+2 hero levels passes them in Heroes"). There is a crew W–L ladder, a featured "your duel" card (vs your rival or your nearest ladder neighbour), and a who-beats-whom matrix.',
+      'Open any member and hit ⚔ Arena duel for an instant you-vs-them breakdown. It is all built from the brag-stats you already share — no new data leaves your device, nothing reads the game, ban-safe by design.',
+      'Enchant categories now calibrate themselves: the moment you apply an enchant to a gear type (gloves, boots, rings, amulets…), the Advisor learns that type\'s stat category from the game\'s own roll — so it stops showing "category unknown" once your save can prove the answer, instead of waiting on a hand-built table.'],
+    Changed:[
+      'Under the hood: the crew identity + PvP Arena logic moved into a small shared module with a committed test suite that runs in CI on every change (covering the duplicate-row fix, the duel math, client/server agreement, and the ban-safety guarantees) — so these stay correct as the HUD grows.']}},
   {v:'1.0.27',d:'2026-06-13',sec:{
     Added:[
       'Crew: your spot on the board now follows your crew code + display name, not the specific PC. Open the HUD on a new computer (or after a reinstall), enter the same crew code and the same display name, and you\'re back on your exact row — no more disappearing when a friend plays from somewhere else.',
@@ -3607,16 +3723,12 @@ function openWhatsNew(){
 var crewCfg={optin:false,code:'',name:'',id:'',rankBy:'maxStage'};
 try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','name','id','rankBy','rivalId'].forEach(function(k){if(cc[k]!=null)crewCfg[k]=cc[k];});}catch(e){}
 function crewSave(){try{localStorage.setItem('tbh_crew',JSON.stringify(crewCfg));}catch(e){}}
-// v1.0.27 — PORTABLE identity: a member's id is a deterministic hash of (crew code + display name), NOT a
-// random per-browser UUID. So re-entering the same crew code + same display name on ANY machine returns to the
-// exact same row (the old random id meant a new PC = a brand-new ghost row). Trade-off: two people can't share a
-// name in one crew, and renaming yourself starts a fresh row (the old one is swept by the 48h auto-prune).
-function _crewHash(s){ // two interleaved 32-bit FNV-1a streams -> a stable ~13-char base36 id (collision-safe for a friends crew)
-  var h1=0x811c9dc5>>>0, h2=0x1000193>>>0;
-  for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); h1=Math.imul(h1^c,0x01000193)>>>0; h2=Math.imul(h2^c,0x85ebca6b)>>>0; }
-  return ('0000000'+(h1>>>0).toString(36)).slice(-7)+('0000000'+(h2>>>0).toString(36)).slice(-7);
-}
-function crewMemberId(code,name){ var key=String(code||'').trim().toLowerCase()+''+String(name||'').trim().toLowerCase().replace(/\s+/g,' '); return 'cm_'+_crewHash(key); }
+// PORTABLE identity (v1.0.27, server-authoritative in v1.0.28) — now lives in the shared CrewEngine module
+// (src/engine/crewEngine.js), byte-identical to the server's canonMemberId. A member's id is a deterministic hash
+// of their NORMALIZED display name, so the same name on any machine / any client version resolves to ONE row, and
+// the server folds drifted duplicates on the next push. These thin wrappers keep every call site unchanged.
+function normName(n){ return CrewEngine.normName(n); }
+function crewMemberId(code,name){ return CrewEngine.crewMemberId(name); } // name-only; the crew code already partitions the table
 function crewId(){
   if(crewCodeOk(crewCfg.code)&&crewCfg.name){ var id=crewMemberId(crewCfg.code,crewCfg.name); if(crewCfg.id!==id){ crewCfg.id=id; crewSave(); } return id; }
   // not joined yet (no code/name): keep a throwaway placeholder so isMeMember()/compare never crash — it's never pushed
@@ -3624,6 +3736,13 @@ function crewId(){
   return crewCfg.id;
 }
 function crewCodeOk(c){return /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/.test(c||'');}
+// v1.0.28 client safety-net for the duplicate-row bug: even before the crew API is redeployed, collapse any board
+// rows that share a normalized display name (the same friend, duplicated by an old PC / reinstall / random-UUID
+// build) so the UI shows ONE row per person right away. Keeps the freshest (most-recently-updated) row and carries
+// its momentum/spark/achievement forward; the server reconcile (api/progress.js) deletes the strays for good on the
+// member's next push. _crewMerged tells renderCrew how many it folded so it can say so honestly.
+var _crewMerged=0;
+function dedupeBoard(rows){ var r=CrewEngine.dedupeBoard(rows); _crewMerged=r.merged; return r.rows; }   // CrewEngine owns the logic; we surface the merged count
 // ---- rare-drops showcase (v1.0.26) — the member's last 3 Immortal+ gear / Soulstone drops, from their OWN
 //      loot timeline (real save/log diffs; nothing fabricated). Each entry carries only the item key + the
 //      epoch time + the dropper's LOCAL clock string; the board re-resolves name/icon/rarity from its own DB. ----
@@ -3740,7 +3859,7 @@ function localizeStageText(s){ if(LANG!=='zh')return s; var m=String(s).match(/^
    actually shared (opt-in payload) — members on older app versions simply show fewer sections, never guesses. */
 var _cmModal=null, _cmCompareId=null;
 // "is this board entry me?" — in demo mode the sample board has no real member id, so 'demo-you' stands in
-function isMeMember(m){ return !!m&&(m.id===crewCfg.id||(demoMode&&m.id==='demo-you')); }
+function isMeMember(m){ if(!m)return false; if(demoMode)return m.id==='demo-you'; if(crewCfg.id&&m.id===crewCfg.id)return true; return !!(crewCfg.name&&m.name&&normName(m.name)===normName(crewCfg.name)); }
 function closeCrewMember(){ if(!_cmModal)return; document.removeEventListener('keydown',_cmModal.onKey); if(_cmModal.ov.parentNode)_cmModal.ov.parentNode.removeChild(_cmModal.ov); _cmModal=null; }
 function slShortLabel(m){ return m.t.replace('{0}% Increased ','').replace('{0}% ','').replace(' +{0}',''); }
 function slDispVal(m,v){ return v==null?null:(m.pct?((v/10)+'%'):('+'+fmt(v))); }
@@ -3816,6 +3935,13 @@ function openCrewMember(member,members){
     bar.appendChild(cxSelect(opts,(cmp?cmp.id:''),function(v){ _cmCompareId=v||'__none__'; openCrewMember(member,members); }));
     mo.appendChild(bar);
   }
+  // v1.0.28 — jump straight into a full Arena duel from the pop-up (defaults to YOU vs this member)
+  var duelFoe=cmp||(members||[]).filter(isMeMember)[0]||others[0];
+  if(duelFoe&&duelFoe.id!==member.id){
+    var dbtn=el('<button class="duelbtn" type="button">⚔ '+loc('Arena duel: ','竞技场对决：')+esc(member.name||'?')+loc(' vs ',' 对 ')+esc(duelFoe.name||'?')+'</button>');
+    dbtn.addEventListener('click',function(){ openArenaDuel(member,duelFoe,members); });
+    mo.appendChild(dbtn);
+  }
   var body=el('<div></div>'); body.innerHTML=html; mo.appendChild(body);
   if(!(st.statList&&st.statList.length)&&!(st.runeStats&&st.runeStats.length)&&st.ver&&st.ver!==APP_VERSION)
     mo.appendChild(el('<div class="cxnote" style="margin-top:12px">This member\'s HUD is on app v'+esc(st.ver)+' — older versions share fewer stats. v1.0.6+ updates itself.</div>'));
@@ -3885,6 +4011,174 @@ function crewLeaderEta(me,leader,key){
   if(key==='kills'&&mo.killsPerHr>0&&(ls.kills||0)>(ms.kills||0)) return etaPass(((ls.kills-ms.kills)/mo.killsPerHr)/24);
   if(key==='maxStage'&&mo.stagePerDay>0){ var gi=stageIdx(ls.maxStage),mi=stageIdx(ms.maxStage); if(gi!=null&&mi!=null&&gi>mi) return etaPass((gi-mi)/mo.stagePerDay); }
   return null;
+}
+/* ===================== CREW ARENA (PvP) — v1.0.28 ============================================================
+   Ban-safe head-to-head built ENTIRELY from the opt-in brag-stats already on the board: no game memory, no new
+   shared field, no API change. Every member gets an Arena Power + tier; any two can duel across weighted
+   categories, and the scorecard shows exactly WHY a side wins or loses, with a coaching line on what would flip
+   the result. Deterministic from the current snapshots (no fabrication) and demo-aware. */
+// The Arena MATH (power / tier / duel / ladder / identity) lives in the shared CrewEngine module
+// (src/engine/crewEngine.js — unit-tested in CI). This layer is pure PRESENTATION: per-category display strings,
+// icons, i18n, the verdict + coaching text, and the scorecard DOM. arenaPower/arenaTier/arenaLadder delegate.
+function _arArsenalDisp(st){ var t=(st&&st.tiers)||{}; var parts=RARITY.slice().reverse().filter(function(g){return t[g];}).map(function(g){return '<span style="color:'+rvar(g)+'">'+cap(g).slice(0,3)+' '+t[g]+'</span>';}); return parts.length?parts.join(' · '):((st&&st.trophies)!=null?(fmt(st.trophies)+' Leg+'):'—'); }
+// presentation metadata per duel category, keyed by CrewEngine.CATS[].key (+ the momentum bonus round 'mom').
+// disp(st,member) formats the engine's raw value; en/zh feed _arCatName; k mirrors the engine key for arenaCoach.
+var ARENA_CAT_META={
+  prog:   {k:'prog',  ic:'🗺️',en:'Progression',zh:'进度',disp:function(st){return esc(crewStage(st));}},
+  wealth: {k:'wealth',ic:'🪙',en:'Wealth',zh:'财富',disp:function(st){return st.lifeGold!=null?fmtShort(st.lifeGold):'—';}},
+  combat: {k:'combat',ic:'💀',en:'Combat',zh:'战斗',disp:function(st){return st.kills!=null?fmtShort(st.kills):'—';}},
+  heroes: {k:'heroes',ic:'🦸',en:'Heroes',zh:'英雄',disp:function(st){var v=CrewEngine.topHeroLv(st);return v?(loc('Lv ','等级 ')+v):'—';}},
+  runes:  {k:'runes', ic:'🔮',en:'Runes',zh:'符文',disp:function(st){return st.runesLeveled!=null?fmt(st.runesLeveled):'—';}},
+  arsenal:{k:'arsenal',ic:'💎',en:'Arsenal',zh:'装备',disp:function(st){return _arArsenalDisp(st);}},
+  mom:    {k:'mom',   ic:'📈',en:'Momentum',zh:'势头',disp:function(st,m){var v=(m&&m.momentum&&m.momentum.goldPerHr);return v>0?(fmtShort(v)+'/h'):'—';}}
+};
+function _arCatName(c){ return LANG==='zh'?c.zh:c.en; }
+var arenaPower=CrewEngine.arenaPower, arenaTier=CrewEngine.arenaTier, arenaLadder=CrewEngine.ladder;
+var ARENA_TIER_NAMES={bronze:['Bronze','青铜'],silver:['Silver','白银'],gold:['Gold','黄金'],platinum:['Platinum','铂金'],diamond:['Diamond','钻石'],master:['Master','大师'],cosmic:['Cosmic','宇宙']};
+function arenaTierName(t){ var n=ARENA_TIER_NAMES[t&&t.id]||['','']; return loc(n[0],n[1]); }
+function _arNormMargin(r){ if(r.av==null||r.bv==null)return 1; var hi=Math.max(Math.abs(r.av),Math.abs(r.bv))||1; return Math.abs(r.av-r.bv)/hi; }
+// adapter: CrewEngine.duel does the math (structured rounds: key/weight/av/bv/win); we enrich each round with its
+// display strings + category meta so the renderer, verdict and coach below consume the exact same shape as before.
+function arenaDuel(a,b){
+  var d=CrewEngine.duel(a,b);
+  var rounds=d.rounds.map(function(r){
+    var meta=ARENA_CAT_META[r.key]||{k:r.key,en:r.key,zh:r.key,disp:function(){return '—';}};
+    return {c:meta,av:r.av,bv:r.bv,win:r.win,aDisp:meta.disp((a&&a.stats)||{},a),bDisp:meta.disp((b&&b.stats)||{},b)};
+  });
+  return {a:a,b:b,rounds:rounds,aPts:d.aPts,bPts:d.bPts,aWins:d.aWins,bWins:d.bWins,winner:d.winner,aPow:d.aPow,bPow:d.bPow};
+}
+function arenaVerdict(res){
+  var ws=res.winner, ls=ws==='a'?'b':'a';
+  var win=ws==='a'?res.a:res.b, lose=ws==='a'?res.b:res.a;
+  var winCats=res.rounds.filter(function(r){return r.win===ws;}).sort(function(x,y){return _arNormMargin(y)-_arNormMargin(x);}).map(function(r){return _arCatName(r.c);});
+  var loseCats=res.rounds.filter(function(r){return r.win===ls;}).sort(function(x,y){return _arNormMargin(y)-_arNormMargin(x);}).map(function(r){return _arCatName(r.c);});
+  var n=esc(win.name||'?');
+  if(res.aPts===res.bPts) return n+loc(' edges it on Arena Power — dead level on rounds.',' 凭竞技场战力险胜 — 回合数持平。');
+  var top=winCats.slice(0,2).join(loc(' and ','、'));
+  var s=n+loc(' wins — stronger in ','获胜 — 在 ')+top+loc('.','上更强。');
+  if(loseCats.length) s+=loc(' But ',' 不过 ')+esc(lose.name||'?')+loc(' still leads ','在 ')+loseCats.slice(0,1).join('')+loc('.','上领先。');
+  return s;
+}
+function arenaCoach(res,meSide){
+  var opp=meSide==='a'?res.b:res.a, oppN=esc(opp.name||'?'), oSide=meSide==='a'?'b':'a';
+  if(res.winner===meSide){
+    var oppWon=res.rounds.filter(function(r){return r.win===oSide;});
+    if(!oppWon.length) return loc('Flawless — you take every round. Defend the throne.','完胜 — 你赢下每一回合。守住王座。');
+    oppWon.sort(function(x,y){return _arNormMargin(y)-_arNormMargin(x);});
+    return loc('You win — but watch ','你获胜 — 但小心 ')+oppN+loc(': they still lead ','：他们在 ')+_arCatName(oppWon[0].c)+loc('.','上仍领先。');
+  }
+  var lost=res.rounds.filter(function(r){return r.win===oSide&&r.av!=null&&r.bv!=null;});
+  if(!lost.length) return loc('Share more of your stats, or play on, to make the duel fairer.','分享更多数据或继续游玩，让对决更公平。');
+  lost.sort(function(x,y){return _arNormMargin(x)-_arNormMargin(y);});
+  var cl=lost[0], c=cl.c, mv=meSide==='a'?cl.av:cl.bv, ov=meSide==='a'?cl.bv:cl.av;
+  if(c.k==='heroes'){ var d=(ov-mv)+1; return loc('Closest flip: ','最易翻盘：')+'+'+d+loc(d===1?' hero level passes ':' hero levels pass ',' 级最强英雄即可超越 ')+oppN+loc(' in Heroes.',' 的英雄。'); }
+  if(c.k==='runes'){ var d=(ov-mv)+1; return loc('Closest flip: ','最易翻盘：')+'+'+d+loc(' runes leveled passes ',' 个符文升级即可超越 ')+oppN+loc(' in Runes.',' 的符文。'); }
+  if(c.k==='prog'){ var d=ov-mv; return loc('Closest flip: you are ','最易翻盘：你落后 ')+oppN+' '+d+loc(d===1?' stage behind in Progression.':' stages behind in Progression.',' 关。继续深入。'); }
+  var diff=ov-mv;
+  return loc('Closest flip: ','最易翻盘：')+_arCatName(c)+' — '+oppN+loc(' leads by ',' 领先 ')+fmtShort(diff)+loc('.','。');
+}
+// the shared duel scorecard element — used inline AND in the pop-up modal. meSide: 'a' | 'b' | null
+function duelCardEl(res,meSide){
+  var card=el('<div class="duelcard"></div>');
+  var sumPts=res.aPts+res.bPts, aShare=sumPts>0?Math.round(100*res.aPts/sumPts):50, bShare=100-aShare;
+  function fighter(m,side,pow){
+    var t=arenaTier(pow), youTag=(isMeMember(m)?(' '+loc('(you)','（你）')):'');
+    return '<div class="fighter '+(res.winner===side?'win':'')+'">'+(res.winner===side?'<span class="duelcrown">👑</span>':'')+
+      '<div class="fname">'+esc(m.name||'?')+youTag+'</div>'+
+      '<div class="ftier '+t.cl+'">'+arenaTierName(t)+'</div>'+
+      '<div class="fpow">'+pow+' <span>'+loc('PWR','战力')+'</span></div></div>';
+  }
+  card.appendChild(el('<div class="duelhead">'+fighter(res.a,'a',res.aPow)+
+    '<div class="duelvs"><div class="vsbadge">VS</div><div class="duelscore">'+res.aWins+'<span>-</span>'+res.bWins+'</div></div>'+
+    fighter(res.b,'b',res.bPow)+'</div>'));
+  card.appendChild(el('<div class="duelbar" title="'+loc('Round-share: who controls more weighted categories','回合占比：谁掌控更多加权类别')+'"><span class="da" style="width:'+aShare+'%">'+aShare+'%</span><span class="db" style="width:'+bShare+'%">'+bShare+'%</span></div>'));
+  var grid=el('<div class="duelgrid"></div>');
+  res.rounds.forEach(function(r){
+    var aw=r.win==='a'?' win':'', bw=r.win==='b'?' win':'';
+    grid.appendChild(el('<div class="dca'+aw+'">'+(r.win==='a'?'<b>✓</b> ':'')+r.aDisp+'</div>'+
+      '<div class="dck">'+(r.c.ic||'')+' '+_arCatName(r.c)+'</div>'+
+      '<div class="dcb'+bw+'">'+r.bDisp+(r.win==='b'?' <b>✓</b>':'')+'</div>'));
+  });
+  card.appendChild(grid);
+  card.appendChild(el('<div class="duelverdict">⚔ '+arenaVerdict(res)+'</div>'));
+  if(meSide) card.appendChild(el('<div class="duelcoach">🎯 '+arenaCoach(res,meSide)+'</div>'));
+  return card;
+}
+function openArenaDuel(a,b,members){
+  closeCrewMember();
+  var res=arenaDuel(a,b), meSide=isMeMember(a)?'a':(isMeMember(b)?'b':null);
+  var mo=el('<div class="cxmodal" style="width:min(560px,96vw)"></div>');
+  mo.appendChild(el('<button class="cxclose" title="Close (Esc)">×</button>'));
+  mo.appendChild(el('<div class="cxtn">⚔ '+loc('Arena duel','竞技场对决')+'</div>'));
+  mo.appendChild(duelCardEl(res,meSide));
+  if(members&&members.length>2){
+    var others=members.filter(function(m){return m!==a&&m.id!==a.id;});
+    var bar=el('<div class="cmpbar"><span style="font-size:12px;color:var(--text-dim)">'+loc('Duel vs','对战')+'</span></div>');
+    bar.appendChild(cxSelect(others.map(function(m){return [m.id,m.name+(isMeMember(m)?loc(' (you)','（你）'):'')];}),b.id,function(v){ var nb=null; others.forEach(function(m){if(m.id===v)nb=m;}); if(nb)openArenaDuel(a,nb,members); }));
+    mo.appendChild(bar);
+  }
+  mo.appendChild(el('<div class="cxnote" style="margin-top:12px">'+loc('Built only from each player\'s opt-in brag-stats — never the save, never live game memory. Ban-safe by construction.','仅由玩家自愿分享的炫耀数据构建 — 不含存档，不读取游戏内存。设计上即封号安全。')+'</div>'));
+  var ov=el('<div class="cxmodal-ov"></div>'); ov.appendChild(mo); document.body.appendChild(ov);
+  function onKey(ev){ if(ev.key==='Escape')closeCrewMember(); }
+  ov.addEventListener('click',function(ev){ if(ev.target===ov)closeCrewMember(); });
+  mo.querySelector('.cxclose').addEventListener('click',closeCrewMember);
+  document.addEventListener('keydown',onKey);
+  _cmModal={ov:ov,onKey:onKey};
+}
+function renderCrewArena(p,members){
+  var elig=(members||[]).filter(function(m){return m&&m.stats;});
+  if(elig.length<2) return;   // need at least two fighters to have a PvP
+  var wrap=el('<div class="arena"></div>');
+  wrap.appendChild(el('<div class="arenahead"><span class="arenatitle">⚔ '+loc('Crew Arena','战队竞技场')+'</span><span class="tag">'+loc('head-to-head from shared stats · ban-safe','基于分享数据的对决 · 封号安全')+'</span></div>'));
+  var ladder=arenaLadder(elig);
+  var lad=el('<div class="arenaladder"></div>');
+  lad.appendChild(el('<div class="alrow alhead"><span>#</span><span>'+loc('Fighter','战士')+'</span><span>'+loc('Tier','段位')+'</span><span>'+loc('W–L','胜负')+'</span><span>'+loc('Win%','胜率')+'</span><span>'+loc('Power','战力')+'</span></div>'));
+  ladder.forEach(function(e,i){
+    var isMe=isMeMember(e.m), tot=e.w+e.l, wr=tot?Math.round(100*e.w/tot):0;
+    lad.appendChild(el('<div class="alrow'+(isMe?' me':'')+'"><span class="alrank">'+(i===0?'🏆':'#'+(i+1))+'</span>'+
+      '<span class="alname">'+esc(e.m.name||'?')+(isMe?' '+loc('(you)','（你）'):'')+'</span>'+
+      '<span class="altier '+e.tier.cl+'">'+arenaTierName(e.tier)+'</span>'+
+      '<span class="alwl">'+e.w+'–'+e.l+'</span><span class="alwr">'+wr+'%</span><span class="alpow">'+e.pow+'</span></div>'));
+  });
+  wrap.appendChild(lad);
+  // featured duel: me vs (rival || nearest ladder neighbour); if I am not sharing, the top-two clash
+  var me=elig.filter(isMeMember)[0], opp=null, a=null,b=null;
+  if(me){
+    if(crewCfg.rivalId) elig.forEach(function(m){ if(m.id===crewCfg.rivalId&&!isMeMember(m))opp=m; });
+    if(!opp){ var idx=-1; ladder.forEach(function(e,i){ if(e.m===me)idx=i; }); if(idx>=0){ var nb=(idx>0?ladder[idx-1]:ladder[idx+1]); if(nb)opp=nb.m; } }  // the rival to chase = the player just above you (or just below, if you are #1)
+    a=me; b=opp;
+  } else if(ladder.length>=2){ a=ladder[0].m; b=ladder[1].m; }
+  if(a&&b){
+    var feat=el('<div class="arenafeat"></div>');
+    var fbar=el('<div class="arenafeatbar"><span class="arenasub">🎯 '+(me?loc('Your duel','你的对决'):loc('Top duel','巅峰对决'))+'</span></div>');
+    if(me){
+      var foes=elig.filter(function(m){return !isMeMember(m);});
+      fbar.appendChild(cxSelect([['',loc('— auto: nearest rival —','— 自动：最近对手 —')]].concat(foes.map(function(m){return [m.id,m.name];})),(crewCfg.rivalId||''),function(v){ crewCfg.rivalId=v||null; crewSave(); renderCrew(current); }));
+    }
+    feat.appendChild(fbar);
+    feat.appendChild(duelCardEl(arenaDuel(a,b), me?(a===me?'a':'b'):null));
+    wrap.appendChild(feat);
+  }
+  // matchup matrix (compact) — who beats whom across the whole crew
+  if(elig.length>=3&&elig.length<=8){
+    var mtx=el('<div class="arenamtx"></div>');
+    mtx.appendChild(el('<div class="amxhead">'+loc('Who beats whom','谁胜谁')+'</div>'));
+    var tbl=el('<div class="amxgrid" style="grid-template-columns:minmax(64px,1.4fr) repeat('+elig.length+',1fr)"></div>');
+    tbl.appendChild(el('<span class="amxc amxcorner"></span>'));
+    elig.forEach(function(m,j){ tbl.appendChild(el('<span class="amxc amxch" title="'+esc(m.name||'')+'">'+(j+1)+'</span>')); });
+    elig.forEach(function(m,i){
+      tbl.appendChild(el('<span class="amxc amxrh'+(isMeMember(m)?' me':'')+'" title="'+esc(m.name||'')+'">'+(i+1)+'. '+esc((m.name||'?').slice(0,9))+'</span>'));
+      elig.forEach(function(o,j){
+        if(i===j){ tbl.appendChild(el('<span class="amxc amxself">·</span>')); return; }
+        var win=arenaDuel(m,o).winner==='a';
+        tbl.appendChild(el('<span class="amxc '+(win?'amxw':'amxl')+'" title="'+esc(m.name||'')+' '+(win?'beats':'loses to')+' '+esc(o.name||'')+'">'+(win?'✓':'✗')+'</span>'));
+      });
+    });
+    mtx.appendChild(tbl);
+    mtx.appendChild(el('<div class="amxlegend">'+loc('Row vs column: ','行 对 列：')+'<span class="amxw">✓</span> '+loc('row wins','行胜')+' · <span class="amxl">✗</span> '+loc('row loses','行负')+'</div>'));
+    wrap.appendChild(mtx);
+  }
+  p.appendChild(wrap);
 }
 function renderCrewHead(p,members){
   var online=members.filter(crewFresh).length;
@@ -4010,7 +4304,7 @@ function renderCrew(d){
   if(!d&&!demoMode) p.appendChild(el('<div class="hint" style="margin-top:10px">Connect your save to share your own stats — you can watch a crew without connecting.</div>'));
 
   // ---- the board ----
-  var members=demoMode?demoCrewBoard():(_crewBoard||[]);
+  var members=dedupeBoard(demoMode?demoCrewBoard():(_crewBoard||[]));   // v1.0.28 — fold duplicate rows of the same person
   if(joined||demoMode){
     var bar=el('<div class="cxbar" style="margin-top:18px"></div>');
     bar.appendChild(el('<span style="font-size:12px;color:var(--text-dim)">Rank by</span>'));
@@ -4030,8 +4324,10 @@ function renderCrew(d){
     } else {
       var key=crewCfg.rankBy;
       var sorted=members.slice().sort(function(a,b){return (crewRankVal(b.stats,key)||0)-(crewRankVal(a.stats,key)||0);});
-      var meVal=null; sorted.forEach(function(m2){ if(m2.id===crewCfg.id) meVal=crewRankVal(m2.stats,key); });
-      renderCrewHead(p,sorted); renderCrewRecords(p,sorted); renderCrewRival(p,sorted);
+      var meVal=null; sorted.forEach(function(m2){ if(isMeMember(m2)) meVal=crewRankVal(m2.stats,key); });
+      renderCrewHead(p,sorted); renderCrewRecords(p,sorted);
+      if(_crewMerged>0&&!demoMode) p.appendChild(el('<div class="crewnote" style="margin-top:8px">🧹 '+loc('Merged ','合并了 ')+_crewMerged+loc(_crewMerged===1?' duplicate row':' duplicate rows',' 个重复行')+loc(' of the same person (matched by display name). They clear from the server permanently on that member’s next update.','（按显示名匹配）。该成员下次更新时将从服务器永久清除。')+'</div>'));
+      renderCrewArena(p,sorted); renderCrewRival(p,sorted);
       var panel=el('<div class="panel"></div>');
       sorted.forEach(function(m2,i){
         var st=m2.stats||{}, isMe=isMeMember(m2);
@@ -4427,7 +4723,7 @@ function openCodexDetail(e,owned){
 function closeCodexDetail(){if(!_cxModal)return;document.removeEventListener('keydown',_cxModal.onKey);if(_cxModal.ov.parentNode)_cxModal.ov.parentNode.removeChild(_cxModal.ov);_cxModal=null;}
 
 /* ---------- tab switching ---------- */
-var TABS=['overview','party','inventory','loot','runes','advisor','lifetime','trends','crew','codex','tips'];
+var TABS=['overview','live','party','inventory','loot','runes','advisor','lifetime','trends','crew','codex','tips'];
 function showConnectHint(name){var p=$('tab-'+name);if(!p)return;
   var nice={overview:'your overview',party:'your heroes',inventory:'your inventory',loot:'your loot timeline',runes:'your rune tree',advisor:'your build advisor',lifetime:'your lifetime stats',trends:'your history & trends'};
   p.innerHTML='<div class="connect-hint">'+
@@ -4448,9 +4744,11 @@ function setTab(name){
   else if(name==='tips')renderTips(null);   // game tips apply with no save; suggestions show a connect prompt
   else if(name==='crew'){renderCrew(null);crewRefresh(true);}   // watching a crew board needs no save
   else showConnectHint(name);
+  if(name==='live'&&current)liveStartTick(); else liveStopTick();   // the 1Hz live ticker only runs while the Live tab is open
 }
 function renderTab(name,d){
   if(name==='overview')renderOverview(d);
+  else if(name==='live')renderLive(d);
   else if(name==='party')renderParty(d);
   else if(name==='inventory')renderInventory(d);
   else if(name==='loot')renderLoot(d);
@@ -4462,11 +4760,76 @@ function renderTab(name,d){
   else if(name==='codex')renderCodex(d);
   else if(name==='tips')renderTips(d);
 }
+/* ===================== LIVE — ban-safe live-stat lane (v1.0.28) ==============================================
+   The closest ban-safe analog to a DPS meter: a 1 Hz session scoreboard + a real-time loot ticker, derived ONLY
+   from the two files the game already writes (the .es3 save + Player.log) — the same read-only sources the rest of
+   the HUD uses. No game memory is read, so there is no live DPS; but every number is REAL, and it ticks live
+   between save writes from the player's OWN measured pace (clearly labelled "projected"). */
+var _liveTimer=null;
+function liveStartTick(){ if(_liveTimer)return; _liveTimer=setInterval(liveTick,1000); }
+function liveStopTick(){ if(_liveTimer){clearInterval(_liveTimer);_liveTimer=null;} }
+function liveDur(ms){ ms=Math.max(0,ms); var s=Math.floor(ms/1000),h=Math.floor(s/3600),mm=Math.floor((s%3600)/60),ss=s%60; function z(n){return (n<10?'0':'')+n;} return h>0?(h+':'+z(mm)+':'+z(ss)):(z(mm)+':'+z(ss)); }
+function liveMetrics(d){
+  ensureSession(d);
+  var now=Date.now(), earnedNow=(d.lifeGold!=null?d.lifeGold:d.gold);
+  var elapsedMs=session?(now-session.t0):0, hrs=elapsedMs/3600000;
+  var sg=(session&&earnedNow!=null&&session.earned0!=null)?(earnedNow-session.earned0):null;
+  var sk=(session&&d.kills!=null&&session.kills0!=null)?(d.kills-session.kills0):null;
+  return {now:now,elapsedMs:elapsedMs,sg:sg,sk:sk,
+    gph:(hrs>=0.0167&&sg!=null&&sg>=0)?Math.round(sg/hrs):null,
+    kph:(hrs>=0.0167&&sk!=null&&sk>=0)?Math.round(sk/hrs):null};
+}
+function renderLive(d){
+  var p=$('tab-live'); p.innerHTML=''; ensureSession(d);
+  p.appendChild(el('<h3 class="sec">'+loc('Live','实时')+' <span class="tag">'+loc('measured live from your save + Player.log · ban-safe (no game memory)','实时读取你的存档 + Player.log · 封号安全（不读游戏内存）')+'</span></h3>'));
+  var m=liveMetrics(d);
+  var grid=el('<div class="livegrid"></div>');
+  function card(id,label,val,sub){ return '<div class="livecard"><div class="livelbl">'+label+'</div><div class="liveval" id="'+id+'">'+val+'</div>'+(sub?('<div class="livesub" id="'+id+'sub">'+sub+'</div>'):'')+'</div>'; }
+  grid.appendChild(el(card('liveElapsed',loc('Session time','本次在线'),liveDur(m.elapsedMs),loc('since the HUD opened','自打开 HUD 起'))));
+  grid.appendChild(el(card('liveGold',loc('Gold this session','本次金币'), m.sg!=null?('+'+fmt(m.sg)):'—', m.gph!=null?('<span class="livehot">📈 '+fmtShort(m.gph)+'/h</span>'):loc('measuring…','测量中…'))));
+  grid.appendChild(el(card('liveKills',loc('Kills this session','本次击杀'), m.sk!=null?('+'+fmt(m.sk)):'—', m.kph!=null?('💀 '+fmtShort(m.kph)+'/h'):loc('measuring…','测量中…'))));
+  grid.appendChild(el(card('liveStage',loc('Current stage','当前关卡'), esc(stageActLabel(d.stage)), (stageName(d.stage)?esc(stageName(d.stage)):'')+(d.wave?(' · '+loc('wave ','波次 ')+d.wave):''))));
+  p.appendChild(grid);
+  if(lastSaveFileMs&&m.gph!=null){
+    p.appendChild(el('<div class="liveproj"><span class="livepulse" aria-hidden="true"></span>'+loc('Since your last save write ','自上次存档写入 ')+'(<span id="liveSavedAgo">'+fmtAgo(lastSaveFileMs)+'</span>): <b id="liveProj">+0</b> '+loc('gold projected','金币（推算）')+' <span class="livesub2">— '+loc('at your measured pace; confirms on the next save write','按测量速度推算；下次写入时确认')+'</span></div>'));
+  }
+  var plan=runePlanD((d.runes&&d.runes.list)||[],d.gold||0);
+  if(plan.steps&&plan.steps.length){ var s0=plan.steps[0];
+    p.appendChild(el('<div class="livenext">🔮 '+loc('Next rune you can afford','下一个可升级符文')+': <b>'+esc(s0.name)+'</b> → Lv '+s0.to+' <span class="livesub2">('+fmt(s0.cost)+' '+loc('gold','金币')+')</span></div>')); }
+  var sec=el('<div style="margin-top:20px"></div>');
+  sec.appendChild(el('<h3 class="sec">'+loc('Live loot','实时掉落')+' <span class="tag">'+loc('newest first · from your own loot timeline','最新在前 · 来自你的掉落记录')+'</span></h3>'));
+  if(!lootLog.length){ sec.appendChild(el('<div class="empty">'+loc('No drops recorded yet this session. New items appear the moment your save records them.','本次尚无掉落记录。新物品会在存档记录时立即出现。')+'</div>')); }
+  else {
+    var list=el('<div class="liveloot"></div>');
+    lootLog.slice(0,10).forEach(function(l){
+      var it=DB.items[String(l.key)]||{}, nmEn=l.name||it.n||('#'+l.key), nm=(LANG==='zh')?((ZG.game&&ZG.game[nmEn])||nmEn):nmEn;
+      var ic=l.icon?('<img class="lootic" src="'+SPRITE+esc(l.icon)+'.png" alt="" onerror="this.style.display=\'none\'">'):'';
+      list.appendChild(el('<div class="lootrow'+(isRareDrop(l)?' rare':'')+'">'+ic+'<span class="lootnm" style="color:'+rvar(l.grade)+'">'+esc(nm)+'</span><span class="lootmeta">'+(l.gt?esc(cap(l.gt)):'')+(l.src?(' · '+esc(String(l.src))):'')+'</span><span class="lootago" data-t="'+l.t+'">'+fmtAgo(l.t)+'</span></div>'));
+    });
+    sec.appendChild(list);
+  }
+  p.appendChild(sec);
+  p.appendChild(el('<div class="crewnote" style="margin-top:14px">'+loc('Everything here is read from your own save file and Player.log — the same read-only sources the rest of the HUD uses. No game memory is read or written, so there is no live DPS or clear-time (those would require touching the game), but every number above is real and updates as you play.','以上全部来自你自己的存档与 Player.log — 与 HUD 其余部分相同的只读来源。不读写游戏内存，因此没有实时 DPS（那需要触碰游戏），但以上数字均为真实并随游戏更新。')+'</div>'));
+  liveTick();   // prime the ticking values right away
+}
+// 1 Hz updater — patches ONLY the live text nodes (no re-render, so DOM + scroll stay put)
+function liveTick(){
+  if(activeTab!=='live'||!current){ liveStopTick(); return; }
+  var d=current, now=Date.now(), m=liveMetrics(d);
+  var setTxt=function(id,txt){ var e2=document.getElementById(id); if(e2!=null&&txt!=null)e2.textContent=txt; };
+  setTxt('liveElapsed',liveDur(m.elapsedMs));
+  if(lastSaveFileMs&&m.gph!=null){
+    var since=(now-lastSaveFileMs)/3600000, proj=Math.max(0,Math.round(m.gph*since));
+    setTxt('liveProj','+'+fmt(proj)); setTxt('liveSavedAgo',fmtAgo(lastSaveFileMs));
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#tab-live .lootago'),function(s){ var t=+s.getAttribute('data-t'); if(t)s.textContent=fmtAgo(t); });
+}
 var _cxResizeT=null;
 addEventListener('resize',function(){if(activeTab!=='codex'||!CX)return;clearTimeout(_cxResizeT);_cxResizeT=setTimeout(codexLayout,120);});
 
 function render(d){
   current=d;
+  refreshGtEmap(d.owned);   // v1.0.28 — derive the enchant gt->category map from this save's own applied enchants
   $('gate').classList.add('hidden');
   $('tabs').classList.remove('hidden');
   // labeled "game v…" so it can't be confused with the HUD's own version (shown in the footer as "app v…")
@@ -4526,6 +4889,7 @@ function setConnectedUI(connected){
 function disconnect(){
   if(timer){clearInterval(timer);timer=null;}
   if(dirTimer){clearInterval(dirTimer);dirTimer=null;}
+  liveStopTick();
   forgetHandles();   // clear the persisted handle so a later refresh doesn't silently re-attach this save
   handle=null;dirHandle=null;lastMod=0;liveMod=0;scanTick=0;lastSaveFileMs=null;
   current=null;session=null;trends=[];backupPts=[];demoMode=false;demoTrendPts=[];

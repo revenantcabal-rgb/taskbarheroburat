@@ -1,6 +1,105 @@
 # TBH HUD — improvement.log
-Updated 2026-06-13 (session 28 · app v1.0.27). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-13 (session 29 · app v1.0.28). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S29c (v1.0.28) — the "8.5 -> 9/10" push: 3 pillars (owner-requested after a quality rating)
+Asked to close the three gaps that capped the HUD's quality score. All shipped + verified (24 committed tests, 0
+console errors, verify_save EXIT 0). nothing touches the game; all read-only.
+PILLAR 1 — provably ban-safe LIVE-STAT LANE (new 12th tab "Live"): a 1 Hz session scoreboard (session gold +
+measured gold/hr, kills/hr, current stage, a live elapsed clock) + a real-time loot ticker (newest lootLog drops
+with ticking relative times) + a "projected since last save write" gold counter (honest: gph x time-since-save,
+labelled). renderLive/liveTick/liveMetrics/liveStartTick-StopTick; ticker runs ONLY while the Live tab is open
+(setTab start/stop + disconnect stop). Derived ONLY from the .es3 save + Player.log (the same read-only sources) —
+no game memory, so no live DPS (stated plainly). i18n (本次在线…), demo-aware, 0 errors. Closes the telemetry gap
+without the ban risk that deferred Phase-4 memory telemetry.
+PILLAR 2 — MODULARIZE + real CI test runner. Extracted the FIRST module out of the 407 KB monolith:
+src/engine/crewEngine.js (UMD, dependency-free) = identity hash + dedupeBoard + the Arena math (power/tier/duel/
+ladder). Loads via <script src> on file://+Pages AND require() in Node. Dashboard rewired through a thin adapter
+(rendering untouched, behaviour-identical — verified). The API keeps its own hash copy (no serverless cross-dir
+require risk); a test ENFORCES client===server parity. Promoted the gitignored guards into a committed tests/ suite
+on Node's built-in runner (node:test): crewEngine / lib / saveEngine / enchantCalibration / bansafety / reconcile =
+24 tests; `npm test` = `node --test "tests/**/*.test.js"`; .github/workflows/ci.yml runs it on every push/PR
+(ubuntu, node 20, installs only @neondatabase/serverless). The ban-safety guard + reconcile e2e are now CI gates,
+not local scripts.
+PILLAR 3 — CALIBRATION backlog, done the golden-rule way. Instead of statically guessing the enchant gt->category
+for gloves/boots/rings/etc. (raw StatModGroupInfoData/GearTypeInfoData aren't in-repo — needs the game install), the
+engine now DERIVES the category EMPIRICALLY from the player's OWN applied enchants: each applied enchant's rolled
+stat equals exactly one of its stone's per-category fx entries (the game's deterministic table), so the matching
+category IS the gear type's category. gtGroupFromEnchants(psd) (saveEngine) + gtGroupFromEnchantsD(owned) + _gtEmap
+consulted first in gtGroupD (dashboard), refreshed each render(d). On the owner's save it derives CROSSBOW/STAFF=
+WEAPON, ARMOR/HELMET=ARMOR (4 types, all AGREE with the static baseline, 0 contradictions — asserted in verify_save +
+a synthetic CI test). No NEW static entries (he's only enchanted already-calibrated types) — but the "category
+unknown" asterisk now drops AUTOMATICALLY the moment ANY player (owner or friend) enchants a new type. Honest
+boundary stated: types with no applied enchant still make no claim.
+VERIFIED: npm test 24/24; verify_save EXIT 0; ban-safety guard 4/4 (now scans crewEngine.js + the Live tab too);
+in ?demo all 12 tabs render in light+dark+EN+简体中文 with 0 console errors; Live ticker advances + stops on tab-leave;
+crew/Arena behaviour-identical post-extraction; What's-new modal shows the v1.0.28 Live/calibration/Changed entries.
+
+
+## S29 (v1.0.28) — Crew dup-row bug fixed SERVER-side + Crew Arena PvP (owner-requested)
+BUG (owner): the SAME friend kept showing as several crew rows, "especially when they were away then got back" / on a
+different PC. ROOT CAUSE (beyond S28): the client minted member_id and the server stored it VERBATIM, never reconciling
+two rows that are obviously one person. v1.0.27's deterministic hash only helped v1.0.27+ clients; any straggler (old
+random-UUID build, a 2nd PC, a reinstall, a name re-typed with different case/spacing) still spawned a fresh row, and
+the owner cannot force friends to update — so a client-only scheme can never converge. Also discovered the v1.0.27 key
+separator was a literal  (SOH) control char (the ONLY ctrl char in dashboard.html; invisible to Read/Grep, found by
+node hexdump), not the "|" prior notes claimed.
+FIX — server is now the identity authority:
+- api/_lib.js: normName() (NFKC+trim+lower+collapse-ws) + canonMemberId(name)='cm_'+_crewHash(utf8 bytes of normName),
+  a byte-for-byte mirror of the client _crewHash (FNV-1a pair). Parity proven in Node (ASCII/case/space/unicode/emoji).
+- api/progress.js: computes the canonical id ITSELF (ignores the client's), and on each push FOLDS every other row in the
+  crew whose name normalizes the same — re-points their history+events to the canon id, deletes the dup member rows —
+  BEFORE upserting. All strays collapse into one the instant the member pushes again ("got back in"), for ANY client
+  version. Rate-limit bucket re-keyed to the canon id. Returns {id, merged}. **NEEDS a tbh-crew-api REDEPLOY** (manual,
+  scope fusiondatacompany-projects) — left to the owner (outward-facing; changes the shared prod DB behavior).
+- dashboard.html: crewMemberId is now NAME-ONLY (crew code already partitions the table) + byte-identical to the server;
+  isMeMember also matches by normalized name (so "me" detection survives the pre-redeploy window when the server still
+  returns an old id); NEW dedupeBoard() collapses same-normName rows client-side (keeps freshest, carries momentum/
+  spark/achievement) for INSTANT relief before the redeploy, with a "🧹 Merged N duplicate rows" note (gated !demoMode).
+ARENA — Crew PvP (the owner's "enable PVP, show why they win/lose, surprise me"): ban-safe by construction — built ONLY
+from the opt-in brag-stats already on the board (no game memory, NO new shared field, no API change). Each member gets
+an Arena Power (0..9999, log-scaled weighted blend) + tier (Bronze→Cosmic). arenaDuel() scores two players across
+weighted categories (Progression 1.4 / Wealth / Combat / Heroes 1.1 / Runes / Arsenal 1.2 + a 0.6 Momentum bonus round);
+arenaVerdict() says WHY ("X wins — stronger in A and B. But Y still leads C."); arenaCoach() gives the closest flip
+("+6 runes leveled passes them in Runes"). renderCrewArena draws a round-robin W–L ladder (arenaLadder), a featured
+"your duel" card (vs your rival or the player just above you on the ladder; reuses crewCfg.rivalId), and a who-beats-whom
+matrix; a ⚔ Arena duel button in the member pop-up opens openArenaDuel() (modal scorecard). i18n (loc en/zh),
+theme-tokened, demo-aware. VERIFIED in ?demo: ladder/featured/matrix/pop-up→modal all render in light+dark+EN+简体中文,
+dedupeBoard collapses a simulated 3-way "Burat" duplicate to one (freshest kept, momentum carried), isMeMember matches
+by name in the non-demo path, 0 console errors. Renderer + API only; saveEngine untouched; nothing touches the game.
+SHIP: push → Pages + owner's Vercel auto-deploy the client; then redeploy tbh-crew-api for the server-side fold (until
+then dedupeBoard hides the dups client-side). Version bumped 1.0.27→1.0.28 (package.json, APP_VERSION, ?v= on
+gamedata.min.js + i18n_zh.min.js, CHANGELOG const + CHANGELOG.md).
+QA PASS (S29, microscopic): (1) wrote test/_reconcile_test.js — runs the REAL api/progress.js against an in-memory Neon
+stub through the exact "3 duplicates + away-then-back" scenario: 14/14 assertions (collapses 3→1, folds history onto
+the canon id, no spurious "Joined", repeated case/space pushes stay 1 row & merged:0, other names stay separate).
+(2) Hardened the server fold: replaced `member_id = ANY(${arr})` (no array-param precedent in this codebase / driver-
+dependent) with per-id loops; milestone baseline is now the FRESHEST snapshot among canon+dupes (was canon-only),
+so a fold can't re-fire a milestone. (3) FOUND + FIXED a PRE-EXISTING data-honesty bug unrelated to crew: runePlan/
+runePlanD computed the "save for" target (cheapestNext) as the globally cheapest next rune WITHOUT an affordability
+check — so when the 12-step list is capped with gold left over, it mislabeled an AFFORDABLE rune as a save-for goal
+(verify_save asserted this and was FAILING). Fix in BOTH engines: cheapestNext only considers steps costing > the
+leftover budget (null when all remaining are affordable). verify_save.js now EXITS 0. (4) Removed dead code:
+deriveAchievement in api/_lib.js became unused when progress.js inlined the achievement (grep-confirmed no refs;
+removed fn + export). (5) Updated the stale v1.0.27 "_crewHash = code+name" comment to the v1.0.28 name-only reality.
+VERIFIED green: all 6 api modules load; reconcile 14/14; hash parity client===server (ASCII/case/space/unicode/emoji);
+verify_save exit 0; in ?demo all 11 tabs render with 0 console errors/warnings, Arena (ladder/featured/matrix/pop-up→
+modal) works in light+dark+EN+简体中文 with a clean en→zh→en cycle, and arena edge cases (empty/partial stats, identical
+fighters via power tiebreak, 2-member no-matrix, 1-member skip) produce finite scores with no NaN/throw.
+BAN-SAFETY AUDIT (S29, owner asked "is this bannable?"): grounded in the forensic ban model (game detectors are
+in-process CodeStage ACTk Speed/Time/Memory/Inject + rule thresholds on the player's own save; documented real risk =
+"never attach/inject"; Save_Tampered punishes save writes). EVIDENCE on the v1.0.28 diff: (a) the game SAVE_FILE is
+only ever fs.readFile/stat/watch'd — the lone fs.writeFileSync writes the mini-HUD's OWN userData, never the .es3;
+(b) ZERO process-memory/injection APIs anywhere in src/ (memory telemetry was always deferred as not-ban-safe);
+(c) all 8 renderer fetch() calls go to CREW_API (a separate Vercel server) — never the game's Google Apps Script
+pipes; (d) the Arena added NO new shared field (crewStats payload unchanged — it's derived CLIENT-SIDE from data
+already on the board, never sent). VERDICT: v1.0.28 is NOT bannable; it preserves the read-only / no-game-contact
+posture. BETTER APPROACH: codified it as an enforced invariant — test/_bansafety_guard.js (28 assertions, + a 7-check
+meta-test proving the detectors actually fire on known-bad input): no mem/inject APIs, no save writes, browser opens no
+writable handle, crew-only network, no script.google.com, and it EXECUTES the real cleanStats against an adversarial
+payload smuggling steamId/authTicket/raw save/password/inventory → proves the server whitelist drops everything but the
+15 calibrated brag-stat keys. So ban-safety is now a re-runnable gate, not a promise. (Guard lives in test/, gitignored
+like the other test scripts; move to scripts/ to make it a permanent CI gate.)
 
 ## S28 (v1.0.27) — Portable crew identity + kick + 48h auto-prune + Advisor "next move" (owner-requested)
 ROOT CAUSE of "a friend played from a different PC and vanished from the crew": crew identity (crewCfg.id) was a
