@@ -6,7 +6,14 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-12, after session 24 (v1.0.20 → v1.0.23). **v1.0.23 — i18n EN-restore fix: switching back
+_Last updated: 2026-06-13, after session 28 (v1.0.27). **v1.0.27 — portable crew identity + crew management +
+Advisor next-move:** the crew member id is now a deterministic hash of (crew code + display name) instead of a
+random per-browser UUID, so a friend who opens the HUD on a different PC and re-enters the same code + name
+returns to their exact row (the fix for "he disappeared from the crew"); each non-me crew row gains a ✕ kick
+(POST /prune Mode A, crew-code-gated) and rows idle >48h are auto-pruned (api/prune.js stale floor lowered 7→2
+days — needs a tbh-crew-api redeploy); the Advisor gained a "Your next move" focus card that walks one action at
+a time (gear > rune > enchant) with ✓ Done / Skip / ↻ Refresh. Verified in ?demo, 0 console errors; saveEngine
+untouched. v1.0.23 — i18n EN-restore fix: switching back
 to English left the header/tabs/connect-screen in Chinese because the restore step skipped no-Latin nodes (= every
 pure-Chinese label); the chrome is never re-rendered so it stuck. The Latin fast-skip now applies only while
 translating. v1.0.22 — desktop mini-HUD packaging fix:

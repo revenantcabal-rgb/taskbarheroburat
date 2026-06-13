@@ -1,6 +1,26 @@
 # TBH HUD — improvement.log
-Updated 2026-06-13 (session 27 · app v1.0.26). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-13 (session 28 · app v1.0.27). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S28 (v1.0.27) — Portable crew identity + kick + 48h auto-prune + Advisor "next move" (owner-requested)
+ROOT CAUSE of "a friend played from a different PC and vanished from the crew": crew identity (crewCfg.id) was a
+RANDOM per-browser UUID in localStorage — a new machine minted a new id, stranding the old row (the save engine carries
+no stable Steam/player id to anchor to). FIX: identity is now DETERMINISTIC = 'cm_'+hash(crewCode|lower(name)) (two
+interleaved FNV-1a streams → ~13-char base36). Re-entering the same crew code + same display name on ANY PC returns to
+the same row. Trade-offs (documented in-UI): names must be unique within a crew, renaming starts a fresh row, and every
+existing member's row resets ONCE on their next push (old rows swept by the new 48h auto-prune). crewId() recomputes
+from current code+name; renderCrew calls it before any isMeMember() check. KICK: each non-me crew row gets a ✕ Remove
+button (crew-code-gated — same /prune Mode A as "Remove my data", just a different memberId; confirm()-guarded,
+stopPropagation so it doesn't open the pop-up). A still-sharing member reappears on next push → ideal for ghosts.
+AUTO-PRUNE 48h: crewAutoPrune() opportunistically POSTs /prune Mode B {olderThanDays:2} when a >48h-idle row is visible,
+debounced once/30min per device via localStorage 'tbh_crew_prune_at'; chained into crewRefresh, which re-pulls the board
+if anything was removed. SERVER CHANGE: api/prune.js MIN_STALE_DAYS 7→2 (the 48h floor) — REQUIRES a tbh-crew-api
+REDEPLOY (not done here). ADVISOR "Your next move": a focus card atop the Advisor walks one action at a time — gear
+upgrade > rune step > enchant (advTips() built from the same save-derived ready/plan/es/stones). ✓ Done & next (persisted
+in localStorage 'tbh_adv_done'), Skip (session-only _advSkip), ↻ Refresh (forceRefresh re-reads the save so a followed
+tip drops out on its own); "Up next" preview + caught-up state + Reset. Verified in browser (?demo): focus card renders,
+Done advances (Crossbow→Staff, 22→21), caught-up + reset + up-next all render, crew tab + deterministic id (case/space-
+insensitive, unique per name), 0 console errors. All renderer/API only; saveEngine untouched; nothing touches the game.
 
 ## S27 (v1.0.26) — Crew rows: rare-drops showcase + full zh i18n + dead-code cleanup (owner-requested)
 The crew row's stat-list preview was redundant (full Stat List is already in the ⤢ pop-up), so it now showcases each

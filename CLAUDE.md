@@ -213,6 +213,24 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S28 (v1.0.27)** — **Portable crew identity + kick + 48h auto-prune + Advisor "next move" (owner-requested).**
+  ROOT CAUSE of "a friend played from a different PC and vanished from the crew": `crewCfg.id` was a RANDOM per-browser
+  UUID — a new machine minted a new id, stranding the old row (the save engine carries no stable Steam/player id to
+  anchor to). FIX: identity is now DETERMINISTIC = `'cm_'+hash(crewCode|lower(name))` (two interleaved FNV-1a streams);
+  same code + same display name on ANY PC returns to the same row. `crewId()` recomputes from current code+name and
+  `renderCrew` syncs it before any `isMeMember()` check. Trade-offs (documented in-UI): names unique within a crew,
+  renaming starts a fresh row, and every pre-v1.0.27 member's row resets ONCE on next push (old rows swept by the new
+  prune). **Kick:** each non-me crew row has a ✕ Remove button (`crewKick` → `/prune` Mode A, crew-code-gated, confirm()-
+  guarded, stopPropagation); a still-sharing member reappears on next push (good for ghosts). **48h auto-prune:**
+  `crewAutoPrune` POSTs `/prune` Mode B `{olderThanDays:2}` when a >48h-idle row is visible, debounced once/30min per
+  device via `localStorage['tbh_crew_prune_at']`; chained into `crewRefresh` (re-pulls the board if anything was removed).
+  **Server:** `api/prune.js` `MIN_STALE_DAYS` 7→2 (the 48h floor) — REQUIRES a tbh-crew-api redeploy. **Advisor "Your next
+  move":** a focus card atop the Advisor walks one action at a time (gear > rune > enchant; `advTips()` from the same
+  save-derived ready/plan/es/stones). ✓ Done & next (persisted `localStorage['tbh_adv_done']`), Skip (session `_advSkip`),
+  ↻ Refresh (`forceRefresh()` re-reads the save so a followed tip drops out); Up-next preview + caught-up + Reset.
+  Verified in-browser (?demo): focus card renders, Done advances (Crossbow→Staff, 22→21), caught-up/reset/up-next render,
+  crew tab + deterministic id (case/space-insensitive, unique per name), 0 console errors. Renderer/API only; saveEngine
+  untouched; nothing touches the game. See [[tbh-crew-identity-scheme]].
 - **S27 (v1.0.26)** — **Crew rows: rare-drops showcase + full zh i18n + dead-code cleanup (owner-requested).** Replaced the
   row's stat-list PREVIEW (redundant — the full Stat List is in the ⤢ pop-up) with each member's **last 3 rare drops**:
   Immortal+ gear OR Soulstones (keys 190001-4), each with the dropper's OWN local clock. Read from the player's `lootLog`
@@ -453,13 +471,13 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
    `mini.html`'s own labels (it already gets the localized stage label over IPC). Pattern + data: [[tbh-i18n-language-switch]].
    Also: the band difficulty map ([[tbh-stage-difficulty-decode]]) is corroborated but NOT save-verified past Normal —
    confirm the exact Nightmare key on the owner's first Nightmare clear.
-1. **v1.0.23 is SHIPPED everywhere — difficulty-labeled stages (v1.0.20) + the English/简体中文 language switch (v1.0.21) + the mini-HUD packaging fix (v1.0.22) + the i18n EN-restore fix (v1.0.23)** — desktop release (installer +
+1. **v1.0.27 is SHIPPED everywhere — portable crew identity (code+name) + ✕ kick + 48h auto-prune + Advisor "next move" (S28)** — desktop release (installer +
    latest.yml; **no blockmap since v1.0.15** — differential updates disabled for speed; auto-update WORKS from
    v1.0.6 on — older installs need one manual reinstall, see S13c), GitHub Pages on push, the owner's Vercel
    project (`mathew-mercado-s-projects/taskbarheroburat`) auto-deploys from the repo, and the **crew API is live**
    at `https://tbh-crew-api.vercel.app/api` (Vercel project `tbh-crew-api` — scope noted in `OPS-PRIVATE.local.md`,
    gitignored; Neon Postgres; DATABASE_URL in Vercel env only; redeploy it ONLY when api/* changes — last redeploy
-   S23 with rate limiting + prune + enchant-report). To ship the NEXT version: bump `package.json` + `APP_VERSION`
+   S28 lowered the stale-prune floor 7→2 days for the 48h auto-remove). To ship the NEXT version: bump `package.json` + `APP_VERSION`
    + the `?v=` cache-bust (gamedata.min.js AND i18n_zh.min.js) + add the CHANGELOG entry (const in dashboard.html AND CHANGELOG.md), `npm run dist`,
    then `gh release create v<ver> dist/TBH-HUD-Setup-<ver>.exe dist/latest.yml --latest`.
 2. **Calibrations awaiting data:** the enchant gt→category map for GLOVES/BOOTS/RING/AMULET/EARING/BRACER +
@@ -476,7 +494,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.19 · light/dark themes · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.27 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (separate Vercel team — CLI scope recorded in `OPS-PRIVATE.local.md`, gitignored); env var

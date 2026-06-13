@@ -5,14 +5,15 @@
      Deletes that member's row + history. Proving (code, memberId) is exactly the pair that can already
      OVERWRITE that row via /progress, so this adds zero new exposure.
    Mode B — stale prune:                 { code, olderThanDays }
-     Deletes members not updated for at least olderThanDays (SERVER-ENFORCED FLOOR: 7 days — a leaked or
-     guessed crew code can never remove an active member; anyone active re-appears on their next push
-     anyway) + their orphaned history. Returns { ok, removed }.
+     Deletes members not updated for at least olderThanDays (SERVER-ENFORCED FLOOR: 2 days / 48h — a leaked
+     or guessed crew code can never remove a member who shared within the last 48h; anyone active re-appears
+     on their next push anyway) + their orphaned history. Returns { ok, removed }. The client auto-sweeps at
+     48h (olderThanDays:2); the floor is what makes that the real minimum no matter what a caller requests.
    Also sweeps expired rate-limit windows opportunistically (the only janitor this table needs). */
 const { CODE_RE, applyCors, sql, ensureSchema, sendJson, str, rateLimited, clientIp } = require('./_lib.js');
 
 const PRUNE_CAP_PER_MIN = 6;
-const MIN_STALE_DAYS = 7;
+const MIN_STALE_DAYS = 2;   // 48h floor — the client auto-removes members idle this long (v1.0.27)
 
 module.exports = async (req, res) => {
   if (applyCors(req, res)) return;

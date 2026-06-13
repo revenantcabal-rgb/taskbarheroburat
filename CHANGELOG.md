@@ -4,6 +4,26 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.27 — 2026-06-13
+
+### Added
+- **Your crew spot now follows your code + name, not your PC.** A member's identity is derived from the
+  **crew code + display name** instead of a random per-browser id. Open the HUD on a **new computer** (or after a
+  reinstall), enter the **same crew code and the same display name**, and you land back on your **exact row** — this
+  is the fix for a friend "disappearing" from the crew after playing from a different machine. (Use the same display
+  name to avoid starting a second row; renaming yourself starts a fresh one.)
+- **Kick a member.** Each crew row has a **✕ Remove** button (it's a private, code-gated room, so anyone in the crew
+  can use it). It deletes that member's row and history from the crew server. A member who's **still actively sharing**
+  reappears on their next update — so it's ideal for clearing **ghost rows** of people who left or moved PCs.
+- **Auto-remove after 48 hours offline.** Rows whose HUD hasn't shared in **48 hours** are pruned automatically (any
+  running HUD that can see a stale row asks the server to sweep it, debounced to once per 30 min per device). The
+  crew API's safety floor was lowered from 7 days to **2 days** to back this. Anyone who comes back and shares
+  **rejoins automatically**.
+- **Advisor "Your next move."** A focus card at the top of the **Advisor** tab walks you through **one action at a
+  time** — the single best **gear upgrade**, **rune step** or **enchant** available right now. **✓ Done & next** marks
+  it and advances; **Skip** sets it aside for the session; **↻ Refresh** re-reads your save so a tip you actually did
+  in-game drops off on its own. Done tips are remembered between sessions and can be reset.
+
 ## v1.0.26 — 2026-06-13
 
 ### Added
