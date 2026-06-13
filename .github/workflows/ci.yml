@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'   # node --test glob support landed in v21; 22 is current LTS
       # Only @neondatabase/serverless is needed to load api/_lib.js (the tests stub the DB / never connect).
       - name: Install the one runtime dep the tests load
         run: npm install --no-save @neondatabase/serverless@^0.10.4
