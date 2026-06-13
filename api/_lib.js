@@ -74,6 +74,19 @@ function ensureSchema(s) {
       last_seen timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (gt, material_key, stat_type)
     )`;
+    // v1.0.25 — the crew ACTIVITY FEED: an append-only log of milestones derived from each member's own
+    // snapshot deltas (same source as the per-member "latest achievement", just kept as a stream, not one row).
+    // Nothing here is identifying beyond the display name the member already shares on the board.
+    await s`CREATE TABLE IF NOT EXISTS tbh_crew_events (
+      id bigserial PRIMARY KEY,
+      crew_code text NOT NULL,
+      member_id text NOT NULL,
+      name text NOT NULL,
+      kind text NOT NULL,
+      text text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`;
+    await s`CREATE INDEX IF NOT EXISTS tbh_crew_events_idx ON tbh_crew_events (crew_code, id DESC)`;
   })().catch((e) => { _schemaReady = null; throw e; });
   return _schemaReady;
 }
@@ -142,25 +155,73 @@ function cleanStats(raw) {
   };
 }
 
-// "latest achievement" — derived ONLY from the member's own snapshot deltas (never invented):
-// new max stage > new Legendary+ > top-hero level-up > a 10-runes milestone. First share = joined.
-function deriveAchievement(prevStats, prevAch, stats) {
-  const now = new Date().toISOString();
-  if (!prevStats) return { t: now, text: 'Joined the crew' };
-  if ((stats.maxStage || 0) > (prevStats.maxStage || 0)) return { t: now, text: 'Reached ' + (stats.maxStageLabel || ('stage ' + stats.maxStage)) };
-  if ((stats.trophies || 0) > (prevStats.trophies || 0)) return { t: now, text: 'Found a new Legendary+ item' };
+// ---- stage-key decode (MIRRORS the dashboard/saveEngine; calibrated from the game's own StageInfoData):
+//      key = difficulty*1000 + act*100 + stageNo, difficulty 1..4 = Normal/Nightmare/Hell/Torment ----
+const DIFFICULTIES = ['Normal', 'Nightmare', 'Hell', 'Torment'];
+function stageBits(key) {
+  const k = +key || 0; const di = Math.floor(k / 1000) - 1, act = Math.floor((k % 1000) / 100), stg = k % 100;
+  if (di < 0 || di > 3 || act < 1 || act > 3 || stg < 1) return null;
+  return { di, act, stg, diff: DIFFICULTIES[di], label: 'Act ' + act + '-' + stg + ' · ' + DIFFICULTIES[di] };
+}
+// global monotonic stage index across difficulties (for progression momentum / ETA)
+function stageIndex(key) { const b = stageBits(key); return b ? b.di * 30 + (b.act - 1) * 10 + b.stg : null; }
+const capWord = (s) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : s);
+const fmtBig = (n) => (n >= 1e9 ? (+(n / 1e9).toFixed(n % 1e9 ? 1 : 0)) + 'B' : n >= 1e6 ? (+(n / 1e6).toFixed(n % 1e6 ? 1 : 0)) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : '' + n);
+// highest milestone in `miles` strictly crossed between prev and cur
+function crossedMilestone(miles, prev, cur) { let hit = null; for (const m of miles) { if ((prev || 0) < m && (cur || 0) >= m) hit = m; } return hit; }
+const GOLD_MILES = [1e6, 5e6, 1e7, 5e7, 1e8, 5e8, 1e9, 5e9, 1e10, 5e10, 1e11];
+const KILL_MILES = [1e5, 5e5, 1e6, 2.5e6, 5e6, 1e7, 2.5e7, 5e7];
+const TIER_ORDER = ['LEGENDARY', 'IMMORTAL', 'ARCANA', 'BEYOND', 'CELESTIAL', 'DIVINE', 'COSMIC'];
+
+// ALL milestones crossed on THIS push, derived ONLY from the member's own snapshot deltas (never invented),
+// most-bragworthy first. First share = joined. Returns [] when nothing changed.
+function deriveEvents(prevStats, stats) {
+  if (!prevStats) return [{ kind: 'join', text: 'Joined the crew' }];
+  const ev = [];
+  // 1) difficulty first-clear (the biggest moment) > a deeper stage in the same difficulty
+  const pb = stageBits(prevStats.maxStage), cb = stageBits(stats.maxStage);
+  if (cb && ((!pb && cb.di > 0) || (pb && cb.di > pb.di))) ev.push({ kind: 'difficulty', text: 'Broke into ' + cb.diff + ' difficulty' });
+  else if ((stats.maxStage || 0) > (prevStats.maxStage || 0)) ev.push({ kind: 'stage', text: 'Reached ' + (stats.maxStageLabel || (cb ? cb.label : ('stage ' + stats.maxStage))) });
+  // 2) first time a higher gear rarity tier ever appears
+  const pt = prevStats.tiers || {}, ct = stats.tiers || {};
+  for (let i = TIER_ORDER.length - 1; i >= 0; i--) { const t = TIER_ORDER[i]; if ((ct[t] || 0) > 0 && !(pt[t] > 0)) { ev.push({ kind: 'tier', text: 'First ' + capWord(t) + ' gear!' }); break; } }
+  // 3) lifetime gold + kill milestones
+  const gm = crossedMilestone(GOLD_MILES, prevStats.lifeGold, stats.lifeGold); if (gm) ev.push({ kind: 'gold', text: 'Passed ' + fmtBig(gm) + ' lifetime gold' });
+  const km = crossedMilestone(KILL_MILES, prevStats.kills, stats.kills); if (km) ev.push({ kind: 'kills', text: 'Passed ' + fmtBig(km) + ' kills' });
+  // 4) top-hero level-up
   const top = (a) => (a && a.topHeroes || []).reduce((m, h) => Math.max(m, h.level || 0), 0);
   const tn = top(stats), tp = top(prevStats);
-  if (tn > tp) {
-    const h = (stats.topHeroes || []).filter((x) => (x.level || 0) === tn)[0];
-    return { t: now, text: (h ? h.cls : 'A hero') + ' hit Lv ' + tn };
+  if (tn > tp) { const h = (stats.topHeroes || []).filter((x) => (x.level || 0) === tn)[0]; ev.push({ kind: 'hero', text: (h ? h.cls : 'A hero') + ' hit Lv ' + tn }); }
+  // 5) 10-rune milestone
+  if (Math.floor((stats.runesLeveled || 0) / 10) > Math.floor((prevStats.runesLeveled || 0) / 10)) ev.push({ kind: 'runes', text: stats.runesLeveled + ' runes leveled' });
+  // 6) a new Legendary+ (only when no bigger gear event already fired this push)
+  if (!ev.some((e) => e.kind === 'tier') && (stats.trophies || 0) > (prevStats.trophies || 0)) ev.push({ kind: 'gear', text: 'Found a new Legendary+ item' });
+  return ev;
+}
+// member-row "latest achievement" = the top event of this push, else keep the previous one.
+function deriveAchievement(prevStats, prevAch, stats) {
+  const ev = deriveEvents(prevStats, stats);
+  return ev.length ? { t: new Date().toISOString(), text: ev[0].text } : (prevAch || null);
+}
+
+// MOMENTUM from a member's own snapshot history (oldest->newest [{t,g,k,s,ph}]): measured rates only, null when
+// there isn't a real delta to measure (never projected/invented). gold/kills over PLAYED hours; stage over wall days.
+function computeMomentum(hist) {
+  if (!Array.isArray(hist) || hist.length < 2) return null;
+  const a = hist[0], b = hist[hist.length - 1];
+  const out = { goldPerHr: null, killsPerHr: null, stagePerDay: null };
+  const dPlay = (b.ph != null && a.ph != null) ? (b.ph - a.ph) : null;
+  if (dPlay != null && dPlay > 0.05) {
+    if (b.g != null && a.g != null) out.goldPerHr = Math.round((b.g - a.g) / dPlay);
+    if (b.k != null && a.k != null) out.killsPerHr = Math.round((b.k - a.k) / dPlay);
   }
-  if (Math.floor((stats.runesLeveled || 0) / 10) > Math.floor((prevStats.runesLeveled || 0) / 10)) {
-    return { t: now, text: stats.runesLeveled + ' runes leveled' };
-  }
-  return prevAch || null;   // nothing new — keep the last real achievement
+  const dDays = (b.t && a.t) ? ((+new Date(b.t) - +new Date(a.t)) / 86400000) : null;
+  const si = stageIndex(b.s), pi = stageIndex(a.s);
+  if (dDays != null && dDays > 0.04 && si != null && pi != null && si > pi) out.stagePerDay = +((si - pi) / dDays).toFixed(2);
+  if (out.goldPerHr == null && out.killsPerHr == null && out.stagePerDay == null) return null;
+  return out;
 }
 
 function sendJson(res, code, obj) { res.status(code).json(obj); }
 
-module.exports = { CODE_RE, applyCors, sql, ensureSchema, cleanStats, deriveAchievement, sendJson, str, rateLimited, clientIp };
+module.exports = { CODE_RE, applyCors, sql, ensureSchema, cleanStats, deriveAchievement, deriveEvents, computeMomentum, stageIndex, sendJson, str, rateLimited, clientIp };

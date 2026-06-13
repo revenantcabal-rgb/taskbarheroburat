@@ -2,9 +2,10 @@
 /* GET /api/leaderboard?code=<crew> — the latest opt-in snapshot per crew member (max 50, newest first).
    Returns { ok, members:[{ id, name, stats, achievement, updatedAt }] }. Ranking/sorting is done client-side
    so each player can rank the same crew by a different stat. */
-const { CODE_RE, applyCors, sql, ensureSchema, sendJson, str, rateLimited, clientIp } = require('./_lib.js');
+const { CODE_RE, applyCors, sql, ensureSchema, computeMomentum, sendJson, str, rateLimited, clientIp } = require('./_lib.js');
 
 const READ_CAP_PER_MIN = 30;   // the client polls every 30s and only while the Crew tab is open
+const HIST_PER_MEMBER = 8;     // recent snapshots used for momentum + the row sparkline
 
 module.exports = async (req, res) => {
   if (applyCors(req, res)) return;
@@ -25,9 +26,27 @@ module.exports = async (req, res) => {
     const rows = await s`SELECT member_id, name, stats, achievement, updated_at
                          FROM tbh_crew_members WHERE crew_code = ${code}
                          ORDER BY updated_at DESC LIMIT 50`;
+    // recent snapshot history per member (one query) → momentum + a lifetime-gold sparkline
+    const hrows = await s`SELECT member_id, stats, created_at FROM (
+                            SELECT member_id, stats, created_at,
+                                   row_number() OVER (PARTITION BY member_id ORDER BY id DESC) rn
+                            FROM tbh_crew_history WHERE crew_code = ${code}
+                          ) t WHERE rn <= ${HIST_PER_MEMBER} ORDER BY member_id, created_at ASC`;
+    const byMember = {};
+    for (const h of hrows) {
+      const st = h.stats || {};
+      (byMember[h.member_id] = byMember[h.member_id] || []).push({ t: h.created_at, g: st.lifeGold, k: st.kills, s: st.maxStage, ph: st.playHours });
+    }
     return sendJson(res, 200, {
       ok: true,
-      members: rows.map((r) => ({ id: r.member_id, name: r.name, stats: r.stats, achievement: r.achievement, updatedAt: r.updated_at })),
+      members: rows.map((r) => {
+        const hist = byMember[r.member_id] || [];
+        return {
+          id: r.member_id, name: r.name, stats: r.stats, achievement: r.achievement, updatedAt: r.updated_at,
+          momentum: computeMomentum(hist),
+          spark: hist.map((h) => (h.g != null ? h.g : 0)),   // lifetime-gold growth, oldest→newest
+        };
+      }),
     });
   } catch (e) {
     console.error('leaderboard error', e);

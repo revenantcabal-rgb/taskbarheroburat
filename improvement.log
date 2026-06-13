@@ -1,6 +1,18 @@
 # TBH HUD — improvement.log
-Updated 2026-06-13 (session 25 · app v1.0.24). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-13 (session 26 · app v1.0.25). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
+
+## S26 (v1.0.25) — "Crew comes alive" (owner-requested Crew deep-dive; BAN-SAFE, save-derived only)
+Turned the static Crew board into a living, competitive space using data we already had. KEY UNLOCK: the crew API
+was already storing 20 snapshots/member in `tbh_crew_history` but the client never read it — now it powers momentum.
+Backend (tbh-crew-api redeployed, scope fusiondatacompany-projects): `tbh_crew_events` table + difficulty-aware
+multi-milestone `deriveEvents` (first Nightmare/Hell/Torment clear, first Immortal/Arcana, gold/kill milestones, hero
++ rune milestones) logged per /progress; new /feed endpoint; /leaderboard now returns per-member momentum (gold/hr,
+kills/hr, stage/day) + a gold sparkline; /prune also clears events. Client: Activity feed, records strip + 👑 crowns,
+momentum chips + inline sparklines, 🟢 online-now dot, measured "~Xd to pass <leader>" ETA, pinned Rival head-to-head.
+No NEW shared field (momentum/feed are server-derived from existing brag-stats) → no privacy-disclosure change. Verified
+in-browser (?demo, 0 errors) + e2e against prod. Excluded per owner: crew goals + Discord webhook. Nothing touches the
+game — entirely HUD + our own backend.
 
 ## S25 (v1.0.24) — stage difficulty decode corrected (owner-reported: "Torment" should be "Nightmare")
 The S24 band-continuous decode (`floor(k/100)-10` split 3-acts-per-band) mislabeled EVERY Nightmare+ stage — a crew

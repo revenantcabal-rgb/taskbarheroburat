@@ -4,6 +4,22 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.25 — 2026-06-13
+
+### Added — "Crew comes alive"
+- **Activity feed.** A live stream of recent crew milestones, newest first: breaking into **Nightmare / Hell /
+  Torment**, a **first Immortal/Arcana** gear drop, gold & kill milestones, hero level-ups, rune milestones.
+- **Crew records (category crowns).** A strip at the top of the board showing who holds **Deepest / Richest /
+  Deadliest / Most runes / Rarest gear**, with the holder crowned 👑.
+- **Momentum + sparkline.** Each member shows a "📈 gaining X/hr" chip and a small lifetime-gold trend line —
+  *measured from their own shared snapshots* (the crew API already kept this history; nothing new is collected).
+- **Live presence.** A 🟢 dot marks members who shared in the last 2 minutes ("online now").
+- **Catch-the-leader ETA.** Your own row shows a measured **"~Xd to pass \<leader\>"** when your pace makes it knowable.
+- **Pinned rival.** A compact head-to-head card — you vs a chosen rival across the key stats, "ahead in X of Y."
+
+All of the above is derived from the **same opt-in brag-stats you already share** — no new data leaves your
+device, the crew API stays code-gated and account-free, and "Remove my data" now also clears your feed entries.
+
 ## v1.0.24 — 2026-06-13
 
 ### Fixed

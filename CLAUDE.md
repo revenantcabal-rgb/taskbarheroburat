@@ -213,6 +213,21 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S26 (v1.0.25)** — **"Crew comes alive" — activity feed + records + momentum + presence + ETA + rival (owner-requested
+  Crew deep-dive).** BAN-SAFE by construction: every feature is derived from the SAME opt-in brag-stats already shared +
+  the crew API's OWN history; nothing touches the game (no memory read/write/inject). Backend (tbh-crew-api **REDEPLOYED**,
+  scope `fusiondatacompany-projects`): new `tbh_crew_events` table + `deriveEvents` (multi-milestone, difficulty-aware —
+  first Nightmare/Hell/Torment clear via the v1.0.24 key decode, first Immortal/Arcana tier, gold/kill milestones, hero
+  level-ups, rune steps) written on each /progress; new **`/feed`** endpoint; **/leaderboard** now also computes
+  **momentum** (gold/hr, kills/hr, stage/day from the already-stored `tbh_crew_history`, which the client never read before)
+  + a lifetime-gold `spark`; **/prune** now also wipes a member's events (privacy completeness). Client (dashboard.html):
+  Activity feed, Crew **records strip + 👑 crowns** (deepest/richest/deadliest/most-runes/rarest-gear), per-row **momentum
+  chip + inline sparkline**, live **🟢 presence dot** (<2 min), measured **"~Xd to pass \<leader\>"** ETA on my row, and a
+  pinned **Rival** head-to-head card (`crewCfg.rivalId`). `crewRefresh` now fetches board+feed in parallel; demo board +
+  `demoCrewFeed` showcase it. NO new SHARED field (so no whitelist/disclosure change) — momentum/feed are server-DERIVED.
+  Verified in-browser (?demo): all sections render, 0 errors, ETA "~4d to pass" computes; e2e-tested against prod
+  (push→events→/feed→momentum) + test data pruned. **EXCLUDED at owner's call: shared crew goals + Discord webhook.**
+  Deferred next: catch-up advisor cross-referencing a rival's stat list, shareable board image, Electron "passed you" notify.
 - **S25 (v1.0.24)** — **stage DIFFICULTY decode was WRONG for Nightmare+ (owner-reported: leaderboard showed Torment
   instead of Nightmare).** The S24 "band-continuous" theory (`rawAct=floor(k/100)-10`, then split a fictional 1..12
   act into 3-per-band) mislabeled EVERY Nightmare+ key — real Nightmare `2209` rendered as "Act 3-9 · Torment", and

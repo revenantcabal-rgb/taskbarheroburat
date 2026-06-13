@@ -40,6 +40,7 @@ module.exports = async (req, res) => {
     if (memberId) {
       const r = await s`DELETE FROM tbh_crew_members WHERE crew_code = ${code} AND member_id = ${memberId} RETURNING member_id`;
       await s`DELETE FROM tbh_crew_history WHERE crew_code = ${code} AND member_id = ${memberId}`;
+      await s`DELETE FROM tbh_crew_events WHERE crew_code = ${code} AND member_id = ${memberId}`;   // also wipe their activity-feed entries
       removed = r.length;
     } else {
       const cut = Math.max(MIN_STALE_DAYS, days);
@@ -47,6 +48,8 @@ module.exports = async (req, res) => {
                         WHERE crew_code = ${code} AND updated_at < now() - (${cut} * interval '1 day')
                         RETURNING member_id`;
       await s`DELETE FROM tbh_crew_history WHERE crew_code = ${code}
+              AND member_id NOT IN (SELECT member_id FROM tbh_crew_members WHERE crew_code = ${code})`;
+      await s`DELETE FROM tbh_crew_events WHERE crew_code = ${code}
               AND member_id NOT IN (SELECT member_id FROM tbh_crew_members WHERE crew_code = ${code})`;
       removed = r.length;
     }

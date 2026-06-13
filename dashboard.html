@@ -10,10 +10,10 @@
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';
 document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.24"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.25"></script>
 <!-- Official Simplified-Chinese game-term map (window.TBH_ZH) extracted from the game's own zh-Hans
      localization bundle (scripts/extract_localization_zh.py). Powers the EN/中文 language switch. -->
-<script src="src/engine/i18n_zh.min.js?v=1.0.24"></script>
+<script src="src/engine/i18n_zh.min.js?v=1.0.25"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -639,6 +639,32 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
   .crewmore{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--accent-2);
     background:color-mix(in srgb, var(--accent) 10%, transparent);border:1px solid color-mix(in srgb, var(--accent) 25%, transparent);
     border-radius:7px;padding:3px 9px;white-space:nowrap;flex:0 0 auto}
+  /* ---------- Crew "comes alive" (v1.0.25): identity header, records, momentum, presence, activity feed, rival ---------- */
+  .crewhead{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin:16px 0 2px;font-size:12.5px;color:var(--text-dim)}
+  .crewhead b{color:var(--text)} .crewhead .online{color:var(--good);font-weight:600}
+  .pdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text-dim);flex:0 0 auto;margin-right:6px;vertical-align:middle}
+  .pdot.live{background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 20%,transparent)}
+  .crewrecs{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin:12px 0 4px}
+  .reccard{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;min-width:0}
+  .reccard .reclbl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);font-weight:700}
+  .reccard .recname{font-size:13px;font-weight:700;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .reccard .recval{font-size:11.5px;color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crewspark{vertical-align:middle;opacity:.92;flex:0 0 auto}
+  .chip.mom{background:color-mix(in srgb,var(--good) 12%,transparent);border-color:color-mix(in srgb,var(--good) 30%,transparent);color:var(--good)}
+  .crewfeed{display:flex;flex-direction:column;gap:1px}
+  .feeditem{display:flex;align-items:center;gap:10px;padding:8px 4px;border-top:1px solid var(--border)}
+  .feeditem:first-child{border-top:none}
+  .feeditem .fic{flex:0 0 22px;text-align:center;font-size:15px}
+  .feeditem .ftx{flex:1;min-width:0;font-size:12.5px;color:var(--text-muted)} .feeditem .ftx b{color:var(--text)}
+  .feeditem .fago{font-size:10.5px;color:var(--text-dim);white-space:nowrap}
+  .feeditem.big .ftx{color:var(--text)}
+  .rivalcard{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;margin:12px 0 2px}
+  .rivalbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px}
+  .rivalbar .rivalwins{font-size:12.5px;color:var(--text-muted)} .rivalbar .rivalwins b{color:var(--text)}
+  .rivalgrid{display:grid;grid-template-columns:1fr auto 1fr;gap:3px 12px;font-size:12.5px;align-items:center}
+  .rivalgrid .rl{text-align:right;font-variant-numeric:tabular-nums} .rivalgrid .rr{text-align:left;font-variant-numeric:tabular-nums}
+  .rivalgrid .rk{text-align:center;color:var(--text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+  .rivalgrid .win{color:var(--good);font-weight:700}
   /* member pop-up: stat compare grid */
   .cmpbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:14px 0 4px}
   .cmpbar select{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
@@ -3300,7 +3326,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.24';
+var APP_VERSION='1.0.25';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -3310,6 +3336,9 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.25',d:'2026-06-13',sec:{
+    Added:[
+      'Crew comes alive — a new Activity feed of recent milestones across your whole crew (first Nightmare/Hell/Torment clear, first Immortal/Arcana gear, gold & kill milestones, hero level-ups, rune milestones), a Crew records strip (deepest / richest / deadliest / most runes / rarest gear, with the holder crowned), per-member momentum chips and a gold sparkline (how fast each friend is gaining, measured from their own snapshots), a live 🟢 "online now" dot, a measured "~Xd to pass <leader>" ETA on your row, and a pinned Rival head-to-head card. Everything is derived from the same opt-in brag-stats you already share — no new data leaves your device, and the HUD still only reads your local save.']}},
   {v:'1.0.24',d:'2026-06-13',sec:{
     Fixed:[
       'Stage difficulty is now correct for Nightmare, Hell and Torment. Higher-difficulty stages were showing the wrong band and act — e.g. a friend on Nightmare Act 2-9 was labeled "Act 3-9 · Torment". The fix reads the difficulty straight from the game\'s own stage table (key = difficulty×1000 + act×100 + stage; 1=Normal, 2=Nightmare, 3=Hell, 4=Torment). Normal players were always correct, which is why this only showed up once friends cleared past Normal. The Crew board re-decodes everyone automatically — no need for friends to update.']}},
@@ -3447,7 +3476,7 @@ function openWhatsNew(){
   wnMarkSeen();   // opening clears the new-version dot
 }
 var crewCfg={optin:false,code:'',name:'',id:'',rankBy:'maxStage'};
-try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','name','id','rankBy'].forEach(function(k){if(cc[k]!=null)crewCfg[k]=cc[k];});}catch(e){}
+try{var cc=JSON.parse(localStorage.getItem('tbh_crew')||'{}');['optin','code','name','id','rankBy','rivalId'].forEach(function(k){if(cc[k]!=null)crewCfg[k]=cc[k];});}catch(e){}
 function crewSave(){try{localStorage.setItem('tbh_crew',JSON.stringify(crewCfg));}catch(e){}}
 function crewId(){ if(!crewCfg.id){ crewCfg.id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('m'+Date.now()+Math.random().toString(36).slice(2,10)); crewSave(); } return crewCfg.id; }
 function crewCodeOk(c){return /^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/.test(c||'');}
@@ -3468,7 +3497,7 @@ function crewStats(d){
     runeStats:rstats, statList:slines.slice(0,12),
     playHours:d.playHours!=null?d.playHours:null, ver:APP_VERSION};
 }
-var _crewLastPush=0,_crewBoard=null,_crewBoardAt=0,_crewErr=null,_crewTimer=null;
+var _crewLastPush=0,_crewBoard=null,_crewBoardAt=0,_crewErr=null,_crewTimer=null,_crewFeed=null,_crewFeedAt=0;
 function crewMsg(txt,color){var s2=$('crewStatus');if(s2){s2.textContent=txt;s2.style.color=color||'var(--text-dim)';}}
 function crewPush(d,force){
   if(!crewCfg.optin||!crewCodeOk(crewCfg.code)||!crewCfg.name||!d||demoMode) return Promise.resolve(false);
@@ -3483,15 +3512,15 @@ function crewPush(d,force){
 function crewRefresh(quiet){
   if(!crewCodeOk(crewCfg.code)) return Promise.resolve(null);
   if(!quiet) crewMsg('refreshing…');
-  return fetch(CREW_API+'/leaderboard?code='+encodeURIComponent(crewCfg.code.trim()))
-    .then(function(r){return r.json();})
-    .then(function(j){
-      if(j&&j.ok){_crewBoard=j.members||[];_crewBoardAt=Date.now();_crewErr=null;}
-      else {_crewErr=(j&&j.error)||'crew server error';}
-      if(activeTab==='crew') renderCrew(current);
-      return _crewBoard;
-    })
-    .catch(function(e){ _crewErr='crew server unreachable'; if(activeTab==='crew')renderCrew(current); return null; });
+  var c=encodeURIComponent(crewCfg.code.trim());
+  var pBoard=fetch(CREW_API+'/leaderboard?code='+c).then(function(r){return r.json();})
+    .then(function(j){ if(j&&j.ok){_crewBoard=j.members||[];_crewBoardAt=Date.now();_crewErr=null;} else {_crewErr=(j&&j.error)||'crew server error';} })
+    .catch(function(){ _crewErr='crew server unreachable'; });
+  // the activity feed is a bonus lane — never let its failure affect the board or surface an error
+  var pFeed=fetch(CREW_API+'/feed?code='+c).then(function(r){return r.json();})
+    .then(function(j){ if(j&&j.ok){_crewFeed=j.events||[];_crewFeedAt=Date.now();} })
+    .catch(function(){});
+  return Promise.all([pBoard,pFeed]).then(function(){ if(activeTab==='crew')renderCrew(current); return _crewBoard; });
 }
 function crewStartPolling(){ if(_crewTimer)return; _crewTimer=setInterval(function(){ if(crewCodeOk(crewCfg.code)&&activeTab==='crew'&&!demoMode) crewRefresh(true); },30000); }
 function crewOnSaveRead(d){ crewPush(d,false); }
@@ -3607,6 +3636,104 @@ function openCrewMember(member,members){
   document.addEventListener('keydown',onKey);
   _cmModal={ov:ov,onKey:onKey};
 }
+// ---------- Crew "comes alive" helpers (v1.0.25) — all derived from shared brag-stats / the crew API; never the game ----------
+function fmtShort(n){ n=Number(n)||0; var a=Math.abs(n); if(a>=1e9)return (n/1e9).toFixed(1).replace(/\.0$/,'')+'B'; if(a>=1e6)return (n/1e6).toFixed(1).replace(/\.0$/,'')+'M'; if(a>=1e3)return Math.round(n/1e3)+'k'; return ''+Math.round(n); }
+function crewFresh(m){ return !!(m&&m.updatedAt)&&(Date.now()-(+new Date(m.updatedAt)))<120000; } // pushed in the last 2 min = "online now"
+// tiny inline sparkline of a member's recent lifetime-gold growth (server-sent `spark`, oldest→newest)
+function crewSpark(vals,color){
+  if(!vals||vals.length<2) return '';
+  var w=58,h=16,mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals),rng=(mx-mn)||1;
+  var pts=vals.map(function(v,i){ var x=(i/(vals.length-1))*w; var y=(h-2)-((v-mn)/rng)*(h-4); return x.toFixed(1)+','+y.toFixed(1); }).join(' ');
+  return ' <svg class="crewspark" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" aria-hidden="true"><polyline points="'+pts+'" fill="none" stroke="'+(color||'var(--accent-2)')+'" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+}
+// "gaining X/hr" chip from the server-computed momentum (measured from their own snapshots; shown only when positive)
+function crewMomentumChip(m){
+  var mo=m&&m.momentum; if(!mo) return '';
+  var bits=[];
+  if(mo.goldPerHr!=null&&mo.goldPerHr>0) bits.push('🪙'+fmtShort(mo.goldPerHr)+'/h');
+  if(mo.killsPerHr!=null&&mo.killsPerHr>0) bits.push('💀'+fmtShort(mo.killsPerHr)+'/h');
+  if(!bits.length&&mo.stagePerDay!=null&&mo.stagePerDay>0) bits.push(mo.stagePerDay+' stage/day');
+  if(!bits.length) return '';
+  return '<span class="chip mom" title="Recent pace, measured from this member’s own shared snapshots (includes idle time).">📈 '+bits.join(' · ')+'</span>';
+}
+var FEED_ICON={difficulty:'🔥',stage:'🗺️',tier:'💎',gold:'🪙',kills:'💀',hero:'🦸',runes:'🔮',gear:'✨',join:'👋'};
+// crew records / category crowns — computed live from the board
+function crewRecords(members){
+  if(!members||members.length<1) return [];
+  function lead(valFn){ var best=null; members.forEach(function(m){ var v=valFn(m.stats||{}); if(v!=null&&isFinite(v)&&(best==null||v>best.v)) best={m:m,v:v}; }); return best; }
+  var recs=[];
+  var deep=lead(function(s){return s.maxStage||0;}); if(deep&&deep.v>0) recs.push({ic:'🏔',lbl:'Deepest',m:deep.m,val:esc(crewStage(deep.m.stats||{}))});
+  var rich=lead(function(s){return s.lifeGold;}); if(rich&&rich.v>0) recs.push({ic:'🪙',lbl:'Richest',m:rich.m,val:fmt(rich.v)+' lifetime'});
+  var dead=lead(function(s){return s.kills;}); if(dead&&dead.v>0) recs.push({ic:'💀',lbl:'Deadliest',m:dead.m,val:fmt(dead.v)+' kills'});
+  var rune=lead(function(s){return s.runesLeveled;}); if(rune&&rune.v>0) recs.push({ic:'🔮',lbl:'Most runes',m:rune.m,val:fmt(rune.v)+' leveled'});
+  function tierRank(s){ var best=-1,cnt=0,t=s.tiers||{}; Object.keys(t).forEach(function(k){ var i=RARITY.indexOf(k); if(t[k]>0&&i>best){best=i;cnt=t[k];} }); return {r:best,c:cnt}; }
+  var rare=null; members.forEach(function(m){ var tr=tierRank(m.stats||{}); if(tr.r>=0&&(rare==null||tr.r>rare.r||(tr.r===rare.r&&tr.c>rare.c))) rare={m:m,r:tr.r,c:tr.c}; });
+  if(rare){ var tk=RARITY[rare.r]; recs.push({ic:'💎',lbl:'Rarest gear',m:rare.m,val:'<span style="color:'+rvar(tk)+'">'+cap(tk)+'</span> ×'+rare.c}); }
+  return recs;
+}
+// ETA for ME to pass the leader in the current rank stat — from my OWN measured momentum; null when not knowable (honest)
+function etaPass(days){ if(days==null||!isFinite(days)||days<=0) return null; if(days<1)return '~'+Math.max(1,Math.round(days*24))+'h'; if(days<=99)return '~'+Math.round(days)+'d'; return null; }
+function crewLeaderEta(me,leader,key){
+  if(!me||!leader||me.id===leader.id) return null;
+  var mo=me.momentum; if(!mo) return null; var ms=me.stats||{}, ls=leader.stats||{};
+  if(key==='lifeGold'&&mo.goldPerHr>0&&(ls.lifeGold||0)>(ms.lifeGold||0)) return etaPass(((ls.lifeGold-ms.lifeGold)/mo.goldPerHr)/24);
+  if(key==='kills'&&mo.killsPerHr>0&&(ls.kills||0)>(ms.kills||0)) return etaPass(((ls.kills-ms.kills)/mo.killsPerHr)/24);
+  if(key==='maxStage'&&mo.stagePerDay>0){ var gi=stageIdx(ls.maxStage),mi=stageIdx(ms.maxStage); if(gi!=null&&mi!=null&&gi>mi) return etaPass((gi-mi)/mo.stagePerDay); }
+  return null;
+}
+function renderCrewHead(p,members){
+  var online=members.filter(crewFresh).length;
+  var head=el('<div class="crewhead"></div>');
+  head.appendChild(el('<span>Crew <b>'+esc(crewCfg.code||'—')+'</b></span>'));
+  head.appendChild(el('<span><b>'+members.length+'</b> member'+(members.length===1?'':'s')+'</span>'));
+  if(online>0) head.appendChild(el('<span class="online"><span class="pdot live"></span>'+online+' online now</span>'));
+  p.appendChild(head);
+}
+function renderCrewRecords(p,members){
+  var recs=crewRecords(members); if(recs.length<2) return;
+  var strip=el('<div class="crewrecs"></div>');
+  recs.forEach(function(r){ strip.appendChild(el('<div class="reccard"><div class="reclbl">'+r.ic+' '+r.lbl+'</div><div class="recname" title="'+esc(r.m.name||'?')+'">👑 '+esc(r.m.name||'?')+'</div><div class="recval">'+r.val+'</div></div>')); });
+  p.appendChild(strip);
+}
+// pinned rival — a compact head-to-head (v1.0.25 / suggestion #7); reuses crewRankVal so it always matches the board
+function renderCrewRival(p,members){
+  var others=members.filter(function(m){return !isMeMember(m);}); if(!others.length) return;
+  var me=members.filter(isMeMember)[0];
+  var rival=null; if(crewCfg.rivalId) others.forEach(function(m){ if(m.id===crewCfg.rivalId) rival=m; });
+  var card=el('<div class="rivalcard"></div>');
+  var bar=el('<div class="rivalbar"><span style="font-size:12px;color:var(--text-dim)">📌 Rival</span></div>');
+  var opts=[['','— pick a rival —']].concat(others.map(function(m){ return [m.id, m.name+(isMeMember(m)?' (you)':'')]; }));
+  bar.appendChild(cxSelect(opts,(rival?rival.id:''),function(v){ crewCfg.rivalId=v||null; crewSave(); renderCrew(current); }));
+  card.appendChild(bar);
+  if(rival&&me){
+    var keys=[['maxStage','Max stage'],['lifeGold','Lifetime gold'],['kills','Kills'],['runesLeveled','Runes'],['topHero','Top hero'],['playHours','Play hrs']];
+    var wins=0,total=0,rows='';
+    keys.forEach(function(kk){
+      var k=kk[0], mv=crewRankVal(me.stats,k), rv=crewRankVal(rival.stats,k);
+      if(mv==null&&rv==null) return; total++;
+      var mw='',rw=''; if(mv!=null&&rv!=null&&mv!==rv){ if(mv>rv){mw=' win';wins++;} else rw=' win'; }
+      function disp(s,val){ if(val==null)return '—'; if(k==='maxStage')return esc(crewStage(s)); if(k==='playHours')return fmt(val)+'h'; if(k==='topHero')return 'Lv '+val; return fmt(val); }
+      rows+='<div class="rl'+mw+'">'+disp(me.stats,mv)+'</div><div class="rk">'+kk[1]+'</div><div class="rr'+rw+'">'+disp(rival.stats,rv)+'</div>';
+    });
+    card.appendChild(el('<div class="rivalbar"><span class="rivalwins">You vs <b>'+esc(rival.name)+'</b> — ahead in <b>'+wins+' of '+total+'</b></span></div>'));
+    card.appendChild(el('<div class="rivalgrid"><div class="rk" style="text-align:right">You</div><div class="rk"></div><div class="rk" style="text-align:left">'+esc(rival.name)+'</div>'+rows+'</div>'));
+  } else if(!me&&rival){
+    card.appendChild(el('<div class="crewnote" style="margin-top:4px">Turn on <b>Share my progress</b> above to see your side of the head-to-head.</div>'));
+  }
+  p.appendChild(card);
+}
+function renderCrewFeed(p,feed){
+  feed=feed||_crewFeed||[]; if(!feed.length) return;
+  var sec=el('<div style="margin-top:22px"></div>');
+  sec.appendChild(el('<h3 class="sec">Crew activity <span class="tag">recent milestones · newest first</span></h3>'));
+  var list=el('<div class="crewfeed"></div>');
+  feed.slice(0,30).forEach(function(e){
+    var ic=FEED_ICON[e.kind]||'✨', big=(e.kind==='difficulty'||e.kind==='tier');
+    list.appendChild(el('<div class="feeditem'+(big?' big':'')+'"><span class="fic">'+ic+'</span><span class="ftx"><b>'+esc(e.name||'?')+'</b> '+esc(e.text||'')+'</span><span class="fago">'+(e.t?fmtAgo(+new Date(e.t)):'')+'</span></div>'));
+  });
+  sec.appendChild(list);
+  p.appendChild(sec);
+}
 function renderCrew(d){
   var p=$('tab-crew');p.innerHTML='';
   var joined=crewCodeOk(crewCfg.code)&&!!crewCfg.name;
@@ -3697,6 +3824,7 @@ function renderCrew(d){
       var key=crewCfg.rankBy;
       var sorted=members.slice().sort(function(a,b){return (crewRankVal(b.stats,key)||0)-(crewRankVal(a.stats,key)||0);});
       var meVal=null; sorted.forEach(function(m2){ if(m2.id===crewCfg.id) meVal=crewRankVal(m2.stats,key); });
+      renderCrewHead(p,sorted); renderCrewRecords(p,sorted); renderCrewRival(p,sorted);
       var panel=el('<div class="panel"></div>');
       sorted.forEach(function(m2,i){
         var st=m2.stats||{}, isMe=isMeMember(m2);
@@ -3705,8 +3833,9 @@ function renderCrew(d){
         var stale=m2.updatedAt&&(Date.now()-(+new Date(m2.updatedAt)))>86400000;
         var row=el('<div class="crewrow'+(isMe?' me':'')+'"'+(stale?' style="opacity:.55"':'')+'></div>');
         row.appendChild(el('<span class="crewrank">'+(i===0?'🥇':(i===1?'🥈':(i===2?'🥉':'#'+(i+1))))+'</span>'));
-        row.appendChild(el('<span class="crewname"><b>'+esc(m2.name||'?')+(isMe?' <span style="color:var(--accent-2)">(you)</span>':'')+'</b><small>'+(m2.updatedAt?('updated '+fmtAgo(+new Date(m2.updatedAt))):'')+'</small></span>'));
-        row.appendChild(el('<span class="crewstat" style="color:var(--gold)">'+esc(crewRankDisp(st,key))+'</span>'));
+        var liveDot='<span class="pdot'+(crewFresh(m2)?' live':'')+'" title="'+(crewFresh(m2)?'Online now':('Last shared '+(m2.updatedAt?fmtAgo(+new Date(m2.updatedAt)):'a while ago')))+'"></span>';
+        row.appendChild(el('<span class="crewname"><b>'+liveDot+esc(m2.name||'?')+(isMe?' <span style="color:var(--accent-2)">(you)</span>':'')+'</b><small>'+(m2.updatedAt?('updated '+fmtAgo(+new Date(m2.updatedAt))):'')+'</small></span>'));
+        row.appendChild(el('<span class="crewstat" style="color:var(--gold)">'+esc(crewRankDisp(st,key))+crewSpark(m2.spark)+'</span>'));
         var chips='';
         chips+='<span class="chip">🗺️ <b>'+esc(crewStage(st))+'</b></span>';
         if(st.lifeGold!=null)chips+='<span class="chip">🪙 <b>'+fmt(st.lifeGold)+'</b></span>';
@@ -3718,6 +3847,7 @@ function renderCrew(d){
         if(tt)chips+='<span class="chip">💎 '+tt+'</span>';
         else if(st.trophies!=null)chips+='<span class="chip">💎 <b>'+fmt(st.trophies)+'</b> Leg+</span>';
         if(st.playHours!=null)chips+='<span class="chip">⏱ <b>'+fmt(st.playHours)+'h</b> played</span>';
+        chips+=crewMomentumChip(m2);   // "📈 gaining X/hr" — measured from their own snapshots, only when positive
         row.appendChild(el('<span class="crewchips">'+chips+'</span>'));
         row.appendChild(el('<span class="crewmore">⤢ full stats &amp; compare</span>'));
         // compact Stat-List preview (v1.0.13) — first lines only; the FULL list (grouped + every rune total)
@@ -3752,11 +3882,14 @@ function renderCrew(d){
           if(tv!=null&&tv!==meVal){var diff2=tv-meVal;
             achBits.push('<span class="gap">'+(diff2>0?((key==='maxStage'?'ahead of you':('+'+fmt(diff2)+' ahead of you'))):(key==='maxStage'?'behind you':(fmt(-diff2)+' behind you')))+'</span>');}
           else if(tv===meVal)achBits.push('<span class="gap">tied with you</span>');}
+        // my own row: measured ETA to overtake the current leader (only when my momentum makes it knowable)
+        if(isMe&&sorted[0]&&!isMeMember(sorted[0])){ var eta=crewLeaderEta(m2,sorted[0],key); if(eta) achBits.push('<span class="gap">📈 '+eta+' to pass '+esc(sorted[0].name)+'</span>'); }
         if(achBits.length)row.appendChild(el('<span class="crewach">'+achBits.join(' ')+'</span>'));
         panel.appendChild(row);
       });
       p.appendChild(panel);
-      p.appendChild(el('<div class="crewnote" style="margin-top:10px">Latest achievements are derived from each member\'s own snapshots (new max stage, a new Legendary+, a hero level-up, a rune milestone) — never invented. Members appear when they share at least once; the board keeps the latest snapshot per member. <b>A member\'s row updates while their HUD is running</b> — when they (or their HUD) go offline, the row freezes at their last share and catches up the moment they\'re back, offline gains included (dimmed rows haven\'t shared in over a day).</div>'));
+      p.appendChild(el('<div class="crewnote" style="margin-top:10px">Latest achievements, the activity feed, momentum and ETAs are all derived from each member\'s own shared snapshots — never invented. Members appear when they share at least once; the board keeps the latest snapshot per member. <b>A member\'s row updates while their HUD is running</b> — when they (or their HUD) go offline, the row freezes at their last share and catches up the moment they\'re back, offline gains included (dimmed rows haven\'t shared in over a day). The 🟢 dot means they shared in the last 2 minutes. Everything here comes from the opt-in brag-stats — the HUD only ever reads your local save and never touches the game.</div>'));
+      renderCrewFeed(p, demoMode?demoCrewFeed():_crewFeed);
     }
     if(!demoMode) crewStartPolling();
   } else {
@@ -3768,23 +3901,31 @@ function renderCrew(d){
 function demoCrewBoard(){
   var now=Date.now();
   return [
-    {id:'demo-you',name:'You (sample)',updatedAt:new Date(now-60000).toISOString(),
-      stats:{maxStage:1210,maxStageLabel:'Act 2-10 · Normal',lifeGold:1574858,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},
+    {id:'demo-you',name:'You (sample)',updatedAt:new Date(now-30000).toISOString(),momentum:{goldPerHr:96000,killsPerHr:3200,stagePerDay:1.2},spark:[2050000,2180000,2300000,2390000,2455000],
+      stats:{maxStage:2103,maxStageLabel:'Act 1-3 · Nightmare',lifeGold:2455000,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},
       runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:2100},{e:'Drop Chance Normal Chest Percent',v:1050},{e:'Increase Exp Amount',v:700},{e:'Increase Gold Amount',v:700},{e:'Additional Gold Act Boss',v:500},{e:'All Hero Attack Damage Percent',v:350},{e:'Additional Exp Act Boss',v:300},{e:'Offline Reward Gold Percent',v:300},{e:'Additional Gold Stage Boss',v:280},{e:'All Hero Move Speed',v:210},{e:'All Hero Attack Speed',v:160},{e:'All Hero Armor Percent',v:150},{e:'Additional Exp Stage Boss',v:80},{e:'Max Inventory Slot',v:21},{e:'All Hero Attack Damage',v:10},{e:'Unlock Arrange Slot Count',v:2},{e:'Additional Exp',v:1}],
       statList:[{k:'IncreaseExpAmount',v:700},{k:'AdditionalExp',v:1},{k:'AdditionalExpStageBoss',v:80},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:210},{k:'AllHeroAttackSpeed',v:160},{k:'AllHeroAttackDamage',v:10}],
       playHours:34.4,ver:APP_VERSION},
-      achievement:{t:new Date(now-3600000).toISOString(),text:'Reached Act 2-10 · Normal'}},
-    {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-300000).toISOString(),
-      stats:{maxStage:1208,maxStageLabel:'Act 2-8 · Normal',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},
+      achievement:{t:new Date(now-3600000).toISOString(),text:'Broke into Nightmare difficulty'}},
+    {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-90000).toISOString(),momentum:{goldPerHr:128000,killsPerHr:4100,stagePerDay:0.9},spark:[1700000,1850000,1980000,2050000,2100400],
+      stats:{maxStage:2108,maxStageLabel:'Act 1-8 · Nightmare',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},
       runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:1800},{e:'Drop Chance Normal Chest Percent',v:1200},{e:'Increase Exp Amount',v:800},{e:'Increase Gold Amount',v:500},{e:'All Hero Attack Speed',v:200},{e:'All Hero Move Speed',v:170},{e:'Additional Exp Act Boss',v:300},{e:'Additional Gold Stage Boss',v:340},{e:'Offline Reward Exp Percent',v:200},{e:'All Hero Armor',v:60},{e:'Additional Exp Stage Boss',v:120},{e:'Max Inventory Slot',v:18},{e:'All Hero Attack Damage',v:14},{e:'Unlock Arrange Slot Count',v:2}],
       statList:[{k:'IncreaseExpAmount',v:800},{k:'AdditionalExpStageBoss',v:120},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:170},{k:'AllHeroAttackSpeed',v:200},{k:'AllHeroAttackDamage',v:14}],
       playHours:41.2,ver:APP_VERSION},
-      achievement:{t:new Date(now-7200000).toISOString(),text:'Slayer hit Lv 22'}},
-    {id:'demo-3',name:'IdleQueen',updatedAt:new Date(now-7200000).toISOString(),
+      achievement:{t:new Date(now-300000).toISOString(),text:'First Immortal gear!'}},
+    {id:'demo-3',name:'IdleQueen',updatedAt:new Date(now-7200000).toISOString(),momentum:null,spark:[480000,495000,505000,512000],
       stats:{maxStage:1110,maxStageLabel:'Act 1-10 · Normal',lifeGold:512000,kills:31000,gold:204000,topHeroes:[{cls:'Sorcerer',level:16},{cls:'Priest',level:15},{cls:'Hunter',level:14}],runesLeveled:30,runesTotal:197,trophies:1,tiers:{LEGENDARY:1},playHours:18.5,ver:'1.0.10'},
       achievement:{t:new Date(now-86400000).toISOString(),text:'Found a new Legendary+ item'}}
   ];
 }
+// sample activity feed for ?demo — never fetched/pushed; mirrors what the real /feed returns
+function demoCrewFeed(){ var now=Date.now(); return [
+  {name:'BuratBro',kind:'tier',text:'First Immortal gear!',t:new Date(now-300000).toISOString()},
+  {name:'You (sample)',kind:'difficulty',text:'Broke into Nightmare difficulty',t:new Date(now-3600000).toISOString()},
+  {name:'BuratBro',kind:'kills',text:'Passed 500k kills',t:new Date(now-5400000).toISOString()},
+  {name:'You (sample)',kind:'gold',text:'Passed 1M lifetime gold',t:new Date(now-9000000).toISOString()},
+  {name:'IdleQueen',kind:'gear',text:'Found a new Legendary+ item',t:new Date(now-86400000).toISOString()}
+]; }
 
 /* ============================================================================
    Codex — full-catalog browser (virtualized). Renders the game's ENTIRE catalog
