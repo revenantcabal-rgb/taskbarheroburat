@@ -156,22 +156,23 @@ function runes(psd){ const a=psd.RuneSaveData||[]; return {total:a.length,levele
 function goldBySource(a){ const t=pick(a,2,0), c=pick(a,2,1), s2=pick(a,2,2), s3=pick(a,2,3); if(t==null) return null;
   const other=(s2||0)+(s3||0); const validated=(c!=null)&&((c+other)===t); return validated?{total:t,combat:c,other:other,validated:true}:null; }
 function aggregates(psd){ const a=psd.aggregateSaveDatas||[]; return { lifetimeGold:pick(a,2,0), totalKills:pick(a,0,0), goldBySource:goldBySource(a) }; }
-// Stage display (P2): NEVER show the raw stageKey. The save's stageKey is BAND-CONTINUOUS: raw act =
-// floor(k/100)-10, stage=k%100 (VERIFIED: 1208 -> "Act 2-8" Sacred Tomb; 1101 -> "Act 1-1" Pasture).
-// DIFFICULTY (calibrated): the game ships exactly 4 difficulties — Difficulty_NORMAL/NIGHTMARE/HELL/TORMENT in
-// localization, corroborated by the 4 Soulstones (ItemName_190001-4 "Material required to summon <X> difficulty
-// bosses") — and ONE band = 3 acts × 10 stages (the 30 named StageName_ keys span exactly acts 1-3). So raw act
-// runs 1..12 across the 4 bands: difficulty = floor((rawAct-1)/3) (0 Normal … 3 Torment); act WITHIN it =
-// ((rawAct-1)%3)+1. e.g. 2205 -> raw act 12 -> "Act 3-5 · Torment" (was the meaningless "Act 12-5"). Higher
-// difficulties replay the Normal-band maps, so the real name resolves via the equivalent Normal key. Out-of-range
-// keys (act<1 / stage<1) return the raw key rather than a wrong guess. '' for null/empty.
+// Stage display: NEVER show the raw stageKey. CALIBRATED from the game's OWN StageInfoData (columns
+// StageKey, STAGEDIFFICULITY, Act, StageNo): the key is DIFFICULTY-PREFIXED, NOT band-continuous —
+//   stageKey = difficulty*1000 + act*100 + stageNo,  difficulty 1..4 = Normal/Nightmare/Hell/Torment,
+//   act 1..3, stageNo 1..10  (120 stages = 30 per difficulty, verified row-for-row against StageInfoData).
+// e.g. 1208 -> Normal Act 2-8 (Sacred Tomb); 2209 -> Nightmare Act 2-9; 3310 -> Hell Act 3-10; 4101 -> Torment Act 1-1.
+// (Earlier builds wrongly used floor(k/100)-10 with a 3-acts-per-band split, which mislabeled every Nightmare+
+// key — real Nightmare 2209 showed as "Act 3-9 · Torment". Normal keys decode the same either way, so it went
+// unnoticed until a crew member cleared past Normal.) Stage NAMES exist only for the Normal maps; higher
+// difficulties replay them, so the name resolves via the equivalent Normal key (1000+act*100+stg). Out-of-range
+// keys return the raw key rather than a wrong guess. '' for null/empty.
 const DIFFICULTIES=['Normal','Nightmare','Hell','Torment'];
 function stageLabel(stageKey){
   if(stageKey==null||stageKey==='') return '';
   const k=Number(stageKey); if(!isFinite(k)) return String(stageKey);
-  const rawAct=Math.floor(k/100)-10, stg=k%100;
-  if(rawAct<1||stg<1) return String(stageKey);
-  const di=Math.floor((rawAct-1)/3), act=((rawAct-1)%3)+1, diff=DIFFICULTIES[di]||null; // unknown band -> no difficulty claim
+  const di=Math.floor(k/1000)-1, act=Math.floor(k%1000/100), stg=k%100;
+  if(di<0||di>3||act<1||act>3||stg<1) return String(stageKey);
+  const diff=DIFFICULTIES[di]||null;
   const nk=(10+act)*100+stg, nm=DB&&DB.stages&&(DB.stages[nk]||DB.stages[String(nk)]);
   return 'Act '+act+'-'+stg+(diff?(' · '+diff):'')+(nm?(' · '+nm):'');
 }

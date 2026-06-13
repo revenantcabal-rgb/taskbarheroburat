@@ -1,6 +1,17 @@
 # TBH HUD — improvement.log
-Updated 2026-06-12 (session 24 · app v1.0.23). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-13 (session 25 · app v1.0.24). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PRD.md, docs/PROGRESS.md.
+
+## S25 (v1.0.24) — stage difficulty decode corrected (owner-reported: "Torment" should be "Nightmare")
+The S24 band-continuous decode (`floor(k/100)-10` split 3-acts-per-band) mislabeled EVERY Nightmare+ stage — a crew
+member on Nightmare Act 2-9 (key 2209) showed as "Act 3-9 · Torment", and the owner's own save (now at key 2105) as
+"Act 2-5 · Torment". Dumped the game's OWN `StageInfoData` (StageKey/STAGEDIFFICULITY/Act/StageNo): the key is
+difficulty-PREFIXED — `key = difficulty*1000 + act*100 + stageNo` (1=Normal..4=Torment; 120 stages, 30/difficulty).
+Fixed `stageParts`+`stageLabel` in both engines, made `stageIdx` a global monotonic index, added a 4-corner-case
+assertion to verify_save, and added the stage tables to dump_textassets.py. Verified against the REAL save (2105 →
+"Act 1-5 · Nightmare") + 8 calibrated keys. Crew board re-decodes from numeric maxStage client-side, so no crew-API
+redeploy and friends don't need to update. (Pre-existing, unrelated: verify_save flags `runePlan save-for already
+affordable` — a live-gold edge case, untouched here.)
 
 ## WHERE WE ARE (verified vs repo + live save — not claimed)
 Read-only, calibrated. WEB ships on every push (GitHub Pages + the owner's Vercel project auto-deploys); **DESKTOP v1.0.19**

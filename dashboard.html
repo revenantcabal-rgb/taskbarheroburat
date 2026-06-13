@@ -10,10 +10,10 @@
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';
 document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.23"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.24"></script>
 <!-- Official Simplified-Chinese game-term map (window.TBH_ZH) extracted from the game's own zh-Hans
      localization bundle (scripts/extract_localization_zh.py). Powers the EN/中文 language switch. -->
-<script src="src/engine/i18n_zh.min.js?v=1.0.23"></script>
+<script src="src/engine/i18n_zh.min.js?v=1.0.24"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -1020,25 +1020,26 @@ function el(html){var t=document.createElement('template');t.innerHTML=html.trim
 // string contains multiple top-level elements (el() would silently drop all but the first).
 function frag(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content;}
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
-// Stage display (P2): NEVER show the raw stageKey. The save's stageKey is BAND-CONTINUOUS: raw act =
-// floor(k/100)-10, stage = k%100 (VERIFIED: 1208 -> "Act 2-8" Sacred Tomb; 1101 -> "Act 1-1" Pasture).
-// DIFFICULTY (calibrated, not guessed): the game ships exactly 4 difficulties — Difficulty_NORMAL/NIGHTMARE/
-// HELL/TORMENT in its own localization, corroborated by the 4 Soulstones (ItemName_190001-4 "Material required
-// to summon <X> difficulty bosses") — and ONE difficulty band = 3 acts × 10 stages (the 30 named StageName_
-// keys span exactly acts 1-3). So the raw act runs 1..12 across the 4 bands: difficulty = floor((rawAct-1)/3)
-// (0 Normal … 3 Torment) and the act WITHIN that difficulty = ((rawAct-1)%3)+1. e.g. 2205 -> raw act 12 ->
-// "Act 3-5 · Torment" (previously mis-shown as the meaningless "Act 12-5"). Higher difficulties replay the
-// Normal-band maps, so the real stage NAME resolves via the equivalent Normal key. Mirror: saveEngine.stageLabel.
+// Stage display: NEVER show the raw stageKey. CALIBRATED from the game's OWN StageInfoData (columns
+// StageKey, STAGEDIFFICULITY, Act, StageNo): the key is DIFFICULTY-PREFIXED, NOT band-continuous —
+//   stageKey = difficulty*1000 + act*100 + stageNo,  difficulty 1..4 = Normal/Nightmare/Hell/Torment,
+//   act 1..3, stageNo 1..10  (120 stages = 30 per difficulty, verified row-for-row against StageInfoData).
+// e.g. 1208 -> Normal Act 2-8 (Sacred Tomb); 2209 -> Nightmare Act 2-9; 3310 -> Hell Act 3-10; 4101 -> Torment Act 1-1.
+// (Earlier builds wrongly used floor(k/100)-10 with a 3-acts-per-band split, which mislabeled every
+// Nightmare+ key — real Nightmare 2209 showed as "Act 3-9 · Torment". Normal keys decode the same either
+// way, so it went unnoticed until a crew member cleared past Normal.) Stage NAMES exist only for the Normal
+// maps; higher difficulties replay them, so the name resolves via the equivalent Normal key (1000+act*100+stg).
+// Mirror of this logic: saveEngine.stageLabel.
 var DIFFICULTIES=['Normal','Nightmare','Hell','Torment'];
 // language-aware "Act X-Y" core: English "Act 3-9" / 简体中文 "第3-9关" (the game's own term: 第{0}章 / 关)
 function actCore(a,s){ return (LANG==='zh')?('第'+a+'-'+s+'关'):('Act '+a+'-'+s); }
 function stageParts(stageKey){ // -> {act,stg,diff,name} | {raw:'<key>'} | null  (diff/name already localized)
   if(stageKey==null||stageKey==='')return null;
   var k=Number(stageKey);if(!isFinite(k))return {raw:String(stageKey)};
-  var rawAct=Math.floor(k/100)-10, stg=k%100;
-  if(rawAct<1||stg<1)return {raw:String(stageKey)};
-  var di=Math.floor((rawAct-1)/3), act=((rawAct-1)%3)+1, zh=(LANG==='zh');
-  var diffEn=DIFFICULTIES[di]||null, diff=diffEn?((zh&&ZG.diff[diffEn])||diffEn):null; // unknown band -> no difficulty claim
+  var di=Math.floor(k/1000)-1, act=Math.floor(k%1000/100), stg=k%100;
+  if(di<0||di>3||act<1||act>3||stg<1)return {raw:String(stageKey)};
+  var zh=(LANG==='zh');
+  var diffEn=DIFFICULTIES[di]||null, diff=diffEn?((zh&&ZG.diff[diffEn])||diffEn):null; // out-of-range -> no difficulty claim
   var nk=(10+act)*100+stg, nmEn=(DB.stages&&(DB.stages[nk]||DB.stages[String(nk)]))||'';
   var nm=nmEn?((zh&&ZG.stages[String(nk)])||nmEn):'';
   return {k:k, act:act, stg:stg, diff:diff, name:nm};
@@ -1964,7 +1965,7 @@ function flexCard(d){
 var target=null;
 try{var _tg=JSON.parse(localStorage.getItem('tbh_target')||'null');if(_tg&&_tg.type)target=_tg;}catch(e){}
 function targetSave(){try{if(target)localStorage.setItem('tbh_target',JSON.stringify(target));else localStorage.removeItem('tbh_target');}catch(e){}}
-function stageIdx(key){var k=+key;if(!k)return null;var act=Math.floor(k/100)-10,no=k%100;if(act<1||no<1||no>10)return null;return (act-1)*10+no;}
+function stageIdx(key){var k=+key;if(!k)return null;var di=Math.floor(k/1000)-1,act=Math.floor(k%1000/100),no=k%100;if(di<0||di>3||act<1||act>3||no<1||no>10)return null;return di*30+(act-1)*10+no;} // global monotonic index across difficulties
 // measured max-stage progression across the recorded history: stage-steps per PLAYED hour
 function stagePaceFromHistory(){
   var pts=rawTrendPoints().slice().sort(function(a,b){return a.t-b.t;}),first=null,last=null;
@@ -3299,7 +3300,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.23';
+var APP_VERSION='1.0.24';
 var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint (one DB so crews never split)
 
 /* ============================================================================
@@ -3309,6 +3310,9 @@ var CREW_API='https://tbh-crew-api.vercel.app/api';   // canonical crew endpoint
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.24',d:'2026-06-13',sec:{
+    Fixed:[
+      'Stage difficulty is now correct for Nightmare, Hell and Torment. Higher-difficulty stages were showing the wrong band and act — e.g. a friend on Nightmare Act 2-9 was labeled "Act 3-9 · Torment". The fix reads the difficulty straight from the game\'s own stage table (key = difficulty×1000 + act×100 + stage; 1=Normal, 2=Nightmare, 3=Hell, 4=Torment). Normal players were always correct, which is why this only showed up once friends cleared past Normal. The Crew board re-decodes everyone automatically — no need for friends to update.']}},
   {v:'1.0.23',d:'2026-06-12',sec:{
     Fixed:[
       'Switching back to English now fully restores the header, tabs and connect screen. They were staying in Chinese because the restore step skipped any text with no Latin letters — which is exactly all the pure-Chinese labels (总览, 断开连接, …). The page chrome is never re-rendered, so it stayed stuck; tab content was unaffected (it re-renders fresh). Verified across load-in-Chinese → English and repeated toggles.']}},

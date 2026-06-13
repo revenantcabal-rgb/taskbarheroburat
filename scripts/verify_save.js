@@ -82,10 +82,17 @@ if (extraAgg.length) problems.push('aggregates exposes uncalibrated key(s): ' + 
 // 3) Show WHY Type 16 is omitted: max progress decodes to the FIRST difficulty band (an early act), yet
 //    Type 16 read as per-difficulty would claim Nightmare/Hell/Torment completions => self-contradicting => omit.
 const raw16 = (psd.aggregateSaveDatas || []).filter(x => x.Type === 16).sort((a, b) => a.SubKey - b.SubKey).map(x => x.Value);
-const maxAct = Math.floor((snap.summary.maxCompletedStage || 0) / 100) - 10;
-if (raw16.length >= 2 && raw16.slice(1).some(v => (v || 0) > 0) && maxAct <= 3) {
-  console.log('type16 raw    ', JSON.stringify(raw16), '— NOT shown. As per-difficulty it would claim Nightmare/Hell/Torment > 0, but max progress is "' + snap.summary.maxStageLabel + '" (first difficulty band) => disproven, omitted (golden rule).');
+const maxDiff = Math.floor((snap.summary.maxCompletedStage || 0) / 1000); // 1=Normal .. 4=Torment (StageInfoData)
+if (raw16.length >= 2 && raw16.slice(1).some(v => (v || 0) > 0) && maxDiff <= 1) {
+  console.log('type16 raw    ', JSON.stringify(raw16), '— NOT shown. As per-difficulty it would claim Nightmare/Hell/Torment > 0, but max progress is "' + snap.summary.maxStageLabel + '" (Normal) => disproven, omitted (golden rule).');
 }
+// 3b) Stage decode is calibrated against the game's OWN StageInfoData: key = difficulty*1000 + act*100 + stageNo
+//     (difficulty 1..4 = Normal/Nightmare/Hell/Torment). Assert the four corner cases so the old band-continuous
+//     reading (floor(k/100)-10), which mislabeled every Nightmare+ key, can never silently come back.
+[[1210, 'Act 2-10 · Normal'], [2209, 'Act 2-9 · Nightmare'], [3310, 'Act 3-10 · Hell'], [4101, 'Act 1-1 · Torment']].forEach(([key, want]) => {
+  const got = eng.stageLabel(key);
+  if (got.indexOf(want) !== 0) problems.push('stageLabel(' + key + ') = "' + got + '" — expected to start with "' + want + '"');
+});
 // 4) The one calibrated multi-counter we DO show (kills-by-monster) must sum EXACTLY to total kills.
 const km = eng.killsByMonster(psd);
 const kmSum = km.reduce((s, m) => s + (m.kills || 0), 0);

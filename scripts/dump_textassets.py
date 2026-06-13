@@ -9,7 +9,10 @@ want=set(["ItemInfoData","GearInfoData","DropInfoData","ItemGroupInfoData","Stat
   "SynthesisRecipeInfoData","CraftingRecipeInfoData","OfflineRewardInfoData","LevelInfoData",
   # v1.0.17 (P5): the Cube/recipe chain — categories, sub-recipe unlocks, cube XP curve,
   # synthesis result pools, extraction costs
-  "CubeRecipeInfoData","CubeSubRecipeInfoData","CubeLevelInfoData","SynthesisDropInfoData","ExtractionCostInfoData"])
+  "CubeRecipeInfoData","CubeSubRecipeInfoData","CubeLevelInfoData","SynthesisDropInfoData","ExtractionCostInfoData",
+  # v1.0.24: the authoritative stage table — StageKey/STAGEDIFFICULITY/Act/StageNo proves the key encoding
+  # (difficulty*1000 + act*100 + stageNo); StageLevelInfoData = per-StageLevel monster multipliers
+  "StageInfoData","StageLevelInfoData"])
 env=UnityPy.load(DATA)
 for obj in env.objects:
     if obj.type.name=="TextAsset":

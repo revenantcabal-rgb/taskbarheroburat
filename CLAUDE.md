@@ -213,6 +213,17 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S25 (v1.0.24)** — **stage DIFFICULTY decode was WRONG for Nightmare+ (owner-reported: leaderboard showed Torment
+  instead of Nightmare).** The S24 "band-continuous" theory (`rawAct=floor(k/100)-10`, then split a fictional 1..12
+  act into 3-per-band) mislabeled EVERY Nightmare+ key — real Nightmare `2209` rendered as "Act 3-9 · Torment", and
+  the owner's own `2105` as "Act 2-5 · Torment". GROUND TRUTH: dumped the game's OWN **`StageInfoData`** (cols
+  `StageKey, STAGEDIFFICULITY, Act, StageNo`) → the key is **difficulty-PREFIXED**: `key = difficulty*1000 + act*100
+  + stageNo` (1=Normal…4=Torment, act 1-3, stage 1-10; 120 stages = 30/difficulty, NORMAL 1101-1310 … TORMENT
+  4101-4310). Normal keys decode identically under both readings, which is why it hid until the owner+crew cleared
+  past Normal (exactly the "not save-verified past Normal" gap S24 flagged). FIX in BOTH engines (`stageParts`+
+  `stageLabel`) + `stageIdx` now a global monotonic `di*30+(act-1)*10+no`; `verify_save` asserts 4 corner cases
+  (1210/2209/3310/4101). Crew re-decodes from numeric `maxStage` client-side → **no crew-API redeploy, friends need
+  not update**. Added `StageInfoData`/`StageLevelInfoData` to `dump_textassets.py`. See [[tbh-stage-difficulty-decode]].
 - **S24c (v1.0.23)** — **i18n restore bug — UI stayed Chinese after switching back to English (owner-reported).**
   `_i18nTextNode`'s `if(!cur||!/[A-Za-z]/.test(cur))return;` ran BEFORE the lang branch, so on RESTORE (en) every
   pure-Chinese node (no Latin — 总览, 断开连接, …) returned early and never reverted. Only the persistent CHROME

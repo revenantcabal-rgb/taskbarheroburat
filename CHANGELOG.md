@@ -4,6 +4,17 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.24 — 2026-06-13
+
+### Fixed
+- **Stage difficulty is now correct for Nightmare, Hell and Torment.** Higher-difficulty stages were showing the
+  wrong band and act — a friend on **Nightmare Act 2-9** was labeled **"Act 3-9 · Torment."** The old decode treated
+  the stage number as one continuous run of 12 acts; the game actually prefixes the difficulty into the key
+  (`key = difficulty×1000 + act×100 + stage`, where `1`=Normal, `2`=Nightmare, `3`=Hell, `4`=Torment, calibrated
+  straight from the game's own `StageInfoData`). Normal keys happened to decode the same under both readings, which
+  is why the bug only became visible once players cleared past Normal. The Crew board re-decodes every member from
+  their numeric stage key, so **friends don't need to update** for their stages to read correctly.
+
 ## v1.0.23 — 2026-06-12
 
 ### Fixed

@@ -16,3 +16,10 @@ scripts/_gamedata_raw/
 
 # private ops notes — never commit
 OPS-PRIVATE.local.md
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
