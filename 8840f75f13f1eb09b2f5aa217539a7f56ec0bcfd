@@ -1,0 +1,5 @@
+Deploy v1.0.28 (2026-06-13):
+- GitHub: pushed to main; Pages + GitHub Actions CI triggered.
+- Owner's Vercel site (taskbarheroburat) auto-deploys the client (dashboard) from this push.
+- tbh-crew-api (api/*) REDEPLOY STILL REQUIRED for the server-side dup-fold: vercel deploy --prod --yes --scope fusiondatacompany-projects (CLI not authorized in this env). Until then dedupeBoard hides dups client-side.
+- Verified pre-push: npm test 24/24, verify_save EXIT 0, 0 console errors across 12 tabs.
