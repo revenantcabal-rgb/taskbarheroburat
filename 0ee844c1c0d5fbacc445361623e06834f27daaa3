@@ -9,3 +9,8 @@ v1.0.30 verification & deploy note
   and against the live AppData save).
 - Deploy: pushed to revenantcabal-rgb/taskbarheroburat main -> Vercel project taskbarheroburat auto-deploys
   (Neon Postgres attached; crew API serves the new curStage brag-stat once live). GitHub Pages updates on push.
+
+DESKTOP RELEASE: v1.0.30 published on GitHub (gh release create v1.0.30 ... --latest) with
+TBH-HUD-Setup-1.0.30.exe (72.2 MB) + latest.yml (sha512 verified to match the exe; auto-update feed).
+The in-app "What's new" modal (CHANGELOG const in dashboard.html) is updated and packaged in the asar
+(verified: APP_VERSION 1.0.30 + farming/atlas tabs inside app.asar). v1.0.6+ installs auto-update.
