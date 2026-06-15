@@ -1,6 +1,34 @@
 # TBH HUD — improvement.log
-Updated 2026-06-15 (session 30 · app v1.0.30). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-16 (session 31 · app v1.0.31). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S31 (v1.0.31) — box-farming optimizer + chest-LEVEL ladder · blue-chest tracker corrected · drop-rate de-mythed
+Owner-driven (analysing two friends' real saves who "get chests more"). All read-only; 21 tests pass; verify_save
+PASS; 0 console errors (?demo). KEY DATA CORRECTION: the per-stage box drop RATE is in the game files after all —
+`StageInfoData.BossDropItemRate`/`MonsterDropItemRate` (extracted v1.0.30 → `DB.stageFarm.brate`/`mrate`), which the
+original BLUE-CHEST-DROP-RATE-FINDINGS sweep (v1.0.16 tables) never saw. Calibrated: blue chance is FLAT per difficulty
+(Normal 20–100%, Nightmare 15%, Hell 10%, Torment 8%); common 2–16/1.5/1/0.8%. STILL no cooldown → "switch stages for
+back-to-back chests" is folklore (flat within a difficulty; switching changes the rate by 0).
+1) NEW box-farming optimizer (Loot tab) — reads the player's MEASURED clear pace (farmAutoEngine + a 2-point dps+
+   overhead fit from their farmed stages) × the calibrated brate/mrate → ranks stages by blue/hr & common/hr; names
+   the best stage at the current loot tier, the highest-count stage anywhere, and the best for commons. Honest copy:
+   no cooldown, switching resets nothing; numbers are floors (drop-chance runes boost the real rate, ranking
+   unaffected). `boxFarmRank()` (+ `boxLevel`/`boxLabel` helpers); data-driven %/level (no hardcoded numbers).
+2) NEW chest-LEVEL ladder — decoded that every chest carries a level (`Stage Boss Box Lv15→20→30→40→50→65→80`) = the
+   GEAR LEVEL inside, dropped by a BAND of stages. Ladder shows the best UNLOCKED stage to spam per chest level (blue
+   %, blue/hr, clear), highlighting the one you're on. Answers "what stage for a Lv50 chest" (= Nightmare 3-5..3-9 @
+   15%, the game's best Lv50 source — beats Hell's 10%).
+3) FIXED the blue-chest tracker's 6-minute artifact — gaps were `playHours.toFixed(1)` (0.1h = 360s rounding) + float
+   noise, NOT a game cadence. Now stores RAW play-seconds (`ps`) in chestLog; gap math prefers `ps`, falls back to
+   legacy `ph`. snapshot gained `playSec`. Demo chestLog seeded with `ps`.
+4) Docs/honesty: BLUE-CHEST-DROP-RATE-FINDINGS.md gets a v1.0.31 "SUPERSEDED IN PART" header (bottom-line #2 was true
+   of the v1.0.16 dump, now wrong); CHANGELOG (in-app const + CHANGELOG.md) + "What's new"; package.json/APP_VERSION/
+   ?v= → 1.0.31.
+FRIEND-SAVE FORENSICS (B + R, both on v1.00.12, Act 2-6 Hell): they out-pull the owner for measurable reasons, not a
+trick — Drop-Chance-Stage-Boss rune total 460%/510% vs owner 310%; party L61/L66 vs L56 (faster clears); Hell = Lv65
+boxes (juicier, not more). Their saves carry NEW `BoxBucketGetBoxList`/`BoxBucketUseBoxList` (v1.00.12 box pipeline)
+the owner's v1.00.11 lacks → owner should update the game. NOTE: gamedata is still v1.00.11; box items + ladder are
+stable but exact v1.00.12 stage→rate mapping is unverified.
 
 ## S30 (v1.0.30) — remove Crew PvP · crew stage accuracy · Farming optimizer · Atlas (rarity/acts/stage-boxes/dropfinder)
 Owner-requested wave. All shipped read-only; 21 committed tests pass; verify_save PASS; 0 console errors (verified

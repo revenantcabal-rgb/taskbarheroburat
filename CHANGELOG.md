@@ -4,6 +4,30 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.31 — 2026-06-16
+
+### Added
+- **Blue & common box-farming optimizer (Loot tab).** The game's own per-stage table (`StageInfoData`) actually
+  carries the box drop chances — a fixed **blue-box chance per clear** and **common-box chance per kill** — and they
+  are **flat across every stage of a difficulty** (Normal 20–100%, **Nightmare 15%**, Hell 10%, Torment 8% for blue).
+  So switching stages within a difficulty changes your box rate by **zero**; what moves boxes/hr is **clears per hour**.
+  The optimizer reads **your measured clear pace** and ranks stages by drop-chance × your speed: the fastest stage at
+  your loot tier, the highest box-count stage anywhere, and the best for commons.
+- **Chest-LEVEL ladder.** Every chest carries a level (`Stage Boss Box Lv15 → Lv20 → Lv30 → Lv40 → Lv50 → Lv65 →
+  Lv80`) and that level **is the gear level inside it**. Each level is dropped by a *band* of stages, so to chase a
+  specific chest (e.g. a **Lv50**) you spam the right stage. The ladder shows your best unlocked stage per chest level
+  (blue %, blue/hr, clear time) and highlights the one you're on.
+
+### Changed
+- **Blue-chest tracker corrected & sharpened.** Acquisition gaps are now measured in **raw play-seconds** instead of
+  being rounded to 0.1 h — the old "every gap is ~6 minutes" ladder was that rounding (plus floating-point noise), not
+  a game cadence. There is **no per-stage cooldown** in the files; the "switch stages for back-to-back chests" trick is
+  folklore (the drop rate is flat within a difficulty).
+
+### Fixed
+- The blue-chest panel no longer claims the game "has no drop rate to quote." It does — extracted in v1.0.30 — so the
+  HUD now uses it.
+
 ## v1.0.30 — 2026-06-15
 
 ### Added

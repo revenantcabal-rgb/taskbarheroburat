@@ -10,10 +10,10 @@
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';
 document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.30"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.31"></script>
 <!-- Official Simplified-Chinese game-term map (window.TBH_ZH) extracted from the game's own zh-Hans
      localization bundle (scripts/extract_localization_zh.py). Powers the EN/中文 language switch. -->
-<script src="src/engine/i18n_zh.min.js?v=1.0.30"></script>
+<script src="src/engine/i18n_zh.min.js?v=1.0.31"></script>
 <!-- shared, dependency-free crew logic (identity hash + board dedup + stage index); unit-tested in CI. Same file runs here and under require() in Node. -->
 <script src="src/engine/crewEngine.js?v=1.0.30"></script>
 <style>
@@ -1635,7 +1635,9 @@ function analyze(psd){
   (psd.attributeSaveDatas||[]).forEach(function(n){if(!(n.Level>0))return;var a=DB.attributes&&DB.attributes[n.Key];if(a&&a.type==='ACTIVESKILL'&&a.val)ownedSkills[String(a.val)]=1;});
   return {
     version:c.version, stage:c.currentStageKey, wave:c.currentStageWave, maxStage:c.maxCompletedStage,
-    playHours:c.playTime?+(c.playTime/3600).toFixed(1):null, lastSaved:ticksToDate(c.lastSavedTime),
+    playHours:c.playTime?+(c.playTime/3600).toFixed(1):null,
+    playSec:(c.playTime!=null)?+c.playTime:null,   // RAW play-seconds (un-rounded) — chest-gap math uses this so gaps aren't quantized to the 0.1h display step
+    lastSaved:ticksToDate(c.lastSavedTime),
     pet:c.ArrangedPetKey, gold:goldRow?goldRow.Quantity:0, heroes:heroes,
     cube:psd.cubeSaveLevelData||null,   // {Level,Exp} — crafting/synthesis progress (the game tracks the Cube, not per-item origin)
     cubeUnlocks:cubeUnlocksD(psd),      // v1.0.18 — REAL per-category unlock state (null on saves without rows)
@@ -1887,7 +1889,8 @@ function processLoot(owned,ts,d){
     });
     if(chestN){
       // boxes landing in the SAME save read collapse into one event (gaps are only measurable between reads)
-      chestLog.unshift({t:tNow,stage:(d&&d.stage)||null,ph:(d&&d.playHours!=null)?d.playHours:null,n:chestN});
+      chestLog.unshift({t:tNow,stage:(d&&d.stage)||null,ph:(d&&d.playHours!=null)?d.playHours:null,
+        ps:(d&&d.playSec!=null)?d.playSec:null,n:chestN});   // ps = RAW play-seconds -> real gap resolution (ph stays for legacy entries)
       chestLog=chestLog.slice(0,400);
     }
     lootLog=lootLog.slice(0,500);   // v1.0.16: keep a real record (was 120) — ~75 KB worst case, well inside localStorage
@@ -2735,11 +2738,78 @@ function renderLoot(d){
       '</b> that Steam hasn\'t delivered yet ('+perKey+') — its inventory call came back <i>empty</i> each time. Those boxes are held on the <b>Steam side</b>, not in your save, so they don\'t appear in the timeline below. That\'s a Steam/game-side delay this build is known for — not a missed drop.</div>'));
   }
 
-  // v1.0.16 (P3) — Blue-chest tracker: MEASURED from the player's own play, never asserted. The game's data
-  // files contain no base drop % and no cooldown for the Stage Boss Box (file-verified, see
-  // BLUE-CHEST-DROP-RATE-FINDINGS.md) — so this panel only ever shows the player's own acquisition intervals.
-  p.appendChild(el('<h3 class="sec">Blue-chest tracker <span class="tag">Stage Boss Box · measured from your play — the game files contain no rate to quote</span></h3>'));
-  p.appendChild(el('<div class="hint">The "blue chest" is the game\'s <b>Stage Boss Box</b> (the RARE-grade chest — calibrated from the game\'s own item table). File-verified: <i>"there is NO numeric drop rate for the blue chest anywhere in the game\'s data files"</i>, and the rumored <i>12-minute per-stage cooldown</i> <b>is not in the files either</b> — anyone quoting those numbers measured them or guessed (full investigation: BLUE-CHEST-DROP-RATE-FINDINGS.md in the repo). So the HUD <b>measures instead of asserting</b>: every Stage Boss Box that lands in your save is logged with your current stage and play-hours, and the intervals below are <b>your own data, sample size included</b>. To test the community\'s "switch stages for back-to-back chests" trick yourself: farm one stage, note the gaps — then switch stages and see whether the next chest comes faster. The HUD never claims it will.</div>'));
+  // v1.0.31 — Blue-chest tracker + box-farming recommender. The game's StageInfoData DOES carry per-stage box
+  // drop chances (BossDropItemRate/MonsterDropItemRate, extracted v1.0.30 -> DB.stageFarm.brate/mrate). They are
+  // FLAT per-kill chances baked per stage, with NO cooldown (file-verified: no DropCooldown timer). So switching
+  // stages cannot change your rate within a difficulty — the recommender ranks stages by chance x your measured
+  // clear pace instead, and the timeline below still MEASURES every real acquisition.
+  p.appendChild(el('<h3 class="sec">Blue &amp; common box farming <span class="tag">Stage Boss Box (blue) + Common box · drop chance from the game\'s own StageInfoData × your measured clear pace</span></h3>'));
+  p.appendChild(el('<div class="hint">The "blue chest" is the game\'s <b>Stage Boss Box</b> (RARE grade). The game\'s own per-stage table gives a fixed <b>blue-box chance per clear</b> and <b>common-box chance per kill</b> — and they\'re <b>flat across every stage of a difficulty</b> (Normal 20–100%, <b>Nightmare 15%</b>, Hell 10%, Torment 8% for blue). There is <b>no cooldown and no "jump to reset"</b> — switching stages within a difficulty changes your box rate by <b>zero</b> (the old "switch for back-to-back chests" trick is folklore; full investigation in BLUE-CHEST-DROP-RATE-FINDINGS.md). What actually moves your boxes/hr is <b>clears per hour</b>, so the optimizer ranks stages by <b>drop-chance × your own measured clear speed</b>. The timeline still logs every real Stage Boss Box that lands in your save.</div>'));
+  // ---- box-farming recommender (v1.0.31): from YOUR live save's measured pace + the game's calibrated rates ----
+  (function(){
+    var bf=(typeof boxFarmRank==='function')?boxFarmRank(current):null;
+    var unlocked=function(arr){var u=arr.filter(function(r){return r.unlocked;});return u.length?u:arr;};
+    if(bf){
+      var curKey=String((current&&current.stage)||'');
+      var curRow=bf.rows.filter(function(r){return r.k===curKey;})[0];
+      var topBlue=unlocked(bf.blue)[0], topCommon=unlocked(bf.common)[0];
+      var diNow=curRow?curRow.f.di:null;
+      // best within the SAME difficulty you're playing now (so the loot tier doesn't drop)
+      var sameDiff=diNow!=null?unlocked(bf.blue.filter(function(r){return r.f.di===diNow;})):[];
+      var topSame=sameDiff[0];
+      var lab=function(r){return r?('Act '+r.f.act+'-'+r.f.no+' · '+(FARM_DIFF[r.f.di]||'')):'—';};
+      var perHr=function(v){return (v>=10?Math.round(v):(Math.round(v*10)/10));};
+      var pct=function(r){return r?(r.f.brate/10):null;};            // blue %/clear straight from the game table
+      // is the blue chance flat across every UNLOCKED stage of the current difficulty? (true for NM/Hell/Torment;
+      // FALSE for Normal, where Act 1 pays far more) — drives whether the advice is "fastest" or "drop down".
+      var diRows=diNow!=null?unlocked(bf.blue.filter(function(r){return r.f.di===diNow;})):[];
+      var brates=diRows.map(function(r){return r.f.brate;}), flat=brates.length>0&&brates.every(function(b){return b===brates[0];});
+      var vsNow=function(r){return (curRow&&curRow.blueHr>0)?(' (+'+Math.round((r.blueHr/curRow.blueHr-1)*100)+'% vs now)'):'';};
+      var bl=function(r){return r&&r.blab?(' · drops <b>'+r.blab+'</b> chest'):'';};
+      var cards='<div class="grid cards">';
+      if(curRow) cards+=card('Your stage now',lab(curRow),'','~'+perHr(curRow.blueHr)+' blue/hr · ~'+Math.round(curRow.commonHr)+' common/hr · '+pct(curRow)+'%/clear'+bl(curRow),'📍');
+      if(topSame&&(!curRow||topSame.k!==curRow.k)){
+        var reason=flat?('same '+pct(topSame)+'% chance, just faster clears'):('higher chance ('+pct(topSame)+'% vs '+(pct(curRow)||'?')+'%) + faster clears');
+        cards+=card('Best in '+(FARM_DIFF[diNow]||'')+' (same loot tier)',lab(topSame),'','~'+perHr(topSame.blueHr)+' blue/hr — '+reason+vsNow(topSame)+bl(topSame),'🏆');
+      }
+      if(topBlue&&topBlue.f.di!==diNow) cards+=card('Most blue boxes anywhere',lab(topBlue),'','~'+perHr(topBlue.blueHr)+' blue/hr at '+pct(topBlue)+'%/clear — far more boxes'+bl(topBlue)+', but '+(FARM_DIFF[topBlue.f.di]||'')+' loot is weaker','💙');
+      if(topCommon) cards+=card('Most common boxes',lab(topCommon),'','~'+Math.round(topCommon.commonHr)+' common/hr · '+(topCommon.f.mrate/10)+'%/kill','📦');
+      cards+='</div>';
+      var explain=flat
+        ? ('within '+(FARM_DIFF[diNow]||'your difficulty')+' <b>every stage shares the same '+(pct(curRow)||brates[0]/10)+'% blue chance</b>, so the most boxes come from your <b>fastest-clearing</b> stage — <b>not</b> from jumping between stages (the rate never changes). '+
+           'Your current '+lab(curRow)+' is a big-HP, slow stage'+(topSame?('; <b>'+lab(topSame)+'</b> clears faster for the same '+pct(topSame)+'% drop'):'')+'. ')
+        : ('in '+(FARM_DIFF[diNow]||'your difficulty')+' the <b>lower stages have a HIGHER blue chance AND clear faster</b>, so dropping down beats jumping sideways'+(topSame?(' — <b>'+lab(topSame)+'</b> at '+pct(topSame)+'%/clear'):'')+'. ');
+      var rec=el('<div class="panel" style="padding:12px;margin-bottom:10px">'+cards+
+        '<div class="loothint" style="margin-top:8px"><b>What this means for you:</b> '+explain+
+        'For raw box <b>count</b> regardless of loot tier, drop to <b>'+lab(topBlue)+'</b> ('+(pct(topBlue))+'% blue/clear). '+
+        '<b>There is no cooldown — switching stages resets nothing.</b> Numbers are estimates from your measured clear speed.</div></div>');
+      p.appendChild(rec);
+      // ---- chest-LEVEL ladder: "I want a LvN chest -> spam THIS stage". Box level = gear level inside; each level
+      // is dropped by a band of stages, and the BEST source = the lowest-difficulty / fastest unlocked stage in the band.
+      var byLvl={};
+      bf.rows.forEach(function(r){ if(r.blvl==null||String(r.blvl).charAt(0)==='e'||!r.unlocked||!(r.blueHr>0)) return;
+        if(!byLvl[r.blvl]||r.blueHr>byLvl[r.blvl].blueHr) byLvl[r.blvl]=r; });
+      var lvls=Object.keys(byLvl).map(Number).sort(function(a,b){return b-a;});
+      if(lvls.length){
+        var lr='';
+        lvls.forEach(function(L){ var r=byLvl[L], here=curRow&&r.k===curRow.k;
+          lr+='<tr'+(here?' style="background:color-mix(in srgb,var(--accent) 12%,transparent)"':'')+'><td><b>Lv'+L+'</b> chest</td>'+
+            '<td>'+esc(lab(r))+(here?' <span class="tag">you\'re here</span>':'')+'</td>'+
+            '<td class="r">'+pct(r)+'%</td><td class="r">~'+perHr(r.blueHr)+'/hr</td><td class="r">'+fmtClear(r.sec)+'</td></tr>'; });
+        p.appendChild(el('<div class="panel" style="margin-bottom:10px"><div class="loothint" style="padding:8px 10px 0"><b>Chest-level ladder</b> — you said you want a <b>Lv50</b> chest: spam the stage on that row. Box level = the gear level inside; the stage shown is your <b>best unlocked</b> source (highest blue/hr) for each level.</div>'+
+          '<table><thead><tr><th>Chest</th><th>Best stage to spam</th><th class="r">Blue %</th><th class="r">Blue/hr</th><th class="r">Clear</th></tr></thead><tbody>'+lr+'</tbody></table></div>'));
+      }
+    } else if(current){
+      // no measured pace yet -> still answer with the game's static per-stage chances for unlocked stages
+      var cf=DB.stageFarm[String(current.stage)]||{}, cdi=cf.di;
+      var diStages=Object.keys(DB.stageFarm).map(function(k){return DB.stageFarm[k];}).filter(function(s){return s.di===cdi&&s.brate!=null;});
+      var cFlat=diStages.length>0&&diStages.every(function(s){return s.brate===diStages[0].brate;});
+      var msg=cFlat
+        ? ('in <b>'+esc(FARM_DIFF[cdi]||'your difficulty')+'</b> every stage shares the same '+(cf.brate/10)+'% blue chance, so the <b>fastest-clearing</b> stage you can farm gives the most boxes — switching stages does not change the rate (there is no cooldown).')
+        : ('in <b>'+esc(FARM_DIFF[cdi]||'your difficulty')+'</b> the lower stages have a <b>higher</b> blue chance and clear faster, so dropping down — not jumping sideways — gives the most boxes (there is no cooldown).');
+      p.appendChild(el('<div class="loothint" style="margin-bottom:10px">Play a little with the HUD connected and the optimizer will rank stages by <b>your</b> clear speed. Meanwhile, from the game\'s data: '+msg+'</div>'));
+    }
+  })();
   if(!chestLog.length){
     p.appendChild(el('<div class="empty">No Stage Boss Box acquisitions recorded yet — they\'re logged automatically while the HUD is connected and you play.<br><span style="font-size:11.5px">Chests are detected from your save (they land as items), so the HUD must be running when one drops. Nothing is recorded from other players or community claims.</span></div>'));
   }else{
@@ -2748,7 +2818,10 @@ function renderLoot(d){
     for(var ci=1;ci<evs.length;ci++){
       var a2=evs[ci-1],b2=evs[ci];
       var wallH=(b2.t-a2.t)/3600000;
-      var playedH=(a2.ph!=null&&b2.ph!=null)?Math.max(0,b2.ph-a2.ph):null;
+      // played-time gap: prefer RAW play-seconds (exact) over the 0.1h-rounded playHours, which quantized every
+      // gap to a 6-minute step (the "5m59s/6m00s" ladder was that rounding + float noise, NOT a game cadence).
+      var playedH=(a2.ps!=null&&b2.ps!=null)?Math.max(0,(b2.ps-a2.ps)/3600)
+                 :(a2.ph!=null&&b2.ph!=null)?Math.max(0,b2.ph-a2.ph):null;
       gaps.push({b:b2,wallH:wallH,playedH:playedH,
         away:(playedH!=null&&(wallH-playedH)>0.25),                       // the calibrated closed-game detector (v1.0.9)
         switched:!!(a2.stage&&b2.stage&&a2.stage!==b2.stage)});
@@ -3573,7 +3646,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.30';
+var APP_VERSION='1.0.31';
 var CREW_API='https://taskbarheroburat.vercel.app/api';   // canonical crew endpoint — owner's own Vercel project (Neon DB attached v1.0.29); one DB so crews never split
 
 /* ============================================================================
@@ -3583,6 +3656,14 @@ var CREW_API='https://taskbarheroburat.vercel.app/api';   // canonical crew endp
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.31',d:'2026-06-16',sec:{
+    Added:[
+      'Blue & common box farming optimizer (Loot tab). The game\'s own per-stage table (StageInfoData) actually DOES carry the box drop chances — a fixed blue-box chance per clear and common-box chance per kill — and they\'re FLAT across every stage of a difficulty (Normal 20–100%, Nightmare 15%, Hell 10%, Torment 8% for blue). So switching stages within a difficulty changes your box rate by zero; what moves boxes/hr is clears per hour. The optimizer reads YOUR measured clear pace and ranks stages by drop-chance × your speed — telling you the fastest stage at your loot tier, the highest-count stage anywhere, and the best for commons.',
+      'Chest-LEVEL ladder. Every chest carries a level (Stage Boss Box Lv15 → Lv20 → Lv30 → Lv40 → Lv50 → Lv65 → Lv80) and that level = the gear level inside it. Each level is dropped by a band of stages, so to chase a specific chest (e.g. a Lv50) you spam the right stage. The ladder shows your best unlocked stage to spam for each chest level, with the blue %, blue/hr and clear time — and highlights the one you\'re standing on.'],
+    Changed:[
+      'Blue-chest tracker corrected & sharpened: gaps are now measured in RAW play-seconds instead of being rounded to 0.1h — the old "every gap is ~6 minutes" ladder was that rounding (plus floating-point noise), not a game cadence. There is no per-stage cooldown in the files; the "switch stages for back-to-back chests" trick is folklore (the rate is flat within a difficulty).'],
+    Fixed:[
+      'The blue-chest panel no longer implies the game has no drop rate to quote — it does (extracted in 1.0.30), so the HUD now uses it.']}},
   {v:'1.0.30',d:'2026-06-15',sec:{
     Added:[
       'New Farming optimizer tab: it ranks every stage by Gold/hr and EXP/hr and shows the average time to clear each — front and centre. The per-hour numbers are anchored to YOUR real measured earnings (it reads your own gold/hr, kills/hr and XP/hr from your save), so they match what you actually make, buffs included; stages you\'ve already farmed show your real measured rates (marked ●) and the rest are projected from your pace. Defaults to Auto, or switch to Manual and type how long one clear took you (a second stage also measures your fixed per-clear overhead). Because the game keeps the EXP-level-scaling curve in code, not in any data file, nothing is invented — each stage shows its level and a "fit" flag, and the XP ranking puts stages near your level first.',
@@ -4687,6 +4768,49 @@ function farmRank(model,heroLvl,meas){
   rows.sort(function(a,b){ return farmState.metric==='gold' ? (b.goldHr-a.goldHr) : ((farmFitOrder(a.gap)-farmFitOrder(b.gap))||(b.expHr-a.expHr)); });
   return rows;
 }
+// ===================== BOX-FARMING RECOMMENDER (v1.0.31) =================================================
+// Answers "which stage drops the most blue/common boxes per hour, and do I need to jump stages?"
+// Calibrated facts from the game's OWN StageInfoData (extracted v1.0.30 -> DB.stageFarm):
+//   • brate = Stage-Boss ("blue") box chance per CLEAR (boss kill), per-mille (÷1000).
+//   • mrate = common box chance per MONSTER kill, per-mille (÷1000).
+// These are FLAT per-kill chances baked per stage — there is NO cooldown and switching stages resets nothing
+// (file-verified: no DropCooldown timer; the rate is the only lever). So boxes/hr = chance × kills-per-hour, and
+// the optimum is whatever stage maximises that — which favours fast LOW stages (higher rate + quicker clears).
+// Clear speed is the player's OWN measured pace (farmAutoEngine: dps+overhead from real save snapshots), so the
+// per-hour numbers are anchored to reality, not base values. Returns null until a measured pace exists.
+// the box-LEVEL the game prints on the chest ("Stage Boss Box Lv50" -> 50). The box level = the GEAR LEVEL inside,
+// and it steps up with stage level (a band of stages shares one box level). This is the "chest level" players chase.
+function boxLevel(key){ if(!key)return null; var n=((DB.items[String(key)]||{}).n)||''; var m=n.match(/Lv(\d+)/); if(m)return +m[1]; var e=n.match(/Box\s+(\d+)$/); return e?('e'+e[1]):null; }
+function boxLabel(key){ var l=boxLevel(key); return l==null?'?':(String(l).charAt(0)==='e'?('early '+String(l).slice(1)):('Lv'+l)); }
+function boxFarmRank(d){
+  var eng=farmAutoEngine(d), model=eng.model, meas=eng.meas||{};
+  if(!model||!(model.dps>0)) return null;
+  // Prefer a TWO-point (dps + per-clear overhead) fit from the stages you've actually farmed: it captures your real
+  // overhead (boss + stage transition + your idle pace), so low-HP stages don't get an unrealistic ~0s clear. The
+  // auto model alone has ov=0, which makes tiny stages explode. Falls back to the auto model with a sane floor.
+  var fit=null, mp=Object.keys(meas).map(function(k){return {hp:(DB.stageFarm[k]||{}).hp,sec:meas[k].clearSec};})
+    .filter(function(p){return p.hp>0&&p.sec>0;});
+  if(mp.length>=2){ var n=mp.length,sx=0,sy=0,sxx=0,sxy=0; mp.forEach(function(p){sx+=p.hp;sy+=p.sec;sxx+=p.hp*p.hp;sxy+=p.hp*p.sec;});
+    var den=n*sxx-sx*sx, slope=den?((n*sxy-sx*sy)/den):0; if(slope>0){ fit={dps:1/slope, ov:Math.max(0,(sy-slope*sx)/n)}; } }
+  var DPS=fit?fit.dps:model.dps, OV=fit?fit.ov:(model.ov||0);
+  var FLOOR=OV>1?0:15;   // no measured overhead -> floor each modeled clear at 15s so trivial stages don't read as instant
+  var maxIdx=(d&&d.maxStage!=null)?stageIdx(d.maxStage):null;
+  var rows=farmList().map(function(x){ var f=x.f, key=x.k, m=meas[key];
+    if(f.brate==null&&f.mrate==null) return null;          // no box-drop columns for this stage
+    var sec=(m&&m.clearSec>0)?m.clearSec:Math.max(FLOOR,f.hp/DPS+OV); if(!(sec>0)) return null;
+    var clearsHr=3600/sec;
+    var killsHr=(m&&m.killsHr>0)?m.killsHr:clearsHr*((f.spawns||0)+1);
+    return {k:key,f:f,sec:sec,clearsHr:clearsHr,killsHr:killsHr,
+      blueHr:(f.brate!=null)?(f.brate/1000)*clearsHr:0,
+      commonHr:(f.mrate!=null)?(f.mrate/1000)*killsHr:0,
+      blvl:boxLevel(f.bbox), blab:boxLabel(f.bbox),    // the chest LEVEL this stage drops (Lv15..Lv90)
+      measured:!!(m&&m.clearSec>0),
+      unlocked:(maxIdx!=null)?(stageIdx(key)<=maxIdx):true};
+  }).filter(Boolean);
+  return {model:model, rows:rows,
+    blue:rows.slice().sort(function(a,b){return b.blueHr-a.blueHr;}),
+    common:rows.slice().sort(function(a,b){return b.commonHr-a.commonHr;})};
+}
 function farmStageCell(r){ var di=r.f.di, diff=FARM_DIFF[di]||''; var nm=stageName(r.k);
   return '<span class="fstg"><b>'+esc('Act '+r.f.act+'-'+r.f.no)+'</b><span class="fdiff d-'+diff+'">'+esc(localizeStageText(diff)||diff)+'</span></span>'+(nm?'<br><span class="fname">'+esc((LANG==='zh'&&ZG.game&&ZG.game[nm])||nm)+'</span>':''); }
 function renderFarming(d){
@@ -5413,12 +5537,13 @@ function loadDemo(){
   invState={rarity:'ALL',q:'',gt:'ALL',sort:'rarity',ench:false,equip:'ALL',compare:false,sel:[]};
   target=null;targetSave();_tpick={type:'gold'};   // a real pinned target never renders against sample data
   // sample chest acquisitions (REPLACES any real ones — same demo-isolation rule as logData): a same-stage run
-  // with ~12-25min played gaps and one stage-switch arrival, so the measurement panel showcases honestly
+  // with varied played gaps + one stage-switch arrival. ps = RAW play-seconds (v1.0.31) so the demo showcases the
+  // real-resolution gaps (not the old 6-minute-rounded ladder).
   chestLog=[
-    {t:Date.now()-4*60000,  stage:1208,ph:34.40,n:1},
-    {t:Date.now()-29*60000, stage:1206,ph:34.18,n:1},
-    {t:Date.now()-52*60000, stage:1206,ph:33.85,n:1},
-    {t:Date.now()-77*60000, stage:1206,ph:33.50,n:1}
+    {t:Date.now()-4*60000,  stage:1208,ph:34.40,ps:123852,n:1},
+    {t:Date.now()-29*60000, stage:1206,ph:34.18,ps:123048,n:1},
+    {t:Date.now()-52*60000, stage:1206,ph:33.85,ps:121833,n:1},
+    {t:Date.now()-77*60000, stage:1206,ph:33.50,ps:120561,n:1}
   ];
   // Demo Player.log data — REPLACES any previously-loaded real log data so nothing real ever renders under the
   // SAMPLE badge (entering demo used to keep a connected save's offline rewards/box counts on the Loot tab).

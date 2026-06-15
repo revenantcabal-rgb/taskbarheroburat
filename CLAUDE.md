@@ -213,6 +213,28 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S31 (v1.0.31)** — **box-farming optimizer + chest-LEVEL ladder · blue-chest tracker corrected · drop-rate de-mythed.**
+  Driven by analysing two friends' real saves (B + R) who "get chests more." **DATA CORRECTION:** the per-stage box
+  drop RATE *is* in the game files — `StageInfoData.BossDropItemRate`/`MonsterDropItemRate` (extracted v1.0.30 →
+  `DB.stageFarm.brate`/`mrate`); the original BLUE-CHEST-DROP-RATE-FINDINGS sweep (v1.0.16 tables) just never saw it.
+  Calibrated **blue chance is FLAT per difficulty** (Normal 20–100%, Nightmare 15%, Hell 10%, Torment 8%; common
+  2–16/1.5/1/0.8%), and there is **still no cooldown** → "switch stages for back-to-back chests" is folklore (flat
+  within a difficulty; switching changes the rate by 0). (1) **Box-farming optimizer** (Loot tab, `boxFarmRank()`):
+  reads the player's MEASURED clear pace (`farmAutoEngine` + a 2-point dps+overhead least-squares fit over their farmed
+  stages) × brate/mrate → ranks stages by blue/hr & common/hr; names the best stage at the current loot tier, the
+  highest-count stage anywhere, best for commons. Copy is data-driven (no hardcoded %), states "no cooldown," and notes
+  the /hr are floors (Drop-Chance runes scale the real rate account-wide; ranking unaffected). (2) **Chest-LEVEL
+  ladder** (`boxLevel`/`boxLabel`): every chest carries a level (`Stage Boss Box Lv15→20→30→40→50→65→80`) = the GEAR
+  LEVEL inside, dropped by a BAND of stages; ladder maps each level → the best UNLOCKED stage to spam (blue %, blue/hr,
+  clear), highlighting the one you're on. **Lv50 best source = Nightmare 3-5..3-9 @ 15%** (beats Hell's 10%). See
+  [[tbh-chest-level-system]]. (3) **FIXED the tracker's 6-minute artifact** — gaps were `playHours.toFixed(1)` (0.1h =
+  360s rounding) + float noise, NOT a game cadence; now stores RAW play-seconds (`ps`) in chestLog (snapshot gained
+  `playSec`; gap math prefers `ps`, falls back to legacy `ph`). (4) BLUE-CHEST-DROP-RATE-FINDINGS.md gets a v1.0.31
+  "SUPERSEDED IN PART" header. **Friend forensics:** B/R out-pull via Drop-Chance-Stage-Boss rune total 460/510% vs
+  owner 310% + higher levels (L61/L66 vs L56) + Hell=Lv65 boxes — not juggling; their **v1.00.12** saves add
+  `BoxBucketGetBoxList`/`BoxBucketUseBoxList` (new box pipeline) the owner's **v1.00.11** lacks (update for parity;
+  gamedata still v1.00.11 so exact v1.00.12 stage→rate mapping is unverified). 21 tests pass; verify_save PASS;
+  0 console errors (?demo). Renderer/docs only — no api/* change (no crew-API redeploy needed); nothing touches the game.
 - **S30 (v1.0.30)** — **remove Crew PvP · crew stage accuracy · Farming optimizer · Atlas (owner-requested wave).**
   (1) **Removed the Crew Arena (PvP)** entirely — `crewEngine.js` no longer exports any Arena math (only normName/
   crewMemberId/dedupeBoard/stageIdx remain); dashboard lost the ARENA css/js (~165 lines) + the pop-up duel button +
@@ -515,7 +537,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.27 · light/dark themes · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.31 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (separate Vercel team — CLI scope recorded in `OPS-PRIVATE.local.md`, gitignored); env var

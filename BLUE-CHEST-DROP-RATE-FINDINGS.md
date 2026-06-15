@@ -5,10 +5,30 @@
 
 ---
 
-## BOTTOM LINE (read this first)
+## ⚠️ SUPERSEDED IN PART (2026-06-16, v1.0.31) — READ THIS FIRST
+
+Bottom-line #2 below ("there is NO numeric drop rate anywhere in the files") was **true of the tables dumped in
+v1.0.16, and is now WRONG.** The v1.0.30 farming/atlas wave dumped **`StageInfoData`**, which carries per-stage box
+drop-chance columns the earlier sweep never extracted:
+
+- **`BossDropItemRate`** = the **Stage Boss ("blue") box chance per CLEAR** (boss kill).
+- **`MonsterDropItemRate`** = the **common box chance per MONSTER kill**.
+- Both are **per-mille** (÷1000) and baked per stage into `DB.stageFarm` as `brate`/`mrate` (build_gamedata.py L505–514).
+
+**Calibrated values:** the blue chance is **flat across every stage of a difficulty** — **Normal 20–100%** (highest in
+Act 1: 1-1=100%, 1-6=80%, deep=20%), **Nightmare 15%**, **Hell 10%**, **Torment 8%**. Common chance tracks it (Normal
+2–16%, NM 1.5%, Hell 1%, Torment 0.8%). What is STILL true and stronger than ever: **there is no cooldown** (no `720`s,
+no `DropCooldown`), so the "switch stages for back-to-back chests" trick is **folklore** — within a difficulty the rate
+is identical on every stage, so switching changes your box rate by **zero**. The real lever on boxes/hr is **clears per
+hour** (chance × kills), plus the Drop-Chance-Stage-Boss-Chest runes. The HUD's v1.0.31 box-farming optimizer uses
+these calibrated rates × your measured clear pace. Sections 1, 3, 5, 6 below remain correct.
+
+---
+
+## BOTTOM LINE (read this first) — original v1.0.16 text, see correction above
 
 1. **The "blue chest" = the Stage Boss Box** (the RARE-grade chest). **[VERIFIED]**
-2. **There is NO numeric "drop rate" for the blue chest anywhere in the game's data files.** The game ships what's *inside* the chest and the *runes that raise its drop chance* — but not the base % itself. Anybody quoting you a hard number (e.g. "it's 4%") either measured it themselves or is guessing. **[VERIFIED — by absence]**
+2. ~~**There is NO numeric "drop rate" for the blue chest anywhere in the game's data files.**~~ **[SUPERSEDED — see top: `StageInfoData.BossDropItemRate` carries it; not extracted at the time of this sweep.]** The game ships what's *inside* the chest and the *runes that raise its drop chance* — and (now known) the per-stage base chance too.
 3. The "**farm and jump from Act to get blue chests consecutively**" thing rests on a claimed **12-minute (720-second) per-stage cooldown**. That number is **NOT in the game files** — the only `720`s in the entire data are combat damage stats. The trick is *plausible* but **not proven by the game itself.** **[COMMUNITY CLAIM — UNPROVEN]**
 4. **"A blue box every ~20 minutes" is FALSE as a game rule.** There is no timer, cooldown, or fixed interval anywhere in the data. The blue box drops from STAGE BOSSES on a hidden chance, so the "interval" is just (your clear time) × (how many boss kills until it rolls) — it varies with your speed and the hidden odds, not a clock. A real drop log (the owner's own Player.log, §5) shows blue boxes arriving **irregularly**, tied to boss kills, never on a 20-min cadence. **[VERIFIED — by absence + measured]**
 5. **"If I don't open common chests, a blue box always drops" is FALSE.** Normal and Stage-Boss chests are **completely independent systems**: each has its OWN drop-chance rune line (Normal ×15, Stage-Boss ×14, Act-Boss ×0 = guaranteed) and its OWN storage cap ("Max Amount Normal/Stage Boss/Act Boss Chest"), and the save tracks them as separate box types. Not opening commons has zero encoded link to the stage-boss roll. The owner's own log confirms it: commons dropped **27×** in a session while only **2** blue boxes appeared — they move independently. **[VERIFIED — game data + measured]**

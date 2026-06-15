@@ -6,7 +6,15 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-15, after session 30 (v1.0.30). **v1.0.30 — remove Crew PvP · crew stage accuracy · Farming
+_Last updated: 2026-06-16, after session 31 (v1.0.31). **v1.0.31 — box-farming optimizer + chest-LEVEL ladder ·
+blue-chest tracker corrected.** The game's per-stage box drop RATE turned out to be in the files
+(`StageInfoData.BossDropItemRate`/`MonsterDropItemRate` → `stageFarm.brate`/`mrate`, extracted v1.0.30) — flat per
+difficulty (Normal 20–100%, NM 15%, Hell 10%, Torment 8%), still NO cooldown. New Loot-tab optimizer ranks stages by
+blue/hr & common/hr from the player's measured pace; new chest-LEVEL ladder maps each chest level (Lv15→80 = the gear
+level inside) to the best stage to spam (answers "what stage for a Lv50 chest"). Fixed the tracker's 6-min gap
+artifact (0.1h rounding → raw play-seconds). Friend-save forensics: they out-pull via more Drop-Chance runes (460/510%
+vs 310%) + higher levels + Hell (Lv65 boxes), not juggling; their v1.00.12 saves add a BoxBucket pipeline (owner on
+v1.00.11). Previous note (v1.0.30): **v1.0.30 — remove Crew PvP · crew stage accuracy · Farming
 optimizer · Atlas.** (1) The Crew Arena (PvP duels/ladder/power/tiers/matrix) was removed — the crew is cooperative;
 crewEngine.js keeps only identity/dedupe/stageIdx. (2) Crew now shares + shows where each friend is **farming now**
 (`curStage` = currentStageKey) distinct from the furthest they've **cleared** (maxStage) — the fix for "friends are
