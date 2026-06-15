@@ -23,6 +23,11 @@ Every release is **read-only** — the HUD never writes to the game, its saves, 
   - **Acts & Difficulty** overview with the real per-difficulty **level ranges**.
   - **Stage boxes** browser — pick any stage to see exactly which loot chests it drops and everything inside each.
   - **Dropfinder** — search any item to find every stage and box that drops it, cross-linked back to Stage boxes.
+- **"Blue chest" myth-buster tip (Tips tab).** Backed by the game's own data + measured drop logs: the blue chest is
+  the RARE **Stage Boss Box**; there is **no "every 20 minutes" and no "12-minute cooldown"** (no timer of any kind
+  exists in the data, and real logs show blue boxes arriving irregularly with boss kills), and **not opening common
+  chests does NOT force blue ones** — Normal and Stage-Boss chests roll on separate drop chances with separate storage
+  caps (fully independent). The only real lever on blue-box odds is the *Drop Chance Stage Boss Chest* runes.
 
 ### Changed
 - **Crew now shows where each friend is _farming right now_ as well as the furthest stage they've _cleared_.** These

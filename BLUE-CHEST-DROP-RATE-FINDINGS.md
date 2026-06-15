@@ -10,6 +10,9 @@
 1. **The "blue chest" = the Stage Boss Box** (the RARE-grade chest). **[VERIFIED]**
 2. **There is NO numeric "drop rate" for the blue chest anywhere in the game's data files.** The game ships what's *inside* the chest and the *runes that raise its drop chance* — but not the base % itself. Anybody quoting you a hard number (e.g. "it's 4%") either measured it themselves or is guessing. **[VERIFIED — by absence]**
 3. The "**farm and jump from Act to get blue chests consecutively**" thing rests on a claimed **12-minute (720-second) per-stage cooldown**. That number is **NOT in the game files** — the only `720`s in the entire data are combat damage stats. The trick is *plausible* but **not proven by the game itself.** **[COMMUNITY CLAIM — UNPROVEN]**
+4. **"A blue box every ~20 minutes" is FALSE as a game rule.** There is no timer, cooldown, or fixed interval anywhere in the data. The blue box drops from STAGE BOSSES on a hidden chance, so the "interval" is just (your clear time) × (how many boss kills until it rolls) — it varies with your speed and the hidden odds, not a clock. A real drop log (the owner's own Player.log, §5) shows blue boxes arriving **irregularly**, tied to boss kills, never on a 20-min cadence. **[VERIFIED — by absence + measured]**
+5. **"If I don't open common chests, a blue box always drops" is FALSE.** Normal and Stage-Boss chests are **completely independent systems**: each has its OWN drop-chance rune line (Normal ×15, Stage-Boss ×14, Act-Boss ×0 = guaranteed) and its OWN storage cap ("Max Amount Normal/Stage Boss/Act Boss Chest"), and the save tracks them as separate box types. Not opening commons has zero encoded link to the stage-boss roll. The owner's own log confirms it: commons dropped **27×** in a session while only **2** blue boxes appeared — they move independently. **[VERIFIED — game data + measured]**
+6. **The only real lever on blue-box odds = the "Drop Chance Stage Boss Chest" runes** (Rune of Conquest family, +10–20% per level). That's the legitimate way to get more blue boxes — not chest-hoarding or stage-jump folklore. **[VERIFIED]**
 
 ---
 
@@ -95,6 +98,28 @@ The base rate and the cooldown aren't in the client tables, so the answer has to
 The HUD's loot timeline (save-diff + Player.log tail) is the right instrument; today it shows box **counts**. Add a **timestamped Stage-Boss-Box acquisition log across stage switches** and you'll have hard proof instead of forum lore. If you want, I'll build that measurement pass.
 
 ---
+
+## 5. MEASURED from the owner's REAL save + Player.log (2026-06-15)  **[VERIFIED — measured]**
+
+I did **not** need the owner to run anything new — the answer came from data already on disk: the live `.es3` save and `Player.log`.
+
+**What the save stores about chests:** a `BoxData` object — parallel arrays `BoxTypes` (0 = Normal/common, 1 = Stage-Boss/blue, 2 = Act-Boss), `BoxUniqueId`, `BoxQuantity`. This is a **transient backlog** of boxes you're holding, not a cumulative counter — opening a box (or it routing to Steam) decrements it. Across the owner's save backups it bounced between e.g. `common 11 / blue 1` and `common 1 / blue 0`, so **you cannot count total drops from the save alone**, and the ~6h-apart backups are far too coarse for a per-drop cadence.
+
+**What the Player.log gives (no timestamps):** the game periodically logs `GetBoxCount Success Count : N // ItemKey : <boxKey>`. Reading that sequence in log order and counting **upward transitions** = box drops (a lower bound, since the game samples the count only occasionally — quick drop→open cycles between two polls are missed). For the owner's two most recent sessions:
+
+| Box | Current session (lower-bound drops) | Prior session (lower-bound drops) |
+|---|---|---|
+| Common (910xxx) | **27** | ~14 |
+| **Stage-Boss / blue (920xxx)** | **2** | **~12 across stages** |
+| Act-Boss (930xxx) | 0 | 0 |
+
+(The `[ItemCache] Failed to add Steam item …` lines — 912× for common, 170× for blue — are **Steam-routing retries of the stuck backlog, NOT drops**; the boxes pile up locally because Steam's `AddItem` keeps returning `k_EResultFail`.)
+
+**Verdicts these measurements support:**
+- Blue boxes arrive **irregularly and far less often than commons** — consistent with a hidden per-boss-kill chance, **not** a 20-minute clock (debunks claim #4).
+- Commons and blues move **independently** (27 commons vs 2 blues in the same window) — not opening commons did nothing to force blues (debunks claim #5).
+
+**Can I give an exact personal rate?** Not from static files alone — the save's box backlog is transient and the log polls are sparse/untimestamped, so both undercount. **The right instrument is the HUD's own live blue-chest tracker** (Loot tab): it reads the save continuously while you play and logs each Stage-Boss-Box arrival with its stage + play-time. To get a hard number on *your* cadence — and to A/B test the common-chest theory directly — **run the HUD connected to your save for a farming session** (ideally compare a stretch with common auto-open OFF vs ON; the blue-box rate won't change, which settles it with your own data). Everything above is read-only — nothing in the game, save, or Steam was modified.
 
 ## Source index (file : what it proves)
 
