@@ -1,6 +1,27 @@
 # TBH HUD — improvement.log
-Updated 2026-06-16 (session 31 · app v1.0.31). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-16 (session 32 · app v1.0.33). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S32 (v1.0.32 + v1.0.33) — faster live updates · UNIFIED chest log (all types · colour · level) · refresh + export
+Owner-driven ("loot isn't recording instantly"; then "log EVERY chest — common/blue/act-boss — with level + colour").
+All read-only; 21 tests pass; verify_save PASS; 0 console errors (?demo).
+v1.0.32 — POLL CADENCE: the only latency the HUD controls is how soon it notices a save WRITE; the game decides WHEN
+it writes (measured ~88s unchanged during active play — that floor can't be beaten without reading game memory, which
+we never do). Browser live-save poll 4s→1.2s via a cached-handle `pollLive()` (no directory re-enumeration per tick);
+Electron watchdog 5s→2s (log poll kept ~30s via %15). Loot "save written … ago" stamp now ticks live (always-on 1Hz).
+v1.0.33 — UNIFIED CHEST LOG. REALITY (verified on the live save + Player.log): only BLUE (RARE Stage Boss Box) lands
+in itemSaveDatas → precise save-diff timestamp + stage + gap. COMMON (91xxxx) + ACT-BOSS (93xxxx) route to Steam and
+NEVER enter the save, but Player.log `GetBoxCount` logs their exact count+level → detect COUNT INCREASES (`detectBoxDrops`
+in setLog) and log them (timestamp = when the HUD saw the rise; honest LOWER BOUND, never invented). New `boxCountLog`
++ `lastBoxCounts` persisted in tbh_loot; chestLog entries now also carry `key`+`lvl`. Helpers `boxType`/`boxTypeName`/
+`boxColor`/`boxDot` (colour from authoritative grade: COMMON grey / RARE blue / LEGENDARY gold). FIX (anti-fabrication):
+setLog merges box counts "last wins", so both callers now read PREV-log first, current Player.log LAST (main.js order +
+browser scanFolder sort) so live counts win and stale prev-log counts can't invent drops. UI: Loot "Chest log" =
+per-type summary cards (Common/Blue/Act Boss + blue gap medians) + type filter chips + ↻ Refresh chests + CSV/JSON
+export + a unified table (time · colour-dot chest name · level · type · ×count · detail[stage+gap for blue / "from
+Player.log count" for the rest]) + an honest "how this is recorded" note. Held-boxes cards gained colour dot + level +
+type. Demo seeds all 3 types (isolated). Blue gap analysis kept. KNOWN TAIL: new strings are EN-only (zh i18n follow-up);
+Electron Player.log change only caught by the ~30s watchdog (could add an fs.watch log branch later). See [[tbh-chest-level-system]].
 
 ## S31 (v1.0.31) — box-farming optimizer + chest-LEVEL ladder · blue-chest tracker corrected · drop-rate de-mythed
 Owner-driven (analysing two friends' real saves who "get chests more"). All read-only; 21 tests pass; verify_save

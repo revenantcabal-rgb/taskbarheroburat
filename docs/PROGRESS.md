@@ -6,7 +6,14 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-16, after session 31 (v1.0.31). **v1.0.31 — box-farming optimizer + chest-LEVEL ladder ·
+_Last updated: 2026-06-16, after session 32 (v1.0.33). **v1.0.32+33 — faster live updates + UNIFIED chest log.**
+v1.0.32: live-save poll tightened (browser 4s→1.2s via a cached-handle fast poll; Electron watchdog 5s→2s) so a drop
+shows within ~1–2s of the game writing the save — the floor is the game's own save cadence (read-only can't beat it).
+v1.0.33: the Loot tab now logs EVERY chest — Common (grey) / Stage Boss blue / Act Boss (gold) — with type, colour and
+level. Blue is timestamped from the save (precise + stage + gap); common/act-boss route to Steam so they're logged from
+Player.log GetBoxCount increases (honest lower bound, never invented). Type filter, ↻ refresh, CSV/JSON export; held-box
+cards show colour+level. Anti-fabrication: log readers now let the live Player.log win over the rotated prev-log.
+Previous note (v1.0.31): **v1.0.31 — box-farming optimizer + chest-LEVEL ladder ·
 blue-chest tracker corrected.** The game's per-stage box drop RATE turned out to be in the files
 (`StageInfoData.BossDropItemRate`/`MonsterDropItemRate` → `stageFarm.brate`/`mrate`, extracted v1.0.30) — flat per
 difficulty (Normal 20–100%, NM 15%, Hell 10%, Torment 8%), still NO cooldown. New Loot-tab optimizer ranks stages by

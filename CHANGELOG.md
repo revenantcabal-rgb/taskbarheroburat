@@ -4,6 +4,33 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.33 — 2026-06-16
+
+### Added
+- **Full chest log.** Every chest is now recorded in one place (Loot tab) with its **type, colour, and level**:
+  ● **Common** (grey), ● **Stage Boss / blue**, ● **Act Boss** (gold). Filter by type, refresh on demand, export to
+  CSV/JSON. Held-chest cards also show a colour dot + level (e.g. Lv50) + type at a glance.
+
+### How it's recorded (honest by design)
+- **Blue** boxes land in your save → logged the instant they appear, timestamped with the stage you were on.
+- **Common** and **Act-Boss** boxes route to Steam and never enter the save → logged from your **Player.log** box
+  counts. Their time is when the HUD saw the count rise, and the totals are a **lower bound** (a box that dropped and
+  auto-opened between two log reads can be missed). Levels and colours come straight from the game's item table —
+  nothing is invented.
+
+## v1.0.32 — 2026-06-16
+
+### Changed
+- **Faster live updates.** The HUD re-checks your save ~every **1.2s** (was ~4–5s), so a new drop appears within a
+  second or two of the game writing it. **Honest limit:** the HUD reads your save *file*, and the game decides *when*
+  to write it (often a minute or two apart, not the instant a box drops) — so loot lands at the game's **next save
+  write**. Truly instant would require reading the game's live memory, which this app never does (read-only, ban-safe).
+  The "save written … ago" stamp on the Loot tab now ticks live so you can see how fresh the data is.
+
+### Fixed
+- Clarified that the blue-chest tracker lists only **Stage Boss (blue)** boxes; **common** drops appear in the
+  New-items timeline, and common boxes often route straight to Steam (so they may not land in the save as items).
+
 ## v1.0.31 — 2026-06-16
 
 ### Added

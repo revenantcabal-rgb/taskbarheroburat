@@ -128,7 +128,9 @@ function sendBackups() {
 // Read Player.log + Player-prev.log (offline-reward gold + Steam-box counts). Read-only.
 function sendLog() {
   const texts = [];
-  for (const f of ['Player.log', 'Player-prev.log']) {
+  // v1.0.33 — order PREV first, CURRENT (Player.log) last: setLog merges box counts "last wins", and the active
+  // Player.log holds the live GetBoxCount, so it must override the rotated prev-log (else chest counts read stale).
+  for (const f of ['Player-prev.log', 'Player.log']) {
     try { texts.push(fs.readFileSync(path.join(SAVE_DIR, f), 'utf8')); } catch (e) { /* skip */ }
   }
   if (texts.length && win && !win.isDestroyed()) win.webContents.send('log-text', texts);
@@ -164,7 +166,7 @@ app.whenReady().then(() => {
         if (!first) { clearTimeout(debounce); debounce = setTimeout(sendSave, 400); }
       }
     });
-    if (++pollTick % 6 === 0) {              // Player.log every ~30s
+    if (++pollTick % 15 === 0) {             // Player.log every ~30s (15 × 2s)
       fs.stat(path.join(SAVE_DIR, 'Player.log'), (err, st) => {
         if (err || !st) return;
         if (st.mtimeMs !== polledLogMtime) {
@@ -174,7 +176,7 @@ app.whenReady().then(() => {
         }
       });
     }
-  }, 5000);
+  }, 2000);   // v1.0.32 — was 5000; fs.watch is the instant path, this backstop now reacts within ~2s if it dies
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   // check GitHub releases for a newer HUD; events drive the in-app banner (no-op in dev / if offline)
   wireUpdater();

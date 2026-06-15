@@ -213,6 +213,24 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S32 (v1.0.32 + v1.0.33)** — **faster live updates + UNIFIED chest log (all types · colour · level) + refresh/export.**
+  Owner: "loot isn't instant" → then "log EVERY chest — common/blue/act-boss — with level + colour." **(v1.0.32) Poll
+  cadence:** the only latency the HUD controls is noticing a save WRITE; the game decides WHEN it writes (measured ~88s
+  unchanged during active play — that floor can't be beaten without reading game memory, which we never do). Browser
+  live-save poll 4s→1.2s via a cached-handle `pollLive()` (no dir re-enumeration per tick); Electron watchdog 5s→2s;
+  Loot "save written … ago" stamp ticks live (always-on 1Hz). **(v1.0.33) Unified chest log — VERIFIED data reality:**
+  only BLUE (RARE Stage Boss Box) lands in `itemSaveDatas` → precise save-diff timestamp + stage + gap; COMMON (91xxxx)
+  + ACT-BOSS (93xxxx) route to Steam and NEVER enter the save, but `Player.log GetBoxCount` carries their exact
+  count+level → `detectBoxDrops()` (in setLog) logs COUNT INCREASES (timestamp = when the HUD saw the rise; honest
+  LOWER BOUND, never invented). New `boxCountLog`+`lastBoxCounts` (persisted in tbh_loot); chestLog entries gained
+  `key`+`lvl`. Helpers `boxType/boxTypeName/boxColor/boxDot` (colour from authoritative grade). **Anti-fabrication fix:**
+  setLog merges box counts "last wins" → both readers now take PREV-log first, current Player.log LAST (main.js order +
+  browser scanFolder sort) so live counts win, stale prev-log can't invent drops. UI: Loot "Chest log" = per-type
+  summary cards (Common/Blue/Act Boss + blue gap medians) + type-filter chips + ↻ Refresh chests + CSV/JSON export +
+  unified table (time · colour-dot name · level · type · ×count · detail) + honest "how this is recorded" note;
+  held-box cards gained colour+level+type. Demo seeds all 3 types (isolated). 21 tests pass; verify_save PASS; 0 console
+  errors. Renderer + main.js only; nothing touches the game. KNOWN TAIL: new strings EN-only (zh follow-up); Electron
+  Player.log change caught only by the ~30s watchdog. See [[tbh-chest-level-system]].
 - **S31 (v1.0.31)** — **box-farming optimizer + chest-LEVEL ladder · blue-chest tracker corrected · drop-rate de-mythed.**
   Driven by analysing two friends' real saves (B + R) who "get chests more." **DATA CORRECTION:** the per-stage box
   drop RATE *is* in the game files — `StageInfoData.BossDropItemRate`/`MonsterDropItemRate` (extracted v1.0.30 →
@@ -537,7 +555,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - **Steam Market value** — Inventory Service throttled/empty this build (`CreateSteamItem … items is empty`).
 - **No calibrated signal → omitted:** per-item origin (craft vs drop vs market-buy); standalone "Cube gold" (bundled in the ~0.5% "other" gold bucket); per-stage XP/hr (no calibrated lifetime-XP aggregate — per-stage gold/hr + kills/hr ARE measured now, see VERIFIED facts); uncalibrated aggregate Types 16/4/5/7/9/10/15; 12-min blue-chest (no 720s in DropCooldown); Korean ItemGroup names; per-item drop %; stat MULT/ADD % meaning (shown raw + modtype tag).
 
-## Build / run  (app v1.0.31 · light/dark themes · fully responsive: phone/tablet/desktop)
+## Build / run  (app v1.0.33 · light/dark themes · fully responsive: phone/tablet/desktop)
 - **Crew API (v1.0.4):** `api/progress.js` + `api/leaderboard.js` run as Vercel serverless functions; canonical live
   endpoint = `https://tbh-crew-api.vercel.app/api` (the `CREW_API` constant in dashboard.html). Vercel project
   `tbh-crew-api` (separate Vercel team — CLI scope recorded in `OPS-PRIVATE.local.md`, gitignored); env var
