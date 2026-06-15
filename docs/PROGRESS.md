@@ -6,7 +6,17 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-13, after session 28 (v1.0.27). **v1.0.27 — portable crew identity + crew management +
+_Last updated: 2026-06-15, after session 30 (v1.0.30). **v1.0.30 — remove Crew PvP · crew stage accuracy · Farming
+optimizer · Atlas.** (1) The Crew Arena (PvP duels/ladder/power/tiers/matrix) was removed — the crew is cooperative;
+crewEngine.js keeps only identity/dedupe/stageIdx. (2) Crew now shares + shows where each friend is **farming now**
+(`curStage` = currentStageKey) distinct from the furthest they've **cleared** (maxStage) — the fix for "friends are
+clearing 2-8 but they're not even there yet" (verified on the real save: cleared 2208 / farming 2206). (3) New
+`rarity` + `stageFarm` gamedata baked from the game's own GradeInfoData / StageInfoData / StageLevelInfoData /
+MonsterInfoData (deterministic rebuild; marketable calibrated gear-only; no EXP-penalty curve fabricated). (4) New
+**Farming** tab — Auto (measured kills/hr) or Manual (1–2 clear times → dps + per-clear overhead via least squares)
+ranks every stage by est EXP/hr·Gold/hr + avg clear time, EXP fit-first. (5) New **Atlas** tab — rarity guide, acts &
+difficulty (real level ranges), stage-boxes browser, and an item Dropfinder, cross-linked. 21 tests pass; verify_save
+PASS; 14 tabs, 0 console errors, 0 overflow @375. Previous note (v1.0.27): **portable crew identity + crew management +
 Advisor next-move:** the crew member id is now a deterministic hash of (crew code + display name) instead of a
 random per-browser UUID, so a friend who opens the HUD on a different PC and re-enters the same code + name
 returns to their exact row (the fix for "he disappeared from the crew"); each non-me crew row gains a ✕ kick

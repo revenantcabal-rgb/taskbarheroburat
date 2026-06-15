@@ -1,6 +1,61 @@
 # TBH HUD — improvement.log
-Updated 2026-06-13 (session 29 · app v1.0.28). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-15 (session 30 · app v1.0.30). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S30 (v1.0.30) — remove Crew PvP · crew stage accuracy · Farming optimizer · Atlas (rarity/acts/stage-boxes/dropfinder)
+Owner-requested wave. All shipped read-only; 21 committed tests pass; verify_save PASS; 0 console errors (verified
+in-browser ?demo). nothing touches the game.
+1) REMOVED the Crew Arena (PvP). Stripped the whole feature: src/engine/crewEngine.js no longer exports any Arena
+   math (RARITY/gearScore/topHeroLv/mom/CATS/arenaPower/TIERS/arenaTier/duel/ladder are gone — only normName/
+   crewMemberId/dedupeBoard/stageIdx remain); dashboard.html lost the ARENA css + the ~165-line ARENA js section +
+   the pop-up "⚔ Arena duel" button + the renderCrewArena() call; the in-app "What's new" v1.0.28 entry no longer
+   advertises PvP. crewEngine.test.js drops the duel/ladder/power tests and asserts those exports are now undefined.
+   Records (crowns) + the optional Rival compare are kept (cooperative, not competitive).
+2) CREW STAGE ACCURACY (the "friends are clearing 2-8 but they're not even there yet" report). ROOT CAUSE: the board
+   shared only maxStage = maxCompletedStage (the furthest EVER cleared, a one-time high-water mark) and labelled it
+   ambiguously. VERIFIED against the owner's real save: maxCompletedStage 2208 = "Act 2-8 Nightmare" (correct) but
+   currentStageKey 2206 = "Act 2-6 Sunset Ruins" — exactly where they actually farm. FIX: share a NEW curStage field
+   (= currentStageKey) and show BOTH on every row: "cleared <furthest>" + "now farming <current>". Whitelisted
+   curStage in api/_lib.cleanStats (kept the raw save field name `currentStage` as a DROPPED smuggle-guard);
+   bansafety + lib tests updated. CREW_RANKS "Max stage" -> "Furthest cleared"; member pop-up gains a "Now farming"
+   row; the board note explains cleared-vs-farming so it never reads as a glitch. Older clients (no curStage) just
+   show the cleared chip.
+3) NEW DATA (build_gamedata.py, deterministic — verified the rebuild changes ONLY the two new keys): `rarity` (10
+   grades from GradeInfoData: inherent/decoration/engraving/inscription slots + BaseAlchemyGold + BaseCubeExp +
+   `mkt` CALIBRATED from the item master, GEAR only -> Common/Uncommon/Rare = No, Legendary+ = Yes, matching the
+   wiki rule exactly) and `stageFarm` (all 120 stages from StageInfoData+StageLevelInfoData+MonsterInfoData: lvl,
+   waves, wmon, spawns, estimated total HP, est gold/exp per clear, boss name, drop-box keys mbox/bbox/first +
+   soulstone). All ESTIMATES are labelled; NO EXP-level-penalty curve is fabricated (it lives in game code).
+4) NEW FARMING tab (Auto default + Manual). Ranks every stage by est EXP/hr & Gold/hr + avg clear time, scaled to
+   YOUR clear speed. Auto: derives clear speed from buff-free measured kills/hr on your current stage. Manual: type
+   one clear time (single-point) — or a 2nd stage's time and a least-squares fit solves dps AND your fixed per-clear
+   overhead (sec = hp/dps + ov), exactly why the reference tool asks for two times. EXP ranking is fit-FIRST (good-
+   fit stages before far-under-level ones) so it never tells you to farm the easiest stage for XP; gold ranking is by
+   gold/hr with an honest "above you" clearability flag. Reco cards consider only stages you've actually cleared.
+5) NEW ATLAS tab (no save needed): Rarity grades table (DB.rarity), Acts & Difficulty (real per-difficulty level
+   ranges from stageFarm), Stage boxes browser (pick a stage -> its loot chests + every item inside via boxContents),
+   and a Dropfinder (search an item -> every stage+box that drops it; reverse index built from boxContents/DropInfoData;
+   cross-linked both ways; item chips wireCodexClick into the Codex).
+Wiring: +2 tabs (farming after advisor, atlas after crew) in nav + tab-pages + TABS + setTab + renderTab + I18N_UI;
+both work with no save (atlas pure reference; farming manual). Version bumped 1.0.29 -> 1.0.30 (package.json,
+APP_VERSION, all three ?v= cache-busts).
+ACCURACY PASS (same session, owner-requested "ensure all data accurate, no fabrication"):
+- **stageFarm HP/reward multipliers were 10x-15x too high — the StageLevel + boss multiplier columns are PER-MILLE
+  (/1000), not percent (/100).** CALIBRATED against the game's OWN datamined totals: Act 1-1 = 56 total HP and Act
+  2-6 Nightmare = 1,605,950 (~1.6M) HP both come out EXACTLY with /1000 (two anchors, 5 orders of magnitude apart).
+  Fixed in build_gamedata.py + rebuilt (only stageFarm values changed). Clear-time estimates are now correct.
+- **Farming per-hour numbers are now ANCHORED to the player's MEASURED rates, not raw base.** New farmAutoEngine(d)
+  reads perStageData() (the HUD's own measured gold/hr·kills/hr·xp/hr per farmed stage): kills/hr give the real
+  buff-free clear speed; goldYield/xpYield map the datamined base reward to the player's ACTUAL earnings on the
+  reference stage (most-logged-hours), then scale to every stage by the datamined ratios. VALIDATED on the owner's
+  real save: reference 2-6 measured 1,248,948 gold/hr (== wiki ~1.3M), avg clear 327s (~5.5min), and the anchored
+  output reproduces the measured value exactly; projections to 2-5/2-7/2-8 are realistic. Stages the player has
+  actually farmed show their REAL measured gold/xp/clear-time with a green ● dot; others are projected (labelled).
+  Manual mode (no save) honestly labels rates "base estimate (excludes your bonuses)".
+- **"Avg clear time per stage" is now a prominent headline card** ("Average clear time — where you are now": the
+  current stage, measured from your kills/hr) PLUS a renamed "Avg clear" table column for every stage (the owner
+  reported not seeing it before). 0 console errors; 21 tests pass; verify_save PASS; bansafety 4/4 (read-only, no
+  memory, crew-API-only fetches — all new code is pure DB/save reads). See [[tbh-farming-atlas-data]].
 
 ## S29c (v1.0.28) — the "8.5 -> 9/10" push: 3 pillars (owner-requested after a quality rating)
 Asked to close the three gaps that capped the HUD's quality score. All shipped + verified (24 committed tests, 0

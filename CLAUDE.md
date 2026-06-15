@@ -198,7 +198,7 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
   `runes` (197, per-level effects+costs+tree). Rebuilt by `scripts/build_gamedata.py` from the game's own tables.
 - `src/engine/item_names_en.json` — 511 authoritative item names from the game.
 - `scripts/extract_icons.py` — read-only UnityPy extractor (Phase 2). Re-run to refresh icons after a game patch.
-- `dashboard.html` — premium multi-tab UI (11): **Overview / Party / Inventory / Loot / Runes / Advisor / Lifetime / Trends / Crew / Codex / Tips**.
+- `dashboard.html` — premium multi-tab UI (14): **Overview / Live / Party / Inventory / Loot / Runes / Advisor / Farming / Lifetime / Trends / Crew / Atlas / Codex / Tips**. (v1.0.30 added **Farming** = stage EXP/hr·Gold/hr·clear-time optimizer, and **Atlas** = rarity guide + acts/difficulty + stage-boxes + dropfinder; Crew **PvP Arena removed**.)
   **v1.0.11:** semantic-token design system with **light (default) + dark themes** (toggle in header; `tbh_theme`),
   uniform card grids on shared track tokens, the game's grouped **Stat List** on Runes + Crew, and an in-app
   ✨ **What's new** changelog modal (+ CHANGELOG.md, public).
@@ -213,6 +213,27 @@ Community Market). Note: as of mid-2026 the devs throttled/disabled Market listi
 - `.claude/launch.json` — static-server preview config (`python -m http.server`).
 
 ## DONE — compact changelog  (per-session trace: improvement.log · status table: docs/PROGRESS.md)
+- **S30 (v1.0.30)** — **remove Crew PvP · crew stage accuracy · Farming optimizer · Atlas (owner-requested wave).**
+  (1) **Removed the Crew Arena (PvP)** entirely — `crewEngine.js` no longer exports any Arena math (only normName/
+  crewMemberId/dedupeBoard/stageIdx remain); dashboard lost the ARENA css/js (~165 lines) + the pop-up duel button +
+  the renderCrewArena() call; crewEngine.test asserts the removed exports are `undefined`. Records + Rival compare kept.
+  (2) **Crew stage accuracy** (owner: "friends are clearing 2-8 but they're not even there yet"). The board shared only
+  `maxStage`=maxCompletedStage (furthest EVER cleared) — VERIFIED on the real save: maxCompletedStage 2208 = "Act 2-8
+  Nightmare" while currentStageKey 2206 = "Act 2-6 Sunset Ruins" (where they actually farm). FIX: new **`curStage`**
+  field (= currentStageKey) shared + shown as "🏁 cleared <furthest>" + "🌾 now farming <current>" on every row;
+  whitelisted in `cleanStats` (raw `currentStage` kept DROPPED as a smuggle-guard); bansafety+lib tests updated.
+  (3) **New gamedata (build_gamedata.py, deterministic — rebuild changes ONLY the 2 new keys):** `rarity` (GradeInfoData:
+  slots + alchemy gold + cube XP + `mkt` CALIBRATED from the item master, GEAR-only → Common/Uncommon/Rare=No, Leg+=Yes)
+  and `stageFarm` (all 120 stages: lvl/waves/spawns + estimated total HP + est gold/exp per clear + drop-box keys +
+  soulstone). All estimates labelled; **NO EXP-level-penalty curve fabricated** (it's in game code, not the data files).
+  (4) **New Farming tab** (Auto default + Manual): ranks every stage by est EXP/hr·Gold/hr + avg clear time scaled to
+  YOUR speed. Auto = buff-free measured kills/hr on your current stage. Manual = 1 clear time (single-point) or a 2nd
+  stage's time → least-squares solves dps AND per-clear overhead (sec = hp/dps + ov, the "two clear times" trick). EXP
+  ranking is **fit-first** (never recommends the easiest stage for XP); gold ranking flags "▲ above you" clearability.
+  (5) **New Atlas tab** (no save): Rarity grades table · Acts & Difficulty (real per-difficulty level ranges) · Stage-
+  boxes browser (boxContents) · **Dropfinder** (item → every stage+box, reverse index, cross-linked, chips → Codex).
+  Wiring: +2 tabs (farming/atlas) across nav/tab-pages/TABS/setTab/renderTab/I18N_UI. 21 tests pass; verify_save PASS;
+  14 tabs render, 0 console errors, 0 overflow @375 both new tabs (verified in-browser ?demo). See [[tbh-crew-identity-scheme]].
 - **S28 (v1.0.27)** — **Portable crew identity + kick + 48h auto-prune + Advisor "next move" (owner-requested).**
   ROOT CAUSE of "a friend played from a different PC and vanished from the crew": `crewCfg.id` was a RANDOM per-browser
   UUID — a new machine minted a new id, stranding the old row (the save engine carries no stable Steam/player id to

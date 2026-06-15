@@ -10,12 +10,12 @@
 document.documentElement.dataset.theme=(t==='dark'||t==='light')?t:'light';
 document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
 <!-- ?v= cache-busts the catalog DB on every release so browsers (Pages/Vercel) never serve a stale catalog. Bump with package.json version. -->
-<script src="src/engine/gamedata.min.js?v=1.0.29"></script>
+<script src="src/engine/gamedata.min.js?v=1.0.30"></script>
 <!-- Official Simplified-Chinese game-term map (window.TBH_ZH) extracted from the game's own zh-Hans
      localization bundle (scripts/extract_localization_zh.py). Powers the EN/中文 language switch. -->
-<script src="src/engine/i18n_zh.min.js?v=1.0.29"></script>
-<!-- shared, dependency-free crew logic (identity hash + board dedup + Arena math); unit-tested in CI. Same file runs here and under require() in Node. -->
-<script src="src/engine/crewEngine.js?v=1.0.29"></script>
+<script src="src/engine/i18n_zh.min.js?v=1.0.30"></script>
+<!-- shared, dependency-free crew logic (identity hash + board dedup + stage index); unit-tested in CI. Same file runs here and under require() in Node. -->
+<script src="src/engine/crewEngine.js?v=1.0.30"></script>
 <style>
   /* ==========================================================================
      v1.0.11 design system — one SEMANTIC token contract, two themes.
@@ -684,62 +684,7 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
   .rivalgrid .rl{text-align:right;font-variant-numeric:tabular-nums} .rivalgrid .rr{text-align:left;font-variant-numeric:tabular-nums}
   .rivalgrid .rk{text-align:center;color:var(--text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
   .rivalgrid .win{color:var(--good);font-weight:700}
-  /* ===== Crew Arena (PvP) — v1.0.28 ===== */
-  .arena{margin:16px 0 4px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);padding:13px 14px}
-  .arenahead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px}
-  .arenatitle{font-size:14px;font-weight:800;letter-spacing:.01em}
-  .arenaladder{display:flex;flex-direction:column;gap:1px;margin-bottom:4px}
-  .alrow{display:grid;grid-template-columns:34px minmax(0,1fr) auto 54px 46px 52px;gap:8px;align-items:center;padding:6px 6px;border-top:1px solid var(--border);font-size:12.5px}
-  .alrow.alhead{border-top:none;color:var(--text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
-  .alrow.me{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:6px}
-  .alname{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-  .alrank{font-variant-numeric:tabular-nums} .alwl,.alwr,.alpow{text-align:right;font-variant-numeric:tabular-nums}
-  .alpow{font-weight:800;color:var(--accent-2)}
-  .altier,.ftier{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.03em;padding:1px 7px;border-radius:999px;border:1px solid;white-space:nowrap}
-  .t-bronze{color:#c8843c;border-color:#c8843c66;background:#c8843c1f} .t-silver{color:#8c98ab;border-color:#8c98ab66;background:#8c98ab1f}
-  .t-gold{color:#cf9d12;border-color:#cf9d1266;background:#cf9d121f} .t-plat{color:#2f9e92;border-color:#2f9e9266;background:#2f9e921f}
-  .t-dia{color:#2f86e6;border-color:#2f86e666;background:#2f86e61f} .t-master{color:#9a55ff;border-color:#9a55ff66;background:#9a55ff1f}
-  .t-cosmic{color:#e0489a;border-color:#e0489a66;background:linear-gradient(90deg,#e0489a1f,#6f8bff1f)}
-  [data-theme="dark"] .t-silver{color:#b6c0cf} [data-theme="dark"] .t-gold{color:#f3c33e} [data-theme="dark"] .t-plat{color:#4fd3c5}
-  [data-theme="dark"] .t-dia{color:#5fb0ff} [data-theme="dark"] .t-master{color:#b888ff} [data-theme="dark"] .t-cosmic{color:#ff77be}
-  .arenafeat{margin-top:10px}
-  .arenafeatbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
-  .arenasub{font-size:12px;color:var(--text-dim);font-weight:700}
-  .duelcard{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);padding:12px 13px}
-  .duelhead{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
-  .fighter{text-align:center;min-width:0;position:relative;padding:7px 4px 4px;border-radius:8px}
-  .fighter.win{background:color-mix(in srgb,var(--good) 13%,transparent)}
-  .fname{font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ftier{margin:3px 0}
-  .fpow{font-size:15px;font-weight:800;color:var(--accent-2)} .fpow span{font-size:9px;color:var(--text-dim);font-weight:700}
-  .duelcrown{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:15px}
-  .duelvs{text-align:center}
-  .vsbadge{font-size:11px;font-weight:900;color:var(--text-dim);letter-spacing:.08em}
-  .duelscore{font-size:21px;font-weight:900;font-variant-numeric:tabular-nums} .duelscore span{color:var(--text-dim);font-size:14px;margin:0 2px}
-  .duelbar{display:flex;height:17px;border-radius:999px;overflow:hidden;margin:11px 0 12px;font-size:10px;font-weight:800;color:#fff}
-  .duelbar .da{background:var(--accent);display:flex;align-items:center;justify-content:flex-start;padding-left:7px}
-  .duelbar .db{background:color-mix(in srgb,var(--bad) 82%,#000);display:flex;align-items:center;justify-content:flex-end;padding-right:7px}
-  .duelgrid{display:grid;grid-template-columns:1fr auto 1fr;gap:3px 10px;font-size:12.5px;align-items:center}
-  .duelgrid .dca{text-align:right;font-variant-numeric:tabular-nums;color:var(--text-muted)}
-  .duelgrid .dcb{text-align:left;font-variant-numeric:tabular-nums;color:var(--text-muted)}
-  .duelgrid .dck{text-align:center;color:var(--text-dim);font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
-  .duelgrid .win{color:var(--good);font-weight:800}
-  .duelverdict{margin-top:11px;font-size:12.5px;font-weight:700;line-height:1.45}
-  .duelcoach{margin-top:5px;font-size:12px;color:var(--text-muted);line-height:1.45}
-  .duelbtn{margin-top:12px;width:100%;background:linear-gradient(90deg,var(--accent),var(--accent-alt));color:#fff;border:none;border-radius:var(--radius-sm);padding:9px;font:inherit;font-weight:800;cursor:pointer}
-  .duelbtn:hover{filter:brightness(1.08)}
-  .arenamtx{margin-top:12px}
-  .amxhead{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);font-weight:700;margin-bottom:5px}
-  .amxgrid{display:grid;gap:2px;font-size:11px}
-  .amxc{display:flex;align-items:center;justify-content:center;padding:3px 4px;border-radius:4px;min-width:0}
-  .amxch{color:var(--text-dim);font-weight:700}
-  .amxrh{justify-content:flex-start;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;font-size:10.5px}
-  .amxrh.me{color:var(--accent-2)}
-  .amxself{color:var(--text-dim)}
-  .amxw{background:color-mix(in srgb,var(--good) 20%,transparent);color:var(--good);font-weight:800}
-  .amxl{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
-  .amxlegend{margin-top:6px;font-size:10.5px;color:var(--text-dim)} .amxlegend .amxw,.amxlegend .amxl{padding:0 3px;border-radius:3px}
-  @media(max-width:680px){ .alrow{grid-template-columns:26px minmax(0,1fr) auto 46px 50px} .alrow .alwr{display:none} .alrow.alhead span:nth-child(5){display:none} .duelhead{gap:5px} .duelscore{font-size:18px} }
+  /* ===== Crew Arena (PvP) CSS removed in v1.0.30 — the crew is cooperative, not competitive. ===== */
   /* ===== Live tab — ban-safe live-stat lane (v1.0.28) ===== */
   .livedot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--good);margin-left:2px;vertical-align:middle;animation:livepulse 1.8s ease-in-out infinite}
   @keyframes livepulse{0%,100%{opacity:.3}50%{opacity:1}}
@@ -801,6 +746,82 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
     background:color-mix(in srgb, var(--accent) 10%, transparent);border:1px solid color-mix(in srgb, var(--accent) 28%, transparent);
     border-radius:var(--radius-pill);padding:5px 12px;cursor:pointer}
   .filterpill:hover{border-color:var(--accent)}
+  /* ===== Farming optimizer + Atlas (rarity guide / acts / stage boxes / dropfinder) — v1.0.30 ===== */
+  .subtabs{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 16px}
+  .subtab{font:inherit;font-size:12.5px;font-weight:700;color:var(--text-dim);background:var(--surface-2);
+    border:1px solid var(--border);border-radius:var(--radius-pill);padding:6px 14px;cursor:pointer}
+  .subtab:hover{color:var(--text);border-color:var(--accent)}
+  .subtab.on{color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent-alt));border-color:transparent}
+  .modeseg{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-pill);overflow:hidden;background:var(--surface-2)}
+  .modeseg button{font:inherit;font-size:12.5px;font-weight:700;color:var(--text-dim);background:transparent;border:none;padding:7px 16px;cursor:pointer}
+  .modeseg button.on{color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent-alt))}
+  .farmbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:4px 0 14px}
+  .farmcal{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 14px;margin-bottom:14px}
+  .farmcal label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .farmcal input{width:78px;font:inherit;font-size:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text)}
+  .farmcal .wide{width:auto;min-width:170px}
+  .farmreco{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:16px}
+  .recobig{position:relative;border:1px solid color-mix(in srgb,var(--accent) 40%,var(--border));border-radius:var(--radius-sm);
+    background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 12%,var(--surface)),var(--surface));padding:14px 15px;overflow:hidden}
+  .recobig.gold{border-color:color-mix(in srgb,var(--gold) 45%,var(--border));background:linear-gradient(135deg,color-mix(in srgb,var(--gold) 12%,var(--surface)),var(--surface))}
+  .recolbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);font-weight:800;margin-bottom:6px}
+  .recostage{font-size:18px;font-weight:900;line-height:1.15}
+  .recosub{font-size:12px;color:var(--text-muted);margin-top:3px}
+  .recobig .recohero{font-size:22px;font-weight:900;color:var(--accent-2);margin-top:8px;font-variant-numeric:tabular-nums}
+  .recobig.gold .recohero{color:var(--gold)}
+  .farmtbl{width:100%;border-collapse:collapse;font-size:13px}
+  .farmtbl th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);font-weight:800;text-align:right;padding:7px 8px;border-bottom:1px solid var(--border)}
+  .farmtbl th:nth-child(2){text-align:left}
+  .farmtbl td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .farmtbl td:nth-child(2){text-align:left;white-space:normal}
+  .farmtbl tr:hover td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+  .farmtbl tr.best td{background:color-mix(in srgb,var(--accent) 11%,transparent)}
+  .farmtbl .frank{color:var(--text-dim);font-weight:700}
+  .farmtbl .fstg b{font-weight:800} .farmtbl .fname{color:var(--text-muted);font-size:11.5px}
+  .fdiff{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.03em;padding:1px 6px;border-radius:999px;border:1px solid currentColor;margin-left:6px;vertical-align:middle}
+  .d-Normal{color:#5aa9e6} .d-Nightmare{color:#9a7bff} .d-Hell{color:#e0833c} .d-Torment{color:#e0489a}
+  .fitpill{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:999px}
+  .fit-good{color:var(--good);background:color-mix(in srgb,var(--good) 16%,transparent)}
+  .fit-low{color:var(--gold);background:color-mix(in srgb,var(--gold) 16%,transparent)}
+  .fit-hard{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+  .farmgold{color:var(--gold);font-weight:700} .farmexp{color:var(--good);font-weight:700}
+  /* rarity guide */
+  .raritytbl{width:100%;border-collapse:collapse;font-size:13px}
+  .raritytbl th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);font-weight:800;text-align:right;padding:8px 9px;border-bottom:1px solid var(--border)}
+  .raritytbl th:first-child{text-align:left}
+  .raritytbl td{padding:8px 9px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums}
+  .raritytbl td:first-child{text-align:left;font-weight:800}
+  .raritytbl tr:hover td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+  .rdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle;box-shadow:0 0 6px currentColor}
+  .rmkt-y{color:var(--good);font-weight:800} .rmkt-n{color:var(--text-dim)}
+  /* acts & difficulty */
+  .actgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:8px}
+  .actcard{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);padding:14px 15px}
+  .actcard h4{margin:0 0 7px;font-size:15px;font-weight:900}
+  .actcard p{margin:0;font-size:12.5px;color:var(--text-muted);line-height:1.5}
+  .difftiers{display:flex;flex-wrap:wrap;gap:9px;margin:10px 0 2px}
+  .difftier{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);padding:9px 13px}
+  .difftier .dnum{font-size:11px;font-weight:900;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid currentColor}
+  .difftier .dname{font-weight:800;font-size:13px} .difftier .dlvl{font-size:11px;color:var(--text-dim);font-variant-numeric:tabular-nums}
+  /* stage boxes + dropfinder */
+  .stagepick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .stagebtn{font:inherit;font-size:12px;font-weight:700;color:var(--text-dim);background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer}
+  .stagebtn:hover{color:var(--text);border-color:var(--accent)} .stagebtn.on{color:#fff;background:linear-gradient(90deg,var(--accent),var(--accent-alt));border-color:transparent}
+  .boxcard{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);padding:13px 14px;margin-bottom:11px}
+  .boxhead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px}
+  .boxhead .bxic{width:30px;height:30px;object-fit:contain;image-rendering:pixelated}
+  .boxhead .bxnm{font-weight:800;font-size:13.5px} .boxhead .bxrole{font-size:11px;color:var(--text-dim);font-weight:700}
+  .boxitems{display:flex;flex-wrap:wrap;gap:7px}
+  .lootchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px 10px 3px 4px}
+  .lootchip img{width:20px;height:20px;object-fit:contain;image-rendering:pixelated}
+  .lootchip b{font-weight:700}
+  .dropres{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);padding:12px 14px;margin-bottom:10px}
+  .dropres .drhead{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .dropres .drhead img{width:26px;height:26px;object-fit:contain;image-rendering:pixelated}
+  .dropres .drwhere{display:flex;flex-direction:column;gap:5px}
+  .drrow{font-size:12.5px;color:var(--text-muted)} .drrow b{color:var(--text)}
+  .drrow .drstage{color:var(--accent-2);font-weight:700;cursor:pointer}
+  @media(max-width:680px){ .farmtbl .fexpcol,.farmtbl th.fexpcol{display:none} .raritytbl .rhide{display:none} }
   /* accessibility: honor reduced-motion — drop the looping pulse/shine/rise + bar/tooltip transitions */
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
@@ -840,9 +861,11 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
   <button data-tab="loot">Loot <span class="count" id="tabLootCount"></span></button>
   <button data-tab="runes">Runes <span class="count" id="tabRuneCount"></span></button>
   <button data-tab="advisor">Advisor <span class="count" id="tabAdvisorCount"></span></button>
+  <button data-tab="farming">Farming</button>
   <button data-tab="lifetime">Lifetime</button>
   <button data-tab="trends">Trends <span class="count" id="tabTrendCount"></span></button>
   <button data-tab="crew">Crew <span class="count" id="tabCrewCount"></span></button>
+  <button data-tab="atlas">Atlas</button>
   <button data-tab="codex">Codex <span class="count" id="tabCodexCount"></span></button>
   <button data-tab="tips">Tips <span class="count" id="tabTipCount"></span></button>
 </nav>
@@ -891,9 +914,11 @@ document.documentElement.lang=(l==='zh')?'zh-Hans':'en';})();</script>
   <div id="tab-loot" class="tab-page hidden"></div>
   <div id="tab-runes" class="tab-page hidden"></div>
   <div id="tab-advisor" class="tab-page hidden"></div>
+  <div id="tab-farming" class="tab-page hidden"></div>
   <div id="tab-lifetime" class="tab-page hidden"></div>
   <div id="tab-trends" class="tab-page hidden"></div>
   <div id="tab-crew" class="tab-page hidden"></div>
+  <div id="tab-atlas" class="tab-page hidden"></div>
   <div id="tab-codex" class="tab-page hidden"></div>
   <div id="tab-tips" class="tab-page hidden"></div>
 </main>
@@ -937,7 +962,7 @@ var ZG=window.TBH_ZH||{game:{},stages:{},diff:{},grades:{}};
 var I18N_UI={
   // —— tabs ——
   'Overview':'总览','Live':'实时','Party':'队伍','Inventory':'背包','Loot':'战利品','Runes':'符文','Advisor':'顾问',
-  'Lifetime':'生涯','Trends':'趋势','Crew':'战队','Codex':'图鉴','Tips':'提示',
+  'Farming':'刷怪','Lifetime':'生涯','Trends':'趋势','Crew':'战队','Atlas':'图谱','Codex':'图鉴','Tips':'提示',
   // —— header / chrome ——
   'no save':'无存档','See a demo':'查看演示','Connect file':'连接文件','Connect folder':'连接文件夹',
   'Connect folder':'连接文件夹','✨ What\'s new':'✨ 更新内容','↩ Disconnect':'↩ 断开连接',
@@ -3547,7 +3572,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.29';
+var APP_VERSION='1.0.30';
 var CREW_API='https://taskbarheroburat.vercel.app/api';   // canonical crew endpoint — owner's own Vercel project (Neon DB attached v1.0.29); one DB so crews never split
 
 /* ============================================================================
@@ -3557,6 +3582,14 @@ var CREW_API='https://taskbarheroburat.vercel.app/api';   // canonical crew endp
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.30',d:'2026-06-15',sec:{
+    Added:[
+      'New Farming optimizer tab: it ranks every stage by Gold/hr and EXP/hr and shows the average time to clear each — front and centre. The per-hour numbers are anchored to YOUR real measured earnings (it reads your own gold/hr, kills/hr and XP/hr from your save), so they match what you actually make, buffs included; stages you\'ve already farmed show your real measured rates (marked ●) and the rest are projected from your pace. Defaults to Auto, or switch to Manual and type how long one clear took you (a second stage also measures your fixed per-clear overhead). Because the game keeps the EXP-level-scaling curve in code, not in any data file, nothing is invented — each stage shows its level and a "fit" flag, and the XP ranking puts stages near your level first.',
+      'New Atlas tab — a complete game reference, all from the game\'s own tables: a Rarity grades guide (socket slots, Alchemy gold, Cube XP and Steam-Market eligibility per grade), an Acts & Difficulty overview with the real per-difficulty level ranges, a Stage boxes browser (pick any stage to see exactly which loot chests it drops and everything inside each), and a Dropfinder — search any item to find every stage and box that drops it, cross-linked both ways.'],
+    Changed:[
+      'Crew now shows where each friend is <b>farming right now</b> as well as the furthest stage they\'ve ever <b>cleared</b> — they\'re usually different (most players clear a hard stage once, then drop back to an easier, faster one). This fixes the confusion of a friend\'s board reading "Act 2-8" when they\'re actually grinding somewhere lower.'],
+    Removed:[
+      'The Crew Arena (PvP) — duels, the win/loss ladder, Arena Power, tiers and the who-beats-whom matrix — is gone. The crew board is a cooperative space for cheering each other on, not a competition, and the head-to-head scoring was removed at the owner\'s request. The friendly Records (deepest/richest/deadliest) and the optional Rival side-by-side compare stay.']}},
   {v:'1.0.29',d:'2026-06-13',sec:{
     Changed:[
       'Crew: the leaderboard now runs on its own dedicated server, so the server-side half of the v1.0.28 duplicate-row fix is fully active — stray rows of the same friend are folded into one permanently the moment anyone shares, and idle rows auto-clear after 48 hours. One-time effect: your crew board does a quick reset and fills back in within about a minute as you and your friends keep playing and sharing.']}},
@@ -3565,12 +3598,9 @@ var CHANGELOG=[
       'Crew: the same friend no longer shows up as several rows — especially after they were away and came back, or opened the HUD on a different PC. Your spot on the board is now tied to your display name and reconciled by the crew server itself, so a new computer, a reinstall, an older app version, or your name typed with different capitalisation/spacing all fold back into ONE row the instant you next share. Any leftover duplicates also disappear from the board immediately (the HUD merges them on sight while the server cleans them for good).'],
     Added:[
       'Live tab: a 1-second live session scoreboard — gold this session + your measured gold/hr, kills/hr, current stage, and a live elapsed clock — plus a real-time loot ticker that surfaces drops the moment your save records them, with times that tick. It even projects your gold between save writes from your own measured pace. All of it is read from your save file + Player.log (the same read-only sources as the rest of the HUD); there is no live DPS because that would mean reading the game itself, but everything shown is real and ban-safe.',
-      'Crew Arena (PvP): every crew is now a head-to-head ladder. Each member gets an Arena Power score and a tier (Bronze → Cosmic), and any two players can duel across weighted categories — Progression, Wealth, Combat, Heroes, Runes, Arsenal and Momentum.',
-      'Every duel shows a full scorecard: who won each category and by how much, a plain-English verdict on WHY they won or lost, and a coaching line telling you the closest result to flip (e.g. "+2 hero levels passes them in Heroes"). There is a crew W–L ladder, a featured "your duel" card (vs your rival or your nearest ladder neighbour), and a who-beats-whom matrix.',
-      'Open any member and hit ⚔ Arena duel for an instant you-vs-them breakdown. It is all built from the brag-stats you already share — no new data leaves your device, nothing reads the game, ban-safe by design.',
       'Enchant categories now calibrate themselves: the moment you apply an enchant to a gear type (gloves, boots, rings, amulets…), the Advisor learns that type\'s stat category from the game\'s own roll — so it stops showing "category unknown" once your save can prove the answer, instead of waiting on a hand-built table.'],
     Changed:[
-      'Under the hood: the crew identity + PvP Arena logic moved into a small shared module with a committed test suite that runs in CI on every change (covering the duplicate-row fix, the duel math, client/server agreement, and the ban-safety guarantees) — so these stay correct as the HUD grows.']}},
+      'Under the hood: the crew identity logic moved into a small shared module with a committed test suite that runs in CI on every change (covering the duplicate-row fix, client/server agreement, and the ban-safety guarantees) — so these stay correct as the HUD grows.']}},
   {v:'1.0.27',d:'2026-06-13',sec:{
     Added:[
       'Crew: your spot on the board now follows your crew code + display name, not the specific PC. Open the HUD on a new computer (or after a reinstall), enter the same crew code and the same display name, and you\'re back on your exact row — no more disappearing when a friend plays from somewhere else.',
@@ -3763,7 +3793,9 @@ function crewStats(d){
   // grouped Stat List (v1.0.11): the calibrated lines only, as {k: line key, v: raw total} — the board re-renders
   // them with the game's own wording. Server-side whitelist mirrors the same 9 keys.
   var slines=[]; (d.statList||[]).forEach(function(g){ g.lines.forEach(function(l){ slines.push({k:l.k,v:l.raw}); }); });
-  return {maxStage:d.maxStage||0, maxStageLabel:stageActLabel(d.maxStage), lifeGold:d.lifeGold!=null?d.lifeGold:null,
+  return {maxStage:d.maxStage||0, maxStageLabel:stageActLabel(d.maxStage),
+    curStage:d.stage||0,   // v1.0.30 — where you're farming RIGHT NOW (currentStageKey), distinct from the furthest you've cleared
+    lifeGold:d.lifeGold!=null?d.lifeGold:null,
     kills:d.kills!=null?d.kills:null, gold:d.gold!=null?d.gold:null, topHeroes:top,
     runesLeveled:d.runes?d.runes.leveled:0, runesTotal:d.runes?d.runes.total:0,
     trophies:(d.trophies||[]).length, tiers:d.tiers||{},   // gear-only per-tier counts (Legendary/Immortal/…)
@@ -3830,7 +3862,7 @@ function crewKick(member){
 }
 function crewStartPolling(){ if(_crewTimer)return; _crewTimer=setInterval(function(){ if(crewCodeOk(crewCfg.code)&&activeTab==='crew'&&!demoMode) crewRefresh(true); },30000); }
 function crewOnSaveRead(d){ crewPush(d,false); }
-var CREW_RANKS=[['maxStage','Max stage'],['lifeGold','Lifetime gold'],['kills','Total kills'],['gold','Gold balance'],['topHero','Top hero level'],['runesLeveled','Runes leveled'],['trophies','Legendary+ gear'],['playHours','Play hours']]
+var CREW_RANKS=[['maxStage','Furthest cleared'],['lifeGold','Lifetime gold'],['kills','Total kills'],['gold','Gold balance'],['topHero','Top hero level'],['runesLeveled','Runes leveled'],['trophies','Legendary+ gear'],['playHours','Play hours']]
   // rank by any calibrated Stat List line (v1.0.11) — 'sl:<key>' compares the raw totals across the crew
   .concat(STAT_LIST.map(function(m){ return ['sl:'+m.k, 'Stat · '+m.t.replace('{0}% Increased ','').replace(' +{0}','').replace('{0}% ','')]; }));
 function crewRankVal(st,key){ if(!st)return null;
@@ -3840,6 +3872,9 @@ function crewRankVal(st,key){ if(!st)return null;
 // Prefer re-decoding from the authoritative numeric maxStage key (always shared) over the cached label —
 // so members still on an older client that sent the old "Act 12-5" string get re-rendered as "Act 3-5 · Torment".
 function crewStage(st){ var v=st&&st.maxStage; return (v&&Number(v)>0)?stageActLabel(v):((st&&st.maxStageLabel)||'—'); }
+// v1.0.30 — where the member is FARMING right now (currentStageKey), decoded from the authoritative numeric key.
+// Distinct from crewStage (the furthest they've ever CLEARED). Empty when not shared (older clients / no save).
+function crewNowStage(st){ var v=st&&st.curStage; return (v&&Number(v)>0)?stageActLabel(v):''; }
 function crewRankDisp(st,key){ var v=crewRankVal(st,key); if(v==null)return '—';
   if(key==='maxStage')return crewStage(st);
   if(key==='playHours')return fmt(v)+' h';
@@ -3894,7 +3929,8 @@ function openCrewMember(member,members){
   var html='';
   // ---- brag stats ----
   html+='<div class="cxsec"><div class="cxlbl">Brag stats</div>'+grid+head+
-    rowH('🗺️ Max stage',esc(crewStage(st)),cst?esc(crewStage(cst)):null,st.maxStage||0,cst?(cst.maxStage||0):null)+
+    rowH('🏁 Furthest cleared',esc(crewStage(st)),cst?esc(crewStage(cst)):null,st.maxStage||0,cst?(cst.maxStage||0):null)+
+    rowH('🌾 Now farming',crewNowStage(st)?esc(crewNowStage(st)):null,cst&&crewNowStage(cst)?esc(crewNowStage(cst)):null,st.curStage||null,cst?(cst.curStage||null):null)+
     rowH('🪙 Lifetime gold',st.lifeGold!=null?fmt(st.lifeGold):null,cst&&cst.lifeGold!=null?fmt(cst.lifeGold):null,st.lifeGold,cst?cst.lifeGold:null)+
     rowH('💀 Total kills',st.kills!=null?fmt(st.kills):null,cst&&cst.kills!=null?fmt(cst.kills):null,st.kills,cst?cst.kills:null)+
     rowH('Gold balance',st.gold!=null?fmt(st.gold):null,cst&&cst.gold!=null?fmt(cst.gold):null,st.gold,cst?cst.gold:null)+
@@ -3937,13 +3973,6 @@ function openCrewMember(member,members){
     var opts=[['','— no comparison —']].concat(others.map(function(m){ return [m.id, m.name+((isMeMember(m)&&!/^you\b/i.test(m.name||''))?' (you)':'')]; }));
     bar.appendChild(cxSelect(opts,(cmp?cmp.id:''),function(v){ _cmCompareId=v||'__none__'; openCrewMember(member,members); }));
     mo.appendChild(bar);
-  }
-  // v1.0.28 — jump straight into a full Arena duel from the pop-up (defaults to YOU vs this member)
-  var duelFoe=cmp||(members||[]).filter(isMeMember)[0]||others[0];
-  if(duelFoe&&duelFoe.id!==member.id){
-    var dbtn=el('<button class="duelbtn" type="button">⚔ '+loc('Arena duel: ','竞技场对决：')+esc(member.name||'?')+loc(' vs ',' 对 ')+esc(duelFoe.name||'?')+'</button>');
-    dbtn.addEventListener('click',function(){ openArenaDuel(member,duelFoe,members); });
-    mo.appendChild(dbtn);
   }
   var body=el('<div></div>'); body.innerHTML=html; mo.appendChild(body);
   if(!(st.statList&&st.statList.length)&&!(st.runeStats&&st.runeStats.length)&&st.ver&&st.ver!==APP_VERSION)
@@ -4015,174 +4044,8 @@ function crewLeaderEta(me,leader,key){
   if(key==='maxStage'&&mo.stagePerDay>0){ var gi=stageIdx(ls.maxStage),mi=stageIdx(ms.maxStage); if(gi!=null&&mi!=null&&gi>mi) return etaPass((gi-mi)/mo.stagePerDay); }
   return null;
 }
-/* ===================== CREW ARENA (PvP) — v1.0.28 ============================================================
-   Ban-safe head-to-head built ENTIRELY from the opt-in brag-stats already on the board: no game memory, no new
-   shared field, no API change. Every member gets an Arena Power + tier; any two can duel across weighted
-   categories, and the scorecard shows exactly WHY a side wins or loses, with a coaching line on what would flip
-   the result. Deterministic from the current snapshots (no fabrication) and demo-aware. */
-// The Arena MATH (power / tier / duel / ladder / identity) lives in the shared CrewEngine module
-// (src/engine/crewEngine.js — unit-tested in CI). This layer is pure PRESENTATION: per-category display strings,
-// icons, i18n, the verdict + coaching text, and the scorecard DOM. arenaPower/arenaTier/arenaLadder delegate.
-function _arArsenalDisp(st){ var t=(st&&st.tiers)||{}; var parts=RARITY.slice().reverse().filter(function(g){return t[g];}).map(function(g){return '<span style="color:'+rvar(g)+'">'+cap(g).slice(0,3)+' '+t[g]+'</span>';}); return parts.length?parts.join(' · '):((st&&st.trophies)!=null?(fmt(st.trophies)+' Leg+'):'—'); }
-// presentation metadata per duel category, keyed by CrewEngine.CATS[].key (+ the momentum bonus round 'mom').
-// disp(st,member) formats the engine's raw value; en/zh feed _arCatName; k mirrors the engine key for arenaCoach.
-var ARENA_CAT_META={
-  prog:   {k:'prog',  ic:'🗺️',en:'Progression',zh:'进度',disp:function(st){return esc(crewStage(st));}},
-  wealth: {k:'wealth',ic:'🪙',en:'Wealth',zh:'财富',disp:function(st){return st.lifeGold!=null?fmtShort(st.lifeGold):'—';}},
-  combat: {k:'combat',ic:'💀',en:'Combat',zh:'战斗',disp:function(st){return st.kills!=null?fmtShort(st.kills):'—';}},
-  heroes: {k:'heroes',ic:'🦸',en:'Heroes',zh:'英雄',disp:function(st){var v=CrewEngine.topHeroLv(st);return v?(loc('Lv ','等级 ')+v):'—';}},
-  runes:  {k:'runes', ic:'🔮',en:'Runes',zh:'符文',disp:function(st){return st.runesLeveled!=null?fmt(st.runesLeveled):'—';}},
-  arsenal:{k:'arsenal',ic:'💎',en:'Arsenal',zh:'装备',disp:function(st){return _arArsenalDisp(st);}},
-  mom:    {k:'mom',   ic:'📈',en:'Momentum',zh:'势头',disp:function(st,m){var v=(m&&m.momentum&&m.momentum.goldPerHr);return v>0?(fmtShort(v)+'/h'):'—';}}
-};
-function _arCatName(c){ return LANG==='zh'?c.zh:c.en; }
-var arenaPower=CrewEngine.arenaPower, arenaTier=CrewEngine.arenaTier, arenaLadder=CrewEngine.ladder;
-var ARENA_TIER_NAMES={bronze:['Bronze','青铜'],silver:['Silver','白银'],gold:['Gold','黄金'],platinum:['Platinum','铂金'],diamond:['Diamond','钻石'],master:['Master','大师'],cosmic:['Cosmic','宇宙']};
-function arenaTierName(t){ var n=ARENA_TIER_NAMES[t&&t.id]||['','']; return loc(n[0],n[1]); }
-function _arNormMargin(r){ if(r.av==null||r.bv==null)return 1; var hi=Math.max(Math.abs(r.av),Math.abs(r.bv))||1; return Math.abs(r.av-r.bv)/hi; }
-// adapter: CrewEngine.duel does the math (structured rounds: key/weight/av/bv/win); we enrich each round with its
-// display strings + category meta so the renderer, verdict and coach below consume the exact same shape as before.
-function arenaDuel(a,b){
-  var d=CrewEngine.duel(a,b);
-  var rounds=d.rounds.map(function(r){
-    var meta=ARENA_CAT_META[r.key]||{k:r.key,en:r.key,zh:r.key,disp:function(){return '—';}};
-    return {c:meta,av:r.av,bv:r.bv,win:r.win,aDisp:meta.disp((a&&a.stats)||{},a),bDisp:meta.disp((b&&b.stats)||{},b)};
-  });
-  return {a:a,b:b,rounds:rounds,aPts:d.aPts,bPts:d.bPts,aWins:d.aWins,bWins:d.bWins,winner:d.winner,aPow:d.aPow,bPow:d.bPow};
-}
-function arenaVerdict(res){
-  var ws=res.winner, ls=ws==='a'?'b':'a';
-  var win=ws==='a'?res.a:res.b, lose=ws==='a'?res.b:res.a;
-  var winCats=res.rounds.filter(function(r){return r.win===ws;}).sort(function(x,y){return _arNormMargin(y)-_arNormMargin(x);}).map(function(r){return _arCatName(r.c);});
-  var loseCats=res.rounds.filter(function(r){return r.win===ls;}).sort(function(x,y){return _arNormMargin(y)-_arNormMargin(x);}).map(function(r){return _arCatName(r.c);});
-  var n=esc(win.name||'?');
-  if(res.aPts===res.bPts) return n+loc(' edges it on Arena Power — dead level on rounds.',' 凭竞技场战力险胜 — 回合数持平。');
-  var top=winCats.slice(0,2).join(loc(' and ','、'));
-  var s=n+loc(' wins — stronger in ','获胜 — 在 ')+top+loc('.','上更强。');
-  if(loseCats.length) s+=loc(' But ',' 不过 ')+esc(lose.name||'?')+loc(' still leads ','在 ')+loseCats.slice(0,1).join('')+loc('.','上领先。');
-  return s;
-}
-function arenaCoach(res,meSide){
-  var opp=meSide==='a'?res.b:res.a, oppN=esc(opp.name||'?'), oSide=meSide==='a'?'b':'a';
-  if(res.winner===meSide){
-    var oppWon=res.rounds.filter(function(r){return r.win===oSide;});
-    if(!oppWon.length) return loc('Flawless — you take every round. Defend the throne.','完胜 — 你赢下每一回合。守住王座。');
-    oppWon.sort(function(x,y){return _arNormMargin(y)-_arNormMargin(x);});
-    return loc('You win — but watch ','你获胜 — 但小心 ')+oppN+loc(': they still lead ','：他们在 ')+_arCatName(oppWon[0].c)+loc('.','上仍领先。');
-  }
-  var lost=res.rounds.filter(function(r){return r.win===oSide&&r.av!=null&&r.bv!=null;});
-  if(!lost.length) return loc('Share more of your stats, or play on, to make the duel fairer.','分享更多数据或继续游玩，让对决更公平。');
-  lost.sort(function(x,y){return _arNormMargin(x)-_arNormMargin(y);});
-  var cl=lost[0], c=cl.c, mv=meSide==='a'?cl.av:cl.bv, ov=meSide==='a'?cl.bv:cl.av;
-  if(c.k==='heroes'){ var d=(ov-mv)+1; return loc('Closest flip: ','最易翻盘：')+'+'+d+loc(d===1?' hero level passes ':' hero levels pass ',' 级最强英雄即可超越 ')+oppN+loc(' in Heroes.',' 的英雄。'); }
-  if(c.k==='runes'){ var d=(ov-mv)+1; return loc('Closest flip: ','最易翻盘：')+'+'+d+loc(' runes leveled passes ',' 个符文升级即可超越 ')+oppN+loc(' in Runes.',' 的符文。'); }
-  if(c.k==='prog'){ var d=ov-mv; return loc('Closest flip: you are ','最易翻盘：你落后 ')+oppN+' '+d+loc(d===1?' stage behind in Progression.':' stages behind in Progression.',' 关。继续深入。'); }
-  var diff=ov-mv;
-  return loc('Closest flip: ','最易翻盘：')+_arCatName(c)+' — '+oppN+loc(' leads by ',' 领先 ')+fmtShort(diff)+loc('.','。');
-}
-// the shared duel scorecard element — used inline AND in the pop-up modal. meSide: 'a' | 'b' | null
-function duelCardEl(res,meSide){
-  var card=el('<div class="duelcard"></div>');
-  var sumPts=res.aPts+res.bPts, aShare=sumPts>0?Math.round(100*res.aPts/sumPts):50, bShare=100-aShare;
-  function fighter(m,side,pow){
-    var t=arenaTier(pow), youTag=(isMeMember(m)?(' '+loc('(you)','（你）')):'');
-    return '<div class="fighter '+(res.winner===side?'win':'')+'">'+(res.winner===side?'<span class="duelcrown">👑</span>':'')+
-      '<div class="fname">'+esc(m.name||'?')+youTag+'</div>'+
-      '<div class="ftier '+t.cl+'">'+arenaTierName(t)+'</div>'+
-      '<div class="fpow">'+pow+' <span>'+loc('PWR','战力')+'</span></div></div>';
-  }
-  card.appendChild(el('<div class="duelhead">'+fighter(res.a,'a',res.aPow)+
-    '<div class="duelvs"><div class="vsbadge">VS</div><div class="duelscore">'+res.aWins+'<span>-</span>'+res.bWins+'</div></div>'+
-    fighter(res.b,'b',res.bPow)+'</div>'));
-  card.appendChild(el('<div class="duelbar" title="'+loc('Round-share: who controls more weighted categories','回合占比：谁掌控更多加权类别')+'"><span class="da" style="width:'+aShare+'%">'+aShare+'%</span><span class="db" style="width:'+bShare+'%">'+bShare+'%</span></div>'));
-  var grid=el('<div class="duelgrid"></div>');
-  res.rounds.forEach(function(r){
-    var aw=r.win==='a'?' win':'', bw=r.win==='b'?' win':'';
-    grid.appendChild(el('<div class="dca'+aw+'">'+(r.win==='a'?'<b>✓</b> ':'')+r.aDisp+'</div>'+
-      '<div class="dck">'+(r.c.ic||'')+' '+_arCatName(r.c)+'</div>'+
-      '<div class="dcb'+bw+'">'+r.bDisp+(r.win==='b'?' <b>✓</b>':'')+'</div>'));
-  });
-  card.appendChild(grid);
-  card.appendChild(el('<div class="duelverdict">⚔ '+arenaVerdict(res)+'</div>'));
-  if(meSide) card.appendChild(el('<div class="duelcoach">🎯 '+arenaCoach(res,meSide)+'</div>'));
-  return card;
-}
-function openArenaDuel(a,b,members){
-  closeCrewMember();
-  var res=arenaDuel(a,b), meSide=isMeMember(a)?'a':(isMeMember(b)?'b':null);
-  var mo=el('<div class="cxmodal" style="width:min(560px,96vw)"></div>');
-  mo.appendChild(el('<button class="cxclose" title="Close (Esc)">×</button>'));
-  mo.appendChild(el('<div class="cxtn">⚔ '+loc('Arena duel','竞技场对决')+'</div>'));
-  mo.appendChild(duelCardEl(res,meSide));
-  if(members&&members.length>2){
-    var others=members.filter(function(m){return m!==a&&m.id!==a.id;});
-    var bar=el('<div class="cmpbar"><span style="font-size:12px;color:var(--text-dim)">'+loc('Duel vs','对战')+'</span></div>');
-    bar.appendChild(cxSelect(others.map(function(m){return [m.id,m.name+(isMeMember(m)?loc(' (you)','（你）'):'')];}),b.id,function(v){ var nb=null; others.forEach(function(m){if(m.id===v)nb=m;}); if(nb)openArenaDuel(a,nb,members); }));
-    mo.appendChild(bar);
-  }
-  mo.appendChild(el('<div class="cxnote" style="margin-top:12px">'+loc('Built only from each player\'s opt-in brag-stats — never the save, never live game memory. Ban-safe by construction.','仅由玩家自愿分享的炫耀数据构建 — 不含存档，不读取游戏内存。设计上即封号安全。')+'</div>'));
-  var ov=el('<div class="cxmodal-ov"></div>'); ov.appendChild(mo); document.body.appendChild(ov);
-  function onKey(ev){ if(ev.key==='Escape')closeCrewMember(); }
-  ov.addEventListener('click',function(ev){ if(ev.target===ov)closeCrewMember(); });
-  mo.querySelector('.cxclose').addEventListener('click',closeCrewMember);
-  document.addEventListener('keydown',onKey);
-  _cmModal={ov:ov,onKey:onKey};
-}
-function renderCrewArena(p,members){
-  var elig=(members||[]).filter(function(m){return m&&m.stats;});
-  if(elig.length<2) return;   // need at least two fighters to have a PvP
-  var wrap=el('<div class="arena"></div>');
-  wrap.appendChild(el('<div class="arenahead"><span class="arenatitle">⚔ '+loc('Crew Arena','战队竞技场')+'</span><span class="tag">'+loc('head-to-head from shared stats · ban-safe','基于分享数据的对决 · 封号安全')+'</span></div>'));
-  var ladder=arenaLadder(elig);
-  var lad=el('<div class="arenaladder"></div>');
-  lad.appendChild(el('<div class="alrow alhead"><span>#</span><span>'+loc('Fighter','战士')+'</span><span>'+loc('Tier','段位')+'</span><span>'+loc('W–L','胜负')+'</span><span>'+loc('Win%','胜率')+'</span><span>'+loc('Power','战力')+'</span></div>'));
-  ladder.forEach(function(e,i){
-    var isMe=isMeMember(e.m), tot=e.w+e.l, wr=tot?Math.round(100*e.w/tot):0;
-    lad.appendChild(el('<div class="alrow'+(isMe?' me':'')+'"><span class="alrank">'+(i===0?'🏆':'#'+(i+1))+'</span>'+
-      '<span class="alname">'+esc(e.m.name||'?')+(isMe?' '+loc('(you)','（你）'):'')+'</span>'+
-      '<span class="altier '+e.tier.cl+'">'+arenaTierName(e.tier)+'</span>'+
-      '<span class="alwl">'+e.w+'–'+e.l+'</span><span class="alwr">'+wr+'%</span><span class="alpow">'+e.pow+'</span></div>'));
-  });
-  wrap.appendChild(lad);
-  // featured duel: me vs (rival || nearest ladder neighbour); if I am not sharing, the top-two clash
-  var me=elig.filter(isMeMember)[0], opp=null, a=null,b=null;
-  if(me){
-    if(crewCfg.rivalId) elig.forEach(function(m){ if(m.id===crewCfg.rivalId&&!isMeMember(m))opp=m; });
-    if(!opp){ var idx=-1; ladder.forEach(function(e,i){ if(e.m===me)idx=i; }); if(idx>=0){ var nb=(idx>0?ladder[idx-1]:ladder[idx+1]); if(nb)opp=nb.m; } }  // the rival to chase = the player just above you (or just below, if you are #1)
-    a=me; b=opp;
-  } else if(ladder.length>=2){ a=ladder[0].m; b=ladder[1].m; }
-  if(a&&b){
-    var feat=el('<div class="arenafeat"></div>');
-    var fbar=el('<div class="arenafeatbar"><span class="arenasub">🎯 '+(me?loc('Your duel','你的对决'):loc('Top duel','巅峰对决'))+'</span></div>');
-    if(me){
-      var foes=elig.filter(function(m){return !isMeMember(m);});
-      fbar.appendChild(cxSelect([['',loc('— auto: nearest rival —','— 自动：最近对手 —')]].concat(foes.map(function(m){return [m.id,m.name];})),(crewCfg.rivalId||''),function(v){ crewCfg.rivalId=v||null; crewSave(); renderCrew(current); }));
-    }
-    feat.appendChild(fbar);
-    feat.appendChild(duelCardEl(arenaDuel(a,b), me?(a===me?'a':'b'):null));
-    wrap.appendChild(feat);
-  }
-  // matchup matrix (compact) — who beats whom across the whole crew
-  if(elig.length>=3&&elig.length<=8){
-    var mtx=el('<div class="arenamtx"></div>');
-    mtx.appendChild(el('<div class="amxhead">'+loc('Who beats whom','谁胜谁')+'</div>'));
-    var tbl=el('<div class="amxgrid" style="grid-template-columns:minmax(64px,1.4fr) repeat('+elig.length+',1fr)"></div>');
-    tbl.appendChild(el('<span class="amxc amxcorner"></span>'));
-    elig.forEach(function(m,j){ tbl.appendChild(el('<span class="amxc amxch" title="'+esc(m.name||'')+'">'+(j+1)+'</span>')); });
-    elig.forEach(function(m,i){
-      tbl.appendChild(el('<span class="amxc amxrh'+(isMeMember(m)?' me':'')+'" title="'+esc(m.name||'')+'">'+(i+1)+'. '+esc((m.name||'?').slice(0,9))+'</span>'));
-      elig.forEach(function(o,j){
-        if(i===j){ tbl.appendChild(el('<span class="amxc amxself">·</span>')); return; }
-        var win=arenaDuel(m,o).winner==='a';
-        tbl.appendChild(el('<span class="amxc '+(win?'amxw':'amxl')+'" title="'+esc(m.name||'')+' '+(win?'beats':'loses to')+' '+esc(o.name||'')+'">'+(win?'✓':'✗')+'</span>'));
-      });
-    });
-    mtx.appendChild(tbl);
-    mtx.appendChild(el('<div class="amxlegend">'+loc('Row vs column: ','行 对 列：')+'<span class="amxw">✓</span> '+loc('row wins','行胜')+' · <span class="amxl">✗</span> '+loc('row loses','行负')+'</div>'));
-    wrap.appendChild(mtx);
-  }
-  p.appendChild(wrap);
-}
+/* Crew Arena (PvP) — REMOVED in v1.0.30. The crew board is cooperative; head-to-head duels / ladder /
+   power / tiers / who-beats-whom were stripped at the owner request. crewEngine.js no longer exports Arena math. */
 function renderCrewHead(p,members){
   var online=members.filter(crewFresh).length;
   var head=el('<div class="crewhead"></div>');
@@ -4244,7 +4107,7 @@ function renderCrew(d){
 
   // ---- setup / privacy panel ----
   var setup=el('<div class="panel"></div>');
-  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes their <b>brag-stats</b> — max stage, lifetime gold, kills, gold, top-3 hero levels, runes, your <b>Legendary/Immortal/Arcana gear counts</b> (gear only — stones never count), play hours, your <b>complete Stat List</b> (the grouped panel plus every rune total), and your <b>last 3 rare drops</b> (Immortal+ gear &amp; Soulstones only, with the time you got them) — and sees everyone else\'s, live. <b>Click any member for their full stats and a side-by-side compare.</b> <b>Nothing else ever leaves your device</b>: not your save file, not your full item list, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
+  setup.appendChild(el('<div class="hint" style="margin:0 0 12px"><b>How it works:</b> friends pick any shared <b>crew code</b> (like a private room name) and a display name. Everyone who opts in pushes their <b>brag-stats</b> — furthest stage cleared <b>and where they\'re farming right now</b>, lifetime gold, kills, gold, top-3 hero levels, runes, your <b>Legendary/Immortal/Arcana gear counts</b> (gear only — stones never count), play hours, your <b>complete Stat List</b> (the grouped panel plus every rune total), and your <b>last 3 rare drops</b> (Immortal+ gear &amp; Soulstones only, with the time you got them) — and sees everyone else\'s, live. <b>Click any member for their full stats and a side-by-side compare.</b> <b>Nothing else ever leaves your device</b>: not your save file, not your full item list, and nothing at all unless the share toggle below is ON. No account needed.</div>'));
   var form=el('<div class="crewform"></div>');
   var inCode=el('<input id="crewCode" maxlength="32" placeholder="Crew code (3-32 letters/numbers)" value="'+esc(crewCfg.code)+'">');
   var inName=el('<input id="crewName" maxlength="24" placeholder="Your display name" value="'+esc(crewCfg.name)+'">');
@@ -4330,7 +4193,7 @@ function renderCrew(d){
       var meVal=null; sorted.forEach(function(m2){ if(isMeMember(m2)) meVal=crewRankVal(m2.stats,key); });
       renderCrewHead(p,sorted); renderCrewRecords(p,sorted);
       if(_crewMerged>0&&!demoMode) p.appendChild(el('<div class="crewnote" style="margin-top:8px">🧹 '+loc('Merged ','合并了 ')+_crewMerged+loc(_crewMerged===1?' duplicate row':' duplicate rows',' 个重复行')+loc(' of the same person (matched by display name). They clear from the server permanently on that member’s next update.','（按显示名匹配）。该成员下次更新时将从服务器永久清除。')+'</div>'));
-      renderCrewArena(p,sorted); renderCrewRival(p,sorted);
+      renderCrewRival(p,sorted);
       var panel=el('<div class="panel"></div>');
       sorted.forEach(function(m2,i){
         var st=m2.stats||{}, isMe=isMeMember(m2);
@@ -4343,7 +4206,9 @@ function renderCrew(d){
         row.appendChild(el('<span class="crewname"><b>'+liveDot+esc(m2.name||'?')+(isMe?' <span style="color:var(--accent-2)">'+loc('(you)','（你）')+'</span>':'')+'</b><small>'+(m2.updatedAt?(loc('updated ','')+fmtAgo(+new Date(m2.updatedAt))):'')+'</small></span>'));
         row.appendChild(el('<span class="crewstat" style="color:var(--gold)">'+esc(crewRankDisp(st,key))+crewSpark(m2.spark)+'</span>'));
         var chips='';
-        chips+='<span class="chip">🗺️ <b>'+esc(crewStage(st))+'</b></span>';
+        chips+='<span class="chip" title="'+loc('Furthest stage this member has ever CLEARED','该成员通关过的最远关卡')+'">🏁 '+loc('cleared','已通关')+' <b>'+esc(crewStage(st))+'</b></span>';
+        var _nf=crewNowStage(st);
+        if(_nf&&_nf!==crewStage(st)) chips+='<span class="chip" title="'+loc('Where they are actually farming right now (their current stage) — may be lower than their furthest clear','他们当前实际所在/正在刷的关卡 — 可能低于通关最远处')+'">🌾 '+loc('now farming','正在刷')+' <b>'+esc(_nf)+'</b></span>';
         if(st.lifeGold!=null)chips+='<span class="chip">🪙 <b>'+fmt(st.lifeGold)+'</b></span>';
         if(st.kills!=null)chips+='<span class="chip">💀 <b>'+fmt(st.kills)+'</b></span>';
         if(st.topHeroes&&st.topHeroes.length)chips+='<span class="chip">🦸 <b>'+st.topHeroes.map(function(h){return esc(h.cls)+' '+h.level;}).join(' · ')+'</b></span>';
@@ -4402,7 +4267,7 @@ function renderCrew(d){
         panel.appendChild(row);
       });
       p.appendChild(panel);
-      p.appendChild(el('<div class="crewnote" style="margin-top:10px">Latest achievements, the activity feed, momentum and ETAs are all derived from each member\'s own shared snapshots — never invented. Members appear when they share at least once; the board keeps the latest snapshot per member. <b>A member\'s row updates while their HUD is running</b> — when they (or their HUD) go offline, the row freezes at their last share and catches up the moment they\'re back, offline gains included (dimmed rows haven\'t shared in over a day). The 🟢 dot means they shared in the last 2 minutes. <b>Rows idle for 48 hours are removed automatically</b>, and you can <b>✕ remove</b> anyone on the spot — they rejoin automatically if they come back and share. Your spot on the board is tied to your <b>crew code + display name</b>, so entering the same two on a new PC puts you right back on your own row. Everything here comes from the opt-in brag-stats — the HUD only ever reads your local save and never touches the game.</div>'));
+      p.appendChild(el('<div class="crewnote" style="margin-top:10px"><b>🏁 Cleared vs 🌾 now farming:</b> a member\'s stage shows two things — the furthest stage they\'ve ever <b>cleared</b> (a one-time high-water mark) and where they\'re <b>actually farming right now</b>. These are usually different: most players clear a tough stage once, then drop back to an easier stage that pays better — so "cleared Act 2-8" while "farming Act 2-6" is normal, not a glitch. (Friends on an app version older than v1.0.30 only send their furthest clear until they update.) Latest achievements, the activity feed, momentum and ETAs are all derived from each member\'s own shared snapshots — never invented. Members appear when they share at least once; the board keeps the latest snapshot per member. <b>A member\'s row updates while their HUD is running</b> — when they (or their HUD) go offline, the row freezes at their last share and catches up the moment they\'re back, offline gains included (dimmed rows haven\'t shared in over a day). The 🟢 dot means they shared in the last 2 minutes. <b>Rows idle for 48 hours are removed automatically</b>, and you can <b>✕ remove</b> anyone on the spot — they rejoin automatically if they come back and share. Your spot on the board is tied to your <b>crew code + display name</b>, so entering the same two on a new PC puts you right back on your own row. Everything here comes from the opt-in brag-stats — the HUD only ever reads your local save and never touches the game.</div>'));
       renderCrewFeed(p, demoMode?demoCrewFeed():_crewFeed);
     }
     if(!demoMode) crewStartPolling();
@@ -4416,14 +4281,14 @@ function demoCrewBoard(){
   var now=Date.now();
   return [
     {id:'demo-you',name:'You (sample)',updatedAt:new Date(now-30000).toISOString(),momentum:{goldPerHr:96000,killsPerHr:3200,stagePerDay:1.2},spark:[2050000,2180000,2300000,2390000,2455000],
-      stats:{maxStage:2103,maxStageLabel:'Act 1-3 · Nightmare',lifeGold:2455000,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},
+      stats:{maxStage:2103,maxStageLabel:'Act 1-3 · Nightmare',curStage:2101,lifeGold:2455000,kills:72091,gold:77298,topHeroes:[{cls:'Hunter',level:20},{cls:'Priest',level:20},{cls:'Sorcerer',level:20}],runesLeveled:56,runesTotal:197,trophies:5,tiers:{LEGENDARY:5},
       runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:2100},{e:'Drop Chance Normal Chest Percent',v:1050},{e:'Increase Exp Amount',v:700},{e:'Increase Gold Amount',v:700},{e:'Additional Gold Act Boss',v:500},{e:'All Hero Attack Damage Percent',v:350},{e:'Additional Exp Act Boss',v:300},{e:'Offline Reward Gold Percent',v:300},{e:'Additional Gold Stage Boss',v:280},{e:'All Hero Move Speed',v:210},{e:'All Hero Attack Speed',v:160},{e:'All Hero Armor Percent',v:150},{e:'Additional Exp Stage Boss',v:80},{e:'Max Inventory Slot',v:21},{e:'All Hero Attack Damage',v:10},{e:'Unlock Arrange Slot Count',v:2},{e:'Additional Exp',v:1}],
       statList:[{k:'IncreaseExpAmount',v:700},{k:'AdditionalExp',v:1},{k:'AdditionalExpStageBoss',v:80},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:210},{k:'AllHeroAttackSpeed',v:160},{k:'AllHeroAttackDamage',v:10}],
       rareDrops:[{k:304011,t:now-180000,lt:'06-13 18:40'},{k:190002,t:now-3600000,lt:'06-13 17:15'}],
       playHours:34.4,ver:APP_VERSION},
       achievement:{t:new Date(now-3600000).toISOString(),text:'Broke into Nightmare difficulty'}},
     {id:'demo-2',name:'BuratBro',updatedAt:new Date(now-90000).toISOString(),momentum:{goldPerHr:128000,killsPerHr:4100,stagePerDay:0.9},spark:[1700000,1850000,1980000,2050000,2100400],
-      stats:{maxStage:2108,maxStageLabel:'Act 1-8 · Nightmare',lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},
+      stats:{maxStage:2108,maxStageLabel:'Act 1-8 · Nightmare',curStage:2106,lifeGold:2100400,kills:80112,gold:12050,topHeroes:[{cls:'Slayer',level:22},{cls:'Ranger',level:19},{cls:'Knight',level:18}],runesLeveled:61,runesTotal:197,trophies:3,tiers:{LEGENDARY:2,IMMORTAL:1},
       runeStats:[{e:'Drop Chance Stage Boss Chest Percent',v:1800},{e:'Drop Chance Normal Chest Percent',v:1200},{e:'Increase Exp Amount',v:800},{e:'Increase Gold Amount',v:500},{e:'All Hero Attack Speed',v:200},{e:'All Hero Move Speed',v:170},{e:'Additional Exp Act Boss',v:300},{e:'Additional Gold Stage Boss',v:340},{e:'Offline Reward Exp Percent',v:200},{e:'All Hero Armor',v:60},{e:'Additional Exp Stage Boss',v:120},{e:'Max Inventory Slot',v:18},{e:'All Hero Attack Damage',v:14},{e:'Unlock Arrange Slot Count',v:2}],
       statList:[{k:'IncreaseExpAmount',v:800},{k:'AdditionalExpStageBoss',v:120},{k:'AdditionalExpActBoss',v:300},{k:'UnlockArrangeSlotCount',v:2},{k:'AllHeroMoveSpeed',v:170},{k:'AllHeroAttackSpeed',v:200},{k:'AllHeroAttackDamage',v:14}],
       rareDrops:[{k:305041,t:now-300000,lt:'06-13 18:37'},{k:304021,t:now-7200000,lt:'06-13 16:42'},{k:190003,t:now-9000000,lt:'06-13 16:10'}],
@@ -4726,7 +4591,7 @@ function openCodexDetail(e,owned){
 function closeCodexDetail(){if(!_cxModal)return;document.removeEventListener('keydown',_cxModal.onKey);if(_cxModal.ov.parentNode)_cxModal.ov.parentNode.removeChild(_cxModal.ov);_cxModal=null;}
 
 /* ---------- tab switching ---------- */
-var TABS=['overview','live','party','inventory','loot','runes','advisor','lifetime','trends','crew','codex','tips'];
+var TABS=['overview','live','party','inventory','loot','runes','advisor','farming','lifetime','trends','crew','atlas','codex','tips'];
 function showConnectHint(name){var p=$('tab-'+name);if(!p)return;
   var nice={overview:'your overview',party:'your heroes',inventory:'your inventory',loot:'your loot timeline',runes:'your rune tree',advisor:'your build advisor',lifetime:'your lifetime stats',trends:'your history & trends'};
   p.innerHTML='<div class="connect-hint">'+
@@ -4737,6 +4602,386 @@ function showConnectHint(name){var p=$('tab-'+name);if(!p)return;
   var act=p.querySelector('.ch-actions');
   if(window.showDirectoryPicker){var b=el('<button class="primary">Connect folder</button>');b.addEventListener('click',function(){connectFolder().catch(function(e){if(e.name!=='AbortError')console.error(e);});});act.appendChild(b);}
   var cx=el('<button class="ghost">Browse the Codex</button>');cx.addEventListener('click',function(){setTab('codex');});act.appendChild(cx);}
+/* ===================== FARMING OPTIMIZER (v1.0.30) =====================================================
+   Ranks every stage by ESTIMATED clear time, Gold/hr and EXP/hr from the game's OWN datamined per-stage HP +
+   rewards (DB.stageFarm, built from StageInfoData + StageLevelInfoData + MonsterInfoData). The one thing the save
+   can't give us is your clear SPEED, so the model is CALIBRATED, never guessed:
+     • Auto (default): your clear speed is derived from the HUD's OWN measured kills/hr on your current stage
+       (kill counts are buff-free), and stages you've already cleared + near your hero level are highlighted.
+     • Manual: enter how long one clear of any stage took you — that calibrates the model for every other stage.
+   No EXP-level-penalty % is shown (that curve lives in game code, not the data files) — instead each stage's LEVEL
+   and a level-fit hint are surfaced, since the game pays the most EXP near your level. Numbers are labelled "est". */
+var FARM_DIFF=['Normal','Nightmare','Hell','Torment'];
+var farmState={mode:'auto',metric:'exp',diff:'all',act:'all',cal:[{stage:'',min:'',sec:''}],showAll:false};
+function farmList(){ var sf=DB.stageFarm||{}; return Object.keys(sf).map(function(k){return {k:k,f:sf[k]};})
+  .filter(function(x){return x.f&&x.f.hp>0;}).sort(function(a,b){return (stageIdx(a.k)||0)-(stageIdx(b.k)||0);}); }
+function farmHeroLvl(d){ var m=0; ((d&&d.heroes)||[]).forEach(function(h){ if((h.level||0)>m)m=h.level||0; }); return m||null; }
+// Clear-speed model = {dps (HP/s), ov (fixed seconds per clear: loading/walking/boss/transition)}. ONE timed clear
+// gives dps only (ov assumed 0 -> very fast stages look too good); TWO+ timed clears of different-HP stages let us
+// SOLVE both via a least-squares fit of  sec = hp/dps + ov  (exactly why the reference tool asks for two times).
+function farmSolveTimes(cal){
+  var pts=[]; (cal||[]).forEach(function(s){ var f=(DB.stageFarm||{})[s.stage]; var sec=(parseInt(s.min||0,10)||0)*60+(parseInt(s.sec||0,10)||0); if(f&&f.hp>0&&sec>0) pts.push({hp:f.hp,sec:sec,stage:s.stage}); });
+  if(!pts.length) return null;
+  if(pts.length===1) return {dps:pts[0].hp/pts[0].sec, ov:0, n:1, single:true};
+  var n=pts.length,sx=0,sy=0,sxx=0,sxy=0; pts.forEach(function(p){sx+=p.hp;sy+=p.sec;sxx+=p.hp*p.hp;sxy+=p.hp*p.sec;});
+  var denom=n*sxx-sx*sx, m=denom?((n*sxy-sx*sy)/denom):0, b=(sy-m*sx)/n;
+  if(!(m>0)) return {dps:pts[0].hp/pts[0].sec, ov:0, n:1, single:true};   // non-physical slope -> fall back to a single point
+  return {dps:1/m, ov:Math.max(0,b), n:n, single:false};
+}
+function farmClearSec(f,model){ return f.hp/model.dps + (model.ov||0); }
+// AUTO engine — anchored to the player's OWN MEASURED per-stage rates (perStageData: real gold/hr, kills/hr, xp/hr
+// from save snapshots, INCLUDING their buffs). This is what makes the per-hour numbers ACCURATE rather than raw
+// base values: kills/hr give the real clear speed (buff-free), and goldYield/xpYield map the datamined base reward
+// to the player's actual earnings on a reference stage, then scale to every other stage by the datamined ratios.
+// Reference = the measured stage with the most logged hours. Returns {model, meas} (meas keyed by stage string).
+function farmAutoEngine(d){
+  var meas={}, best=null;
+  (perStageData()||[]).forEach(function(r){ var sk=String(r.stage), f=(DB.stageFarm||{})[sk]; if(!f)return;
+    var perClear=(f.spawns||0)+1, clearsHr=(r.killsPerHr>0)?(r.killsPerHr/perClear):null;
+    meas[sk]={goldHr:r.goldPerHr,xpHr:r.xpPerHr,killsHr:r.killsPerHr,hours:r.hours,clearsHr:clearsHr,clearSec:(clearsHr>0)?(3600/clearsHr):null};
+    if(clearsHr>0&&(!best||(r.hours||0)>(best.r.hours||0))) best={stage:sk,f:f,r:r,clearsHr:clearsHr};
+  });
+  if(!best){   // no clean measured interval yet -> fall back to the current session's kills/hr on the current stage
+    var kph=null; try{ kph=(typeof liveMetrics==='function')?liveMetrics(d).kph:null; }catch(e){}
+    var cf=(DB.stageFarm||{})[String(d&&d.stage)];
+    if(kph>0&&cf){ var pc=(cf.spawns||0)+1; best={stage:String(d.stage),f:cf,r:{goldPerHr:null,xpPerHr:null,killsPerHr:kph,hours:null},clearsHr:kph/pc}; }
+    else return {model:null,meas:meas};
+  }
+  var dps=best.f.hp*best.clearsHr/3600;
+  var goldYield=(best.r.goldPerHr>0&&best.f.gold>0&&best.clearsHr>0)?(best.r.goldPerHr/(best.f.gold*best.clearsHr)):null;
+  var xpYield=(best.r.xpPerHr>0&&best.f.exp>0&&best.clearsHr>0)?(best.r.xpPerHr/(best.f.exp*best.clearsHr)):null;
+  return {model:{dps:dps,ov:0,goldYield:goldYield,xpYield:xpYield,refStage:best.stage,refHours:best.r.hours,refKph:best.r.killsPerHr,single:true,auto:true},meas:meas};
+}
+function farmFitGap(f,heroLvl){ return (heroLvl&&f.lvl)?(f.lvl-heroLvl):null; }   // stage level minus your level
+function farmFitKind(gap){ if(gap==null)return 'na'; if(gap>=-2&&gap<=6)return 'good'; if(gap>6)return 'above'; return 'low'; }
+function farmFitChip(gap){ var k=farmFitKind(gap); if(k==='na') return '';
+  if(k==='good') return '<span class="fitpill fit-good" title="At or just above your level — the game keeps the most EXP here. Rule of thumb, not an exact game value.">✓ '+loc('good fit','适合')+'</span>';
+  if(k==='above') return '<span class="fitpill fit-hard" title="This stage is above your level — slower to clear and you may not survive it.">▲ '+loc('above you','高于你')+'</span>';
+  return '<span class="fitpill fit-low" title="Well below your level — gold is fine, but the game gives reduced EXP when you out-level a stage. Rule of thumb, not an exact game value.">▼ '+loc('low XP','经验偏低')+'</span>'; }
+function fmtClear(sec){ sec=Math.max(0,Math.round(sec)); if(sec<1)return '<1s'; var m=Math.floor(sec/60),s=sec%60; return m>0?(m+':'+(s<10?'0':'')+s):(s+'s'); }
+function farmFitOrder(gap){ var k=farmFitKind(gap); return k==='good'?0:(k==='na'?0:(k==='above'?1:2)); }
+// build one display row per stage. `meas` (auto only) supplies MEASURED gold/xp/clear-time where the player has
+// actually farmed that stage; otherwise the value is projected from the calibrated model (+ goldYield/xpYield in
+// auto). measured=true -> real; goldBase/xpBase=true -> raw base reward (no buff anchor, manual/un-anchored).
+function farmRows(model,heroLvl,meas){
+  meas=meas||{};
+  return farmList().map(function(x){ var f=x.f, key=x.k, m=meas[key];
+    var sec=(m&&m.clearSec>0)?m.clearSec:farmClearSec(f,model);
+    var gMeasured=!!(m&&m.goldHr>0), xMeasured=!!(m&&m.xpHr>0);
+    var goldHr=gMeasured?m.goldHr:(sec>0?(f.gold*(model.goldYield||1)*3600/sec):0);
+    var expHr=xMeasured?m.xpHr:(sec>0?(f.exp*(model.xpYield||1)*3600/sec):0);
+    return {k:key,f:f,sec:sec,goldHr:goldHr,expHr:expHr,gap:farmFitGap(f,heroLvl),
+      measured:!!(m&&m.clearSec>0),gMeasured:gMeasured,xMeasured:xMeasured,
+      goldBase:!gMeasured&&!model.goldYield, xpBase:!xMeasured&&!model.xpYield}; });
+}
+function farmRank(model,heroLvl,meas){
+  if(!model||!(model.dps>0)) return [];
+  var rows=farmRows(model,heroLvl,meas);
+  if(farmState.diff!=='all') rows=rows.filter(function(r){return r.f.di===+farmState.diff;});
+  if(farmState.act!=='all') rows=rows.filter(function(r){return r.f.act===+farmState.act;});
+  // Gold has no level penalty -> rank by gold/hr. For EXP, the game pays most near your level, so good-fit stages
+  // rank first (then by exp/hr) — otherwise a far-under-level stage would top the XP list, which is the opposite
+  // of the truth. Without a save (no hero level) every fit is 'na' and EXP falls back to pure exp/hr.
+  rows.sort(function(a,b){ return farmState.metric==='gold' ? (b.goldHr-a.goldHr) : ((farmFitOrder(a.gap)-farmFitOrder(b.gap))||(b.expHr-a.expHr)); });
+  return rows;
+}
+function farmStageCell(r){ var di=r.f.di, diff=FARM_DIFF[di]||''; var nm=stageName(r.k);
+  return '<span class="fstg"><b>'+esc('Act '+r.f.act+'-'+r.f.no)+'</b><span class="fdiff d-'+diff+'">'+esc(localizeStageText(diff)||diff)+'</span></span>'+(nm?'<br><span class="fname">'+esc((LANG==='zh'&&ZG.game&&ZG.game[nm])||nm)+'</span>':''); }
+function renderFarming(d){
+  var p=$('tab-farming'); p.innerHTML='';
+  p.appendChild(el('<h3 class="sec">'+loc('Farming optimizer','刷怪优化器')+' <span class="tag">'+loc('ranks every stage by estimated EXP/hr &amp; Gold/hr · from the game\'s own datamined HP + rewards','按估算的经验/小时和金币/小时排序每个关卡 · 源自游戏自身的数据')+'</span></h3>'));
+  // mode toggle (Auto default / Manual)
+  var bar=el('<div class="farmbar"></div>');
+  var seg=el('<div class="modeseg"></div>');
+  ['auto','manual'].forEach(function(mo){ var b=el('<button'+(farmState.mode===mo?' class="on"':'')+'>'+(mo==='auto'?('⚙ '+loc('Auto','自动')):('✎ '+loc('Manual','手动')))+'</button>');
+    b.addEventListener('click',function(){ farmState.mode=mo; renderFarming(current); }); seg.appendChild(b); });
+  bar.appendChild(seg);
+  bar.appendChild(el('<span style="font-size:12px;color:var(--text-dim)">'+loc('Optimize for','优化目标')+'</span>'));
+  var mseg=el('<div class="modeseg"></div>');
+  [['exp','✨ '+loc('EXP','经验')],['gold','🪙 '+loc('Gold','金币')]].forEach(function(mm){ var b=el('<button'+(farmState.metric===mm[0]?' class="on"':'')+'>'+mm[1]+'</button>');
+    b.addEventListener('click',function(){ farmState.metric=mm[0]; renderFarming(current); }); mseg.appendChild(b); });
+  bar.appendChild(mseg);
+  p.appendChild(bar);
+
+  var heroLvl=farmHeroLvl(d), model=null, calInfo='', meas={};
+  if(farmState.mode==='auto'){
+    if(!d){ p.appendChild(el('<div class="connect-hint"><div class="ch-ico">⚙</div><div class="ch-title">'+loc('Connect your save for Auto mode','连接存档以使用自动模式')+'</div><div class="ch-sub">'+loc('Auto reads your hero level and your measured clear pace from your own save. No save handy? Switch to <b>Manual</b> above and enter one clear time — it works with no save at all.','自动模式读取你的英雄等级与实测速度。没有存档？切到上方的“手动”，输入一次通关时间即可。')+'</div></div>'));
+      farmReboot(p,d,null,heroLvl,'auto',''); return; }
+    var eng=farmAutoEngine(d); model=eng.model; meas=eng.meas||{};
+    if(model){ var refLbl=esc(stageActLabel(model.refStage)), measN=Object.keys(meas).filter(function(k){return meas[k].clearSec>0;}).length;
+      calInfo=loc('Calibrated from your <b>measured</b> pace on ','已用你在 ')+'<b>'+refLbl+'</b>'+
+        (model.refKph>0?(' ('+fmtShort(model.refKph)+' '+loc('kills/hr','击杀/小时')+')'):'')+
+        (model.goldYield?loc(' — gold &amp; XP anchored to your real earnings',' — 金币与经验已锚定到你的真实收益'):loc(' — clear speed measured; rewards shown as base',' — 速度已实测；奖励为基础值'))+
+        (measN>1?(' · '+measN+loc(' stages measured directly',' 个关卡为直接实测')):''); }
+  } else {
+    // manual calibration — one OR several timed clears (two+ also measures your per-clear overhead)
+    p.appendChild(el('<div class="crewnote" style="margin:0 0 8px">'+loc('Time one full clear of any stage (first wave to the boss dying) and enter it. <b>Add a second stage</b> — ideally a much faster or slower one — and the model also learns your fixed per-clear overhead, making every estimate far more accurate.','给任意关卡的一次完整通关计时（从第一波到击败 Boss）并填入。再加一个（最好快慢差别大的）关卡，模型还能学到你每次通关的固定耗时，使估算更准。')+'</div>'));
+    var stOpts=[['',loc('— pick a stage you timed —','— 选择计时关卡 —')]].concat(farmList().map(function(x){ return [x.k, 'Act '+x.f.act+'-'+x.f.no+' · '+FARM_DIFF[x.f.di]+' (Lv '+x.f.lvl+')']; }));
+    farmState.cal.forEach(function(row,i){
+      var box=el('<div class="farmcal" style="margin-bottom:8px"></div>');
+      var l1=el('<label>'+loc('Stage','关卡')+(farmState.cal.length>1?(' '+(i+1)):'')+'</label>'); var sel=cxSelect(stOpts,row.stage,function(v){ row.stage=v; renderFarming(current); }); sel.classList.add('wide'); l1.appendChild(sel); box.appendChild(l1);
+      var lM=el('<label>'+loc('Min','分')+'</label>'); var im=el('<input type="number" min="0" placeholder="0" value="'+esc(row.min)+'">'); im.addEventListener('input',function(){row.min=im.value;}); lM.appendChild(im); box.appendChild(lM);
+      var lS=el('<label>'+loc('Sec','秒')+'</label>'); var is=el('<input type="number" min="0" max="59" placeholder="0" value="'+esc(row.sec)+'">'); is.addEventListener('input',function(){row.sec=is.value;}); lS.appendChild(is); box.appendChild(lS);
+      if(farmState.cal.length>1){ var rm=el('<button class="ghost" type="button" title="'+loc('Remove','移除')+'" style="align-self:flex-end">✕</button>'); rm.addEventListener('click',function(){ farmState.cal.splice(i,1); renderFarming(current); }); box.appendChild(rm); }
+      p.appendChild(box);
+    });
+    var btns=el('<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>');
+    if(farmState.cal.length<4){ var add=el('<button class="ghost" type="button">+ '+loc('Add another stage (optional)','添加关卡（可选）')+'</button>'); add.addEventListener('click',function(){ farmState.cal.push({stage:'',min:'',sec:''}); renderFarming(current); }); btns.appendChild(add); }
+    var go=el('<button class="primary" type="button">'+loc('Rank stages','排序关卡')+'</button>'); go.addEventListener('click',function(){ renderFarming(current); }); btns.appendChild(go);
+    p.appendChild(btns);
+    model=farmSolveTimes(farmState.cal);
+    if(model){ calInfo=model.single?loc('Calibrated from 1 clear time — add a second for better accuracy','已用 1 次通关时间校准 — 再加一个会更准')
+      :(loc('Calibrated from ','已用 ')+model.n+loc(' clear times · measured overhead ~',' 次通关时间校准 · 实测固定耗时 ~')+fmtClear(model.ov)+loc('/clear','/次')); }
+  }
+  farmReboot(p,d,model,heroLvl,farmState.mode,calInfo,meas);
+}
+// the results half (reco cards + ranked table) — shared by both modes; null/invalid model => show a calibrate prompt
+function farmReboot(p,d,model,heroLvl,mode,calInfo,meas){
+  meas=meas||{};
+  if(!model||!(model.dps>0)){
+    if(mode==='auto'&&d) p.appendChild(el('<div class="empty">'+loc('Measuring your pace… play for a minute on your current stage and this fills in. (Or switch to <b>Manual</b> and enter a clear time.)','正在测量你的速度……在当前关卡游玩约一分钟即可。或切换到“手动”输入通关时间。')+'</div>'));
+    farmAtlasCrossLink(p); return;
+  }
+  if(calInfo) p.appendChild(el('<div class="filterpill" style="cursor:default;margin-bottom:14px">📐 '+calInfo+'</div>'));
+  // ── AVG CLEAR TIME headline — the most-asked number, surfaced up front. For the stage you're on (or the reference
+  //    stage) this is MEASURED from your own kills/hr; the per-stage table column shows it for every stage.
+  if(d&&d.stage&&(DB.stageFarm||{})[String(d.stage)]){
+    var cf=(DB.stageFarm||{})[String(d.stage)], cm=meas[String(d.stage)];
+    var csec=(cm&&cm.clearSec>0)?cm.clearSec:farmClearSec(cf,model);
+    var measuredNow=!!(cm&&cm.clearSec>0);
+    p.appendChild(el('<div class="recobig" style="margin-bottom:14px;cursor:default"><div class="recolbl">⏱ '+loc('Average clear time — where you are now','平均通关时间 — 你当前所在')+'</div>'+
+      '<div class="recostage">'+esc(stageActLabel(d.stage))+(stageName(d.stage)?(' · '+esc((LANG==='zh'&&ZG.game&&ZG.game[stageName(d.stage)])||stageName(d.stage))):'')+'</div>'+
+      '<div class="recohero">~'+fmtClear(csec)+loc(' per clear','/次')+' <span style="font-size:12px;color:var(--text-dim);font-weight:600">'+(measuredNow?loc('measured','实测'):loc('estimated','估算'))+'</span></div>'+
+      '<div class="recosub">'+loc('Stage HP ','关卡血量 ')+fmtShort(cf.hp)+' · '+(cf.spawns?(cf.spawns+loc(' monsters + boss',' 怪物 + Boss')):loc('boss only','仅 Boss'))+' · '+loc('Lv ','等级 ')+cf.lvl+'</div></div>'));
+  }
+  // recommendation cards (only meaningful with a save — uses your cleared progress + hero level)
+  if(d){
+    var maxIdx=stageIdx(d.maxStage);
+    // the recommendation considers everything you've actually CLEARED (proven farmable), ignoring the table filters
+    var all=farmRows(model,heroLvl,meas);
+    var reach=all.filter(function(r){ return maxIdx==null||(stageIdx(r.k)||0)<=maxIdx; }); if(!reach.length)reach=all;
+    var goldPick=reach.slice().sort(function(a,b){return b.goldHr-a.goldHr;})[0];
+    // best XP fit = a good-fit stage you've cleared with the highest exp/hr (good-fit first, then exp/hr)
+    var xpPick=reach.slice().sort(function(a,b){ return (farmFitOrder(a.gap)-farmFitOrder(b.gap))||(b.expHr-a.expHr); })[0];
+    var reco=el('<div class="farmreco"></div>');
+    function recoCard(r,kind){ if(!r)return null;
+      var gold=kind==='gold'; var nm=stageName(r.k); nm=(LANG==='zh'&&ZG.game&&ZG.game[nm])?ZG.game[nm]:nm;
+      var c=el('<div class="recobig'+(gold?' gold':'')+'"></div>');
+      c.innerHTML='<div class="recolbl">'+(gold?('🪙 '+loc('Best gold right now','当前最佳金币')):('✨ '+loc('Best XP fit right now','当前最佳经验')))+'</div>'+
+        '<div class="recostage">'+esc('Act '+r.f.act+'-'+r.f.no)+' · '+esc(localizeStageText(FARM_DIFF[r.f.di]))+'</div>'+
+        '<div class="recosub">'+(nm?esc(nm)+' · ':'')+loc('Lv ','等级 ')+r.f.lvl+' · ~'+fmtClear(r.sec)+loc('/clear','/次')+' '+farmFitChip(r.gap)+'</div>'+
+        '<div class="recohero">'+(gold?(fmtShort(Math.round(r.goldHr))+' '+loc('gold/hr','金币/小时')):(fmtShort(Math.round(r.expHr))+' '+loc('XP/hr','经验/小时')))+' <span style="font-size:12px;color:var(--text-dim);font-weight:600">'+((gold?r.gMeasured:r.xMeasured)?loc('measured','实测'):loc('est','估算'))+'</span></div>';
+      c.addEventListener('click',function(){ setTab('atlas'); atlasState.tab='boxes'; atlasState.stage=r.k; renderAtlas(current); });
+      c.style.cursor='pointer'; c.title=loc('See this stage\'s loot boxes in the Atlas','在图谱中查看该关卡的掉落箱');
+      return c;
+    }
+    var gc=recoCard(goldPick,'gold'), xc=recoCard(xpPick,'xp');
+    if(xc)reco.appendChild(xc); if(gc)reco.appendChild(gc);
+    if(reco.children.length) p.appendChild(reco);
+  }
+  // filters
+  var fb=el('<div class="farmbar" style="margin-top:2px"></div>');
+  fb.appendChild(el('<span style="font-size:12px;color:var(--text-dim)">'+loc('Difficulty','难度')+'</span>'));
+  fb.appendChild(cxSelect([['all',loc('All','全部')],['0','Normal'],['1','Nightmare'],['2','Hell'],['3','Torment']],farmState.diff,function(v){farmState.diff=v;renderFarming(current);}));
+  fb.appendChild(el('<span style="font-size:12px;color:var(--text-dim)">'+loc('Act','章节')+'</span>'));
+  fb.appendChild(cxSelect([['all',loc('All','全部')],['1','Act 1'],['2','Act 2'],['3','Act 3']],farmState.act,function(v){farmState.act=v;renderFarming(current);}));
+  p.appendChild(fb);
+  // ranked table
+  var rows=farmRank(model,heroLvl,meas);
+  var shown=farmState.showAll?rows:rows.slice(0,30);
+  var wrap=el('<div style="overflow-x:auto"></div>');
+  var t=el('<table class="farmtbl"></table>');
+  t.appendChild(el('<thead><tr><th>#</th><th>'+loc('Stage','关卡')+'</th><th>'+loc('Lv','等级')+'</th><th title="'+loc('Average time for one full clear','一次完整通关的平均时间')+'">'+loc('Avg clear','平均通关')+'</th><th class="farmgold">'+loc('Gold/hr','金币/时')+'</th><th class="farmexp fexpcol">'+loc('XP/hr','经验/时')+'</th><th>'+loc('Fit','匹配')+'</th></tr></thead>'));
+  var tb=el('<tbody></tbody>');
+  var measDot=' <span title="'+loc('measured directly from your own farming of this stage','直接来自你对该关卡的实测')+'" style="color:var(--good);font-weight:800">●</span>';
+  shown.forEach(function(r,i){
+    var tr=el('<tr'+(i===0?' class="best"':'')+'></tr>');
+    tr.innerHTML='<td class="frank">'+(i+1)+'</td><td>'+farmStageCell(r)+'</td><td>'+r.f.lvl+'</td><td>~'+fmtClear(r.sec)+(r.measured?measDot:'')+'</td>'+
+      '<td class="farmgold">'+fmtShort(Math.round(r.goldHr))+(r.gMeasured?measDot:'')+'</td><td class="farmexp fexpcol">'+fmtShort(Math.round(r.expHr))+(r.xMeasured?measDot:'')+'</td><td>'+(farmFitChip(r.gap)||'—')+'</td>';
+    tr.style.cursor='pointer'; tr.title=loc('Open this stage in the Atlas (loot boxes)','在图谱中打开该关卡');
+    tr.addEventListener('click',function(){ setTab('atlas'); atlasState.tab='boxes'; atlasState.stage=r.k; renderAtlas(current); });
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb); wrap.appendChild(t); p.appendChild(wrap);
+  if(rows.length>30&&!farmState.showAll){ var more=el('<button class="ghost" type="button" style="margin-top:10px">'+loc('Show all ','显示全部 ')+rows.length+loc(' stages','个关卡')+'</button>'); more.addEventListener('click',function(){farmState.showAll=true;renderFarming(current);}); p.appendChild(more); }
+  var anyMeas=rows.some(function(r){return r.measured;});
+  var legend=anyMeas?('<span style="color:var(--good);font-weight:800">●</span> '+loc('= measured directly from your own play. Other rows are projected from your measured pace using the game\'s datamined HP &amp; reward ratios.','= 直接来自你自己的游玩实测；其余为按你的实测速度结合游戏数据化血量与奖励比例的推算。')):'';
+  var rewardNote=model.goldYield?loc('Gold/hr and XP/hr are <b>anchored to your real measured earnings</b> on your reference stage (so they include your gold/XP bonuses) and scaled to other stages by the game\'s datamined reward ratios.','金币/小时与经验/小时已<b>锚定到你在参考关卡的真实实测收益</b>（含金币/经验加成），并按游戏数据化奖励比例换算到其他关卡。')
+    :loc('Gold/hr and XP/hr are <b>base estimates</b> from the game\'s datamined per-stage rewards (they exclude your gold/XP bonuses) — connect a save and farm a little for measured, buff-inclusive numbers.','金币/小时与经验/小时为游戏数据化奖励的<b>基础估算</b>（不含你的加成）——连接存档并刷一会即可获得含加成的实测数值。');
+  p.appendChild(el('<div class="crewnote" style="margin-top:14px">'+(legend?(legend+'<br>'):'')+'<b>'+loc('How to read this','如何理解')+':</b> '+rewardNote+' '+loc('<b>EXP and level:</b> the game gives the most EXP at or just above a stage\'s level and <b>reduces it when you out-level a stage</b> — the exact curve is not in the game\'s data files, so we never invent a percentage; instead the <b>Fit</b> column flags stages near your level and the XP ranking puts good-fit stages first. For raw gold, deeper stages you can clear generally pay more.','<b>经验与等级：</b>游戏在接近关卡等级时给予最高经验，等级过高会衰减——确切曲线不在数据中，故不臆造百分比；改用 <b>匹配</b> 列标记接近你等级的关卡，经验排序优先适配关卡。')+'</div>'));
+  farmAtlasCrossLink(p);
+}
+function farmAtlasCrossLink(p){
+  var row=el('<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"></div>');
+  var b1=el('<button class="ghost" type="button">🗺️ '+loc('Stage boxes &amp; Dropfinder','关卡掉落箱与掉落查询')+'</button>'); b1.addEventListener('click',function(){ setTab('atlas'); atlasState.tab='boxes'; renderAtlas(current); });
+  var b2=el('<button class="ghost" type="button">💎 '+loc('Rarity guide','稀有度指南')+'</button>'); b2.addEventListener('click',function(){ setTab('atlas'); atlasState.tab='rarity'; renderAtlas(current); });
+  row.appendChild(b1); row.appendChild(b2); p.appendChild(row);
+}
+
+/* ===================== ATLAS (v1.0.30) — rarity guide · acts & difficulty · stage boxes · dropfinder ==========
+   Pure game reference, all from the game's own tables: DB.rarity (GradeInfoData), DB.stageFarm (StageInfo*) and the
+   box→contents drop chain (boxContents → DB.drops). No save needed; nothing fabricated. */
+var atlasState={tab:'rarity',diff:'1',stage:'',drop:''};
+var _dropIndex=null;
+function buildDropIndex(){
+  if(_dropIndex) return _dropIndex;
+  var boxToStages={}, idx={};
+  farmList().forEach(function(x){ var f=x.f;
+    [['mbox','monster'],['bbox','boss'],['first','first-clear']].forEach(function(pr){ var bk=f[pr[0]]; if(!bk)return;
+      (boxToStages[bk]=boxToStages[bk]||[]).push({stage:x.k,role:pr[1]}); });
+    if(f.soul){ (idx[f.soul]=idx[f.soul]||[]).push({stage:x.k,role:'soulstone',box:null}); }   // soulstones drop directly from act bosses
+  });
+  Object.keys(boxToStages).forEach(function(bk){
+    var contents=boxContents(bk)||[];
+    contents.forEach(function(itKey){ var k=String(itKey);
+      var arr=(idx[k]=idx[k]||[]);
+      boxToStages[bk].forEach(function(s){ arr.push({stage:s.stage,role:s.role,box:bk}); });
+    });
+  });
+  _dropIndex={idx:idx, boxToStages:boxToStages}; return _dropIndex;
+}
+function lootChip(itKey){
+  var it=DB.items[String(itKey)]||{}; var nmEn=it.n||('#'+itKey); var nm=(LANG==='zh'&&ZG.game&&ZG.game[nmEn])?ZG.game[nmEn]:nmEn;
+  var ic=it.ic?('<img src="'+SPRITE+esc(it.ic)+'.png" alt="" onerror="this.style.display=\'none\'">'):'';
+  var ch=el('<span class="lootchip">'+ic+'<b style="color:'+rvar(it.g)+'">'+esc(nm)+'</b></span>');
+  try{ wireCodexClick(ch,'GEAR',itKey); }catch(e){}
+  return ch;
+}
+function renderAtlas(d){
+  var p=$('tab-atlas'); p.innerHTML='';
+  p.appendChild(el('<h3 class="sec">'+loc('Atlas','图谱')+' <span class="tag">'+loc('game reference · rarities, acts, stage loot — all from the game\'s own data','游戏参考 · 稀有度、章节、关卡掉落 — 全部源自游戏数据')+'</span></h3>'));
+  var sub=el('<div class="subtabs"></div>');
+  [['rarity','💎 '+loc('Rarity grades','稀有度等级')],['acts','🗺️ '+loc('Acts &amp; difficulty','章节与难度')],['boxes','📦 '+loc('Stage boxes','关卡掉落箱')],['drop','🔎 '+loc('Dropfinder','掉落查询')]].forEach(function(s){
+    var b=el('<button class="subtab'+(atlasState.tab===s[0]?' on':'')+'">'+s[1]+'</button>');
+    b.addEventListener('click',function(){ atlasState.tab=s[0]; renderAtlas(current); }); sub.appendChild(b);
+  });
+  p.appendChild(sub);
+  if(atlasState.tab==='rarity') atlasRarity(p);
+  else if(atlasState.tab==='acts') atlasActs(p);
+  else if(atlasState.tab==='boxes') atlasBoxes(p,d);
+  else atlasDrop(p);
+}
+function atlasRarity(p){
+  var R=DB.rarity||[];
+  p.appendChild(el('<div class="hint" style="margin:0 0 12px">'+loc('Loot climbs a ten-tier rarity ladder. Higher grades unlock more socket slots (for enchanting) and are worth far more as Alchemy gold and Cube XP. <b>Only Legendary-or-higher gear can be sold on the Steam Market.</b> Every number below is the game\'s own value, from <code>GradeInfoData</code>.','战利品分十级稀有度。等级越高解锁的镶嵌槽越多，分解金币与魔方经验也越高。<b>只有传奇及以上的装备可在 Steam 市场出售。</b>以下数值全部来自游戏 GradeInfoData。')+'</div>'));
+  var wrap=el('<div style="overflow-x:auto"></div>'); var t=el('<table class="raritytbl"></table>');
+  t.appendChild(el('<thead><tr><th>'+loc('Grade','等级')+'</th><th title="'+loc('Built-in socket slots','内置镶嵌槽')+'">'+loc('Inherent','内置')+'</th><th class="rhide">'+loc('Decoration','装饰')+'</th><th class="rhide">'+loc('Engraving','雕刻')+'</th><th class="rhide">'+loc('Inscription','铭刻')+'</th><th title="'+loc('Gold from dismantling at the Alchemy','分解所得金币')+'">'+loc('Alchemy gold','分解金币')+'</th><th title="'+loc('Cube XP from feeding it to the Cube','投入魔方的经验')+'">'+loc('Cube XP','魔方经验')+'</th><th>'+loc('Market','市场')+'</th></tr></thead>'));
+  var tb=el('<tbody></tbody>');
+  R.forEach(function(g){ var nm=gradeWord(g.g);
+    var tr=el('<tr></tr>');
+    tr.innerHTML='<td><span class="rdot" style="color:'+rvar(g.g)+'"></span><span style="color:'+rvar(g.g)+'">'+esc(nm)+'</span></td>'+
+      '<td>'+g.inherent+'</td><td class="rhide">'+g.deco+'</td><td class="rhide">'+g.engrave+'</td><td class="rhide">'+g.inscribe+'</td>'+
+      '<td class="farmgold">'+fmt(g.alchemy)+'</td><td>'+fmt(g.cubeExp)+'</td>'+
+      '<td>'+(g.mkt?('<span class="rmkt-y">'+loc('Yes','可')+'</span>'):('<span class="rmkt-n">'+loc('No','否')+'</span>'))+'</td>';
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb); wrap.appendChild(t); p.appendChild(wrap);
+  p.appendChild(el('<div class="crewnote" style="margin-top:12px">'+loc('“Decoration / Engraving / Inscription” are the three extra socket types higher grades add on top of the inherent slots — more sockets means more room to enchant. Marketable is calibrated from the item master (gear only): the game marks no Common/Uncommon/Rare gear as Steam-tradeable, and every Legendary+ gear grade has tradeable items.','“装饰/雕刻/铭刻”是高等级额外增加的镶嵌槽类型——槽位越多，附魔空间越大。可交易状态依据物品主表（仅装备）校准。')+'</div>'));
+}
+function atlasActs(p){
+  p.appendChild(el('<div class="hint" style="margin:0 0 14px">'+loc('The game has <b>three Acts</b> of <b>ten stages</b> each, played across <b>four difficulty tiers</b>. Clear an Act on a lower tier before pushing the next. Act-boss stages (X-10) cost a Soul Stone — but only on a <b>successful</b> clear; failed attempts cost nothing.','游戏有<b>三章</b>，每章<b>十关</b>，跨<b>四个难度</b>。先在低难度通关再推进。章节 Boss 关（X-10）消耗灵魂石——但仅在<b>成功</b>通关时；失败不消耗。')+'</div>'));
+  var ACTS=[
+    ['Act 1', loc('Ten introductory stages. Learn the loop, unlock Runes and the Cube, and build toward a full three-hero party. Clear it before pushing higher tiers.','十个入门关卡：熟悉循环，解锁符文与魔方，组建三英雄队伍。')],
+    ['Act 2', loc('Introduces elemental counters and is the first reliable farming zone for Steam-Market income — drops below here are usually too low-rarity to list.','引入元素克制，是首个稳定的 Steam 市场收益刷取区。')],
+    ['Act 3', loc('The real farming destination. High-rarity drops and Soul Stones come far more often, and Cube optimisation becomes the focus.','真正的刷取地：高稀有度掉落与灵魂石更频繁，魔方优化成为重点。')]
+  ];
+  var ag=el('<div class="actgrid"></div>');
+  ACTS.forEach(function(a){ ag.appendChild(el('<div class="actcard"><h4>'+esc(a[0])+'</h4><p>'+a[1]+'</p></div>')); }); p.appendChild(ag);
+  // difficulty tiers with REAL level ranges per difficulty from the datamined stage levels
+  var sf=DB.stageFarm||{}; var lvlByDi={};
+  Object.keys(sf).forEach(function(k){ var f=sf[k]; if(f.lvl){ var a=(lvlByDi[f.di]=lvlByDi[f.di]||{min:f.lvl,max:f.lvl}); if(f.lvl<a.min)a.min=f.lvl; if(f.lvl>a.max)a.max=f.lvl; } });
+  p.appendChild(el('<h4 style="margin:18px 0 4px;font-size:13px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em">'+loc('Difficulty tiers','难度阶级')+'</h4>'));
+  var dt=el('<div class="difftiers"></div>');
+  FARM_DIFF.forEach(function(name,di){ var rng=lvlByDi[di]; var diffZh=localizeStageText(name)||name;
+    dt.appendChild(el('<div class="difftier"><span class="dnum d-'+name+'">'+(di+1)+'</span><span><span class="dname d-'+name+'">'+esc(diffZh)+'</span> <span class="dlvl">'+(rng?(loc('stages Lv ','关卡等级 ')+rng.min+'–'+rng.max):'')+'</span></span></div>')); });
+  p.appendChild(dt);
+  p.appendChild(el('<div class="crewnote" style="margin-top:12px">'+loc('The same Act-Stage exists at every difficulty with a <b>higher level</b> (and tougher, richer monsters) — the level ranges above are read straight from the game\'s <code>StageInfoData</code>. Use the <b>Farming</b> tab to rank stages by EXP/hr or Gold/hr at your own clear speed.','同一关卡在每个难度都有<b>更高的等级</b>与更强、更富的怪物——以上等级范围直接读自游戏 StageInfoData。用“刷怪”页按你的速度排序关卡。')+'</div>'));
+}
+function atlasBoxes(p,d){
+  // difficulty + act picker -> stage buttons -> the chosen stage's loot boxes + contents
+  var sf=DB.stageFarm||{};
+  var dbar=el('<div class="farmbar"></div>');
+  dbar.appendChild(el('<span style="font-size:12px;color:var(--text-dim)">'+loc('Difficulty','难度')+'</span>'));
+  dbar.appendChild(cxSelect([['0','Normal'],['1','Nightmare'],['2','Hell'],['3','Torment']],atlasState.diff,function(v){atlasState.diff=v;atlasState.stage='';renderAtlas(current);}));
+  p.appendChild(dbar);
+  var di=+atlasState.diff;
+  var stages=farmList().filter(function(x){return x.f.di===di;});
+  var pick=el('<div class="stagepick"></div>');
+  stages.forEach(function(x){ var on=atlasState.stage===x.k; var b=el('<button class="stagebtn'+(on?' on':'')+'">'+esc('Act '+x.f.act+'-'+x.f.no)+'</button>');
+    b.addEventListener('click',function(){ atlasState.stage=on?'':x.k; renderAtlas(current); }); pick.appendChild(b); });
+  p.appendChild(pick);
+  var sk=atlasState.stage; if(!sk){ p.appendChild(el('<div class="empty">'+loc('Pick a stage above to see exactly which loot boxes it drops and what\'s inside each one.','在上方选择一个关卡，查看它掉落哪些战利品箱以及每个箱子的内容。')+'</div>')); atlasBoxesFooter(p); return; }
+  var f=sf[sk]; if(!f){ p.appendChild(el('<div class="empty">no data</div>')); return; }
+  var nm=stageName(sk); nm=(LANG==='zh'&&ZG.game&&ZG.game[nm])?ZG.game[nm]:nm;
+  p.appendChild(el('<h4 style="margin:6px 0 12px;font-size:16px">'+esc('Act '+f.act+'-'+f.no)+' · '+esc(localizeStageText(FARM_DIFF[di]))+(nm?(' · '+esc(nm)):'')+' <span class="tag">Lv '+f.lvl+'</span></h4>'));
+  var BOXES=[['mbox',loc('Monster box','怪物箱'),loc('drops as you kill monsters','击杀怪物时掉落')],['bbox',loc('Stage boss box','关卡 Boss 箱'),loc('from the stage boss','击败关卡 Boss 掉落')],['first',loc('First-clear reward','首通奖励'),loc('one-time, the first time you clear','首次通关一次性奖励')]];
+  var any=false;
+  BOXES.forEach(function(bx){ var bk=f[bx[0]]; if(!bk)return; any=true;
+    var it=DB.items[String(bk)]||{}; var bnmEn=it.n||('#'+bk); var bnm=(LANG==='zh'&&ZG.game&&ZG.game[bnmEn])?ZG.game[bnmEn]:bnmEn;
+    var card=el('<div class="boxcard"></div>');
+    var icHtml=it.ic?('<img class="bxic" src="'+SPRITE+esc(it.ic)+'.png" alt="" onerror="this.style.display=\'none\'">'):'';
+    card.appendChild(el('<div class="boxhead">'+icHtml+'<span class="bxnm" style="color:'+rvar(it.g)+'">'+esc(bnm)+'</span><span class="bxrole">'+esc(bx[1])+' · '+esc(bx[2])+'</span></div>'));
+    var contents=boxContents(bk)||[];
+    if(contents.length){ var grid=el('<div class="boxitems"></div>'); contents.slice(0,80).forEach(function(itK){ grid.appendChild(lootChip(itK)); }); card.appendChild(grid); }
+    else card.appendChild(el('<div class="crewnote">'+loc('This box is opened on Steam\'s side (it never enters the save), so its contents aren\'t in the local drop tables.','该箱在 Steam 侧开启（不进入存档），故内容不在本地掉落表中。')+'</div>'));
+    p.appendChild(card);
+  });
+  if(f.soul){ var sit=DB.items[String(f.soul)]||{}; var snmEn=sit.n||('#'+f.soul); var snm=(LANG==='zh'&&ZG.game&&ZG.game[snmEn])?ZG.game[snmEn]:snmEn;
+    var sc=el('<div class="boxcard"></div>');
+    sc.appendChild(el('<div class="boxhead"><span class="bxnm" style="color:var(--accent-alt)">💠 '+esc(snm)+(f.souln?(' ×'+f.souln):'')+'</span><span class="bxrole">'+loc('Soul Stone — awarded for clearing this Act boss','灵魂石 — 通关该章节 Boss 奖励')+'</span></div>'));
+    p.appendChild(sc); any=true; }
+  if(!any) p.appendChild(el('<div class="empty">'+loc('No loot-box data for this stage.','该关卡无掉落箱数据。')+'</div>'));
+  atlasBoxesFooter(p);
+}
+function atlasBoxesFooter(p){
+  p.appendChild(el('<div class="crewnote" style="margin-top:6px">'+loc('Box contents are the game\'s own drop pools (<code>DropInfoData</code>) — every item that box can yield. Looking for one specific item? Use <b>🔎 Dropfinder</b> to see every stage and box that drops it.','箱内容为游戏自身掉落池（DropInfoData）——该箱可产出的所有物品。想找某个特定物品？用“掉落查询”。')+'</div>'));
+}
+function atlasDrop(p){
+  p.appendChild(el('<div class="hint" style="margin:0 0 12px">'+loc('Type an item name to find <b>every stage and loot box that drops it</b> — the reverse of Stage boxes, built from the game\'s own drop pools.','输入物品名称，查找<b>掉落它的所有关卡与箱子</b>——关卡掉落箱的逆向查询。')+'</div>'));
+  var bar=el('<div class="cxbar"></div>');
+  var inp=el('<input class="cxq" placeholder="'+loc('Search an item (e.g. Crossbow, Soulstone)…','搜索物品（如 弩、灵魂石）…')+'" value="'+esc(atlasState.drop)+'">');
+  inp.addEventListener('input',function(){ atlasState.drop=inp.value; atlasDropResults(res,inp.value); });
+  bar.appendChild(inp); p.appendChild(bar);
+  var res=el('<div style="margin-top:12px"></div>'); p.appendChild(res);
+  atlasDropResults(res,atlasState.drop);
+}
+function atlasDropResults(res,q){
+  res.innerHTML=''; q=(q||'').trim().toLowerCase();
+  if(q.length<2){ res.appendChild(el('<div class="empty">'+loc('Type at least two letters to search.','输入至少两个字符进行搜索。')+'</div>')); return; }
+  var di=buildDropIndex().idx;
+  // match item keys whose name (en or zh) contains the query and which actually drop somewhere
+  var matches=[];
+  Object.keys(di).forEach(function(k){ var it=DB.items[k]; if(!it||!it.n)return; var en=it.n.toLowerCase();
+    var zh=(ZG.game&&ZG.game[it.n])?String(ZG.game[it.n]).toLowerCase():'';
+    if(en.indexOf(q)>=0||(zh&&zh.indexOf(q)>=0)) matches.push(k); });
+  matches.sort(function(a,b){ return (rvarRank(DB.items[b].g)-rvarRank(DB.items[a].g)); });
+  if(!matches.length){ res.appendChild(el('<div class="empty">'+loc('No droppable item matches “','没有可掉落物品匹配“')+esc(q)+'”. '+loc('Some items come from crafting or the Steam Market, not stage boxes.','部分物品来自合成或 Steam 市场，而非关卡箱。')+'</div>')); return; }
+  matches.slice(0,30).forEach(function(k){
+    var it=DB.items[k]||{}; var nmEn=it.n||('#'+k); var nm=(LANG==='zh'&&ZG.game&&ZG.game[nmEn])?ZG.game[nmEn]:nmEn;
+    var card=el('<div class="dropres"></div>');
+    var ic=it.ic?('<img src="'+SPRITE+esc(it.ic)+'.png" alt="" onerror="this.style.display=\'none\'">'):'';
+    var head=el('<div class="drhead">'+ic+'<b style="color:'+rvar(it.g)+';font-size:14px">'+esc(nm)+'</b> <span class="tag">'+esc(gradeWord(it.g||''))+'</span></div>');
+    try{ wireCodexClick(head,'GEAR',k); }catch(e){}
+    card.appendChild(head);
+    // collapse to distinct (stage, role) and group by box role
+    var seen={}, places=[];
+    di[k].forEach(function(s){ var id=s.stage+'|'+s.role; if(seen[id])return; seen[id]=1; places.push(s); });
+    places.sort(function(a,b){ return (stageIdx(a.stage)||0)-(stageIdx(b.stage)||0); });
+    var where=el('<div class="drwhere"></div>');
+    places.slice(0,40).forEach(function(s){ var f=(DB.stageFarm||{})[s.stage]||{};
+      var roleTxt=s.role==='monster'?loc('monster box','怪物箱'):s.role==='boss'?loc('boss box','Boss 箱'):s.role==='first-clear'?loc('first-clear','首通'):loc('soulstone','灵魂石');
+      var line=el('<div class="drrow"><span class="drstage">'+esc('Act '+f.act+'-'+f.no+' · '+localizeStageText(FARM_DIFF[f.di]))+'</span> — <b>'+esc(roleTxt)+'</b> · Lv '+f.lvl+'</div>');
+      line.querySelector('.drstage').addEventListener('click',function(){ atlasState.tab='boxes'; atlasState.diff=String(f.di); atlasState.stage=s.stage; renderAtlas(current); });
+      where.appendChild(line);
+    });
+    if(di[k].length> places.length) {}
+    card.appendChild(where);
+    res.appendChild(card);
+  });
+  if(matches.length>30) res.appendChild(el('<div class="crewnote">'+loc('Showing the first 30 matches — refine your search for fewer.','仅显示前 30 个匹配——细化搜索以减少结果。')+'</div>'));
+}
+function rvarRank(g){ var i=RARITY.indexOf(g); return i<0?-1:i; }
+
 function setTab(name){
   activeTab=name;
   Array.prototype.forEach.call(document.querySelectorAll('nav.tabs button'),function(b){
@@ -4746,6 +4991,8 @@ function setTab(name){
   else if(name==='codex')renderCodex(null);
   else if(name==='tips')renderTips(null);   // game tips apply with no save; suggestions show a connect prompt
   else if(name==='crew'){renderCrew(null);crewRefresh(true);}   // watching a crew board needs no save
+  else if(name==='atlas')renderAtlas(null);                     // pure game reference — no save needed
+  else if(name==='farming')renderFarming(null);                 // manual calibration works with no save; Auto needs one
   else showConnectHint(name);
   if(name==='live'&&current)liveStartTick(); else liveStopTick();   // the 1Hz live ticker only runs while the Live tab is open
 }
@@ -4757,9 +5004,11 @@ function renderTab(name,d){
   else if(name==='loot')renderLoot(d);
   else if(name==='runes')renderRunes(d);
   else if(name==='advisor')renderAdvisor(d);
+  else if(name==='farming')renderFarming(d);
   else if(name==='lifetime')renderLifetime(d);
   else if(name==='trends')renderTrends(d);
   else if(name==='crew')renderCrew(d);
+  else if(name==='atlas')renderAtlas(d);
   else if(name==='codex')renderCodex(d);
   else if(name==='tips')renderTips(d);
 }

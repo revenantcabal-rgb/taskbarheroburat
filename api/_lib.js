@@ -166,6 +166,10 @@ function cleanStats(raw) {
   return {
     maxStage: num(raw.maxStage) || 0,
     maxStageLabel: str(raw.maxStageLabel, 40) || '',
+    // v1.0.30 — where the member is ACTUALLY farming right now (currentStageKey), distinct from maxStage (the
+    // furthest they have ever CLEARED). Sharing both is the fix for "the board says they're on 2-8 but they're not
+    // there yet": maxStage is a furthest-ever-cleared high-water mark, curStage is their live farming spot.
+    curStage: num(raw.curStage) || 0,
     lifeGold: num(raw.lifeGold),
     kills: num(raw.kills),
     gold: num(raw.gold),

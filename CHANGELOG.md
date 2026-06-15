@@ -4,6 +4,37 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.30 — 2026-06-15
+
+### Added
+- **Farming optimizer (new tab).** Ranks every stage in the game by **Gold/hr** and **EXP/hr**, and shows the
+  **average time to clear** each — front-and-centre, since that's the number you actually want. It builds on the
+  game's own datamined per-stage HP and rewards (`StageInfoData` + `StageLevelInfoData` + `MonsterInfoData`), but the
+  per-hour figures are **anchored to your real measured earnings**: it reads your own measured gold/hr, kills/hr and
+  XP/hr from your save, so the numbers match what you actually make (buffs included). Stages you've already farmed
+  show your **real measured** rates (marked with a ●); the rest are projected from your measured pace using the
+  datamined ratios. Defaults to **Auto**; or use **Manual** and type how long one clear took you (a second timed
+  stage also measures your fixed per-clear overhead). The game keeps the EXP-level-scaling curve in code, not in any
+  data file, so **no percentage is invented** — instead each stage shows its level and a **fit** flag, and the XP
+  ranking puts stages near your level first.
+- **Atlas (new tab)** — a full game reference, all from the game's own tables:
+  - **Rarity grades** guide — socket slots (inherent / decoration / engraving / inscription), Alchemy gold, Cube XP,
+    and Steam-Market eligibility per grade (marketability calibrated from the item master — gear only).
+  - **Acts & Difficulty** overview with the real per-difficulty **level ranges**.
+  - **Stage boxes** browser — pick any stage to see exactly which loot chests it drops and everything inside each.
+  - **Dropfinder** — search any item to find every stage and box that drops it, cross-linked back to Stage boxes.
+
+### Changed
+- **Crew now shows where each friend is _farming right now_ as well as the furthest stage they've _cleared_.** These
+  are usually different — most players clear a tough stage once, then drop back to an easier, faster one — so a board
+  reading "Act 2-8" while a friend grinds something lower is normal, not a glitch. Sharing both removes that confusion.
+  (Friends on an older app version send only their furthest clear until they update.)
+
+### Removed
+- **The Crew Arena (PvP)** — head-to-head duels, the win/loss ladder, Arena Power, tiers and the who-beats-whom matrix
+  — has been removed at the owner's request. The crew board is a cooperative space, not a competition. The friendly
+  **Records** (deepest / richest / deadliest) and the optional **Rival** side-by-side compare remain.
+
 ## v1.0.29 — 2026-06-13
 
 ### Changed

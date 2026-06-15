@@ -391,14 +391,133 @@ def main():
             pass
 
     # ---- stage names: StageName_<stageKey> from localization (P2 stage display). The renderer/engine
-    # decode act=floor(k/100)-10, stage=k%100 (VERIFIED: 1208 -> Act 2-8 "Sacred Tomb"; 1101 -> Act 1-1
-    # "Pasture") and append this real name where present, else show just "Act X-Y". There is no
-    # StageInfoData table; names come straight from the game's en-US localization (30 named stages, acts 1-3).
+    # decode key = difficulty*1000 + act*100 + stageNo (VERIFIED vs StageInfoData: 1208 -> Act 2-8 "Sacred Tomb";
+    # 1101 -> Act 1-1 "Pasture") and append this real name where present, else show just "Act X-Y". Names come
+    # straight from the game's en-US localization (30 named acts/stages; every difficulty reuses the same name).
     stages = {}
     for k, v in loc.items():
         m = re.match(r"^StageName_(\d+)$", k)
         if m and v:
             stages[m.group(1)] = v
+
+    # ---- RARITY GUIDE (GradeInfoData, read-only): inherent + extra socket slots, alchemy gold, cube XP, and Steam
+    # Market eligibility per grade. Every number is the game's own GradeInfoData value; "mkt" (marketable) is
+    # CALIBRATED from the item master (whether that grade's GEAR rows are IsCanExchangeMarketable), never asserted.
+    GRADE_ORDER = ["COMMON", "UNCOMMON", "RARE", "LEGENDARY", "IMMORTAL", "ARCANA", "BEYOND", "CELESTIAL", "DIVINE", "COSMIC"]
+    # Marketable is a GEAR property (materials sell at every grade, which is NOT the rule the guide states).
+    # Calibrated: COMMON/UNCOMMON/RARE gear = 0 marketable rows; LEGENDARY+ gear has marketable rows -> matches the
+    # game's own "only Legendary-or-higher gear can be sold on the Steam Market". So a grade is marketable iff its
+    # GEAR (ITEMTYPE == GEAR) is IsCanExchangeMarketable.
+    mkt_by_grade = {}
+    for r in rows("ItemInfoData.txt"):
+        g = r.get("GRADE")
+        if not g or r.get("ITEMTYPE") != "GEAR":
+            continue
+        v = str(r.get("IsCanExchangeMarketable", "")).strip().lower() in ("true", "1")
+        mkt_by_grade[g] = mkt_by_grade.get(g, False) or v   # grade marketable if ANY of its gear is
+
+    def _gi(r, k):
+        try:
+            return int(float(r.get(k) or 0))
+        except (TypeError, ValueError):
+            return 0
+    grade_rows = {r["GRADE"]: r for r in rows("GradeInfoData.txt")}
+    rarity = []
+    for i, g in enumerate(GRADE_ORDER):
+        gr = grade_rows.get(g)
+        if not gr:
+            continue
+        rarity.append({
+            "g": g, "i": i,
+            "inherent": _gi(gr, "InherentSlotAmount"),
+            "deco": _gi(gr, "ExtraSlotAmount_Decoration"),
+            "engrave": _gi(gr, "ExtraSlotAmount_Engraving"),
+            "inscribe": _gi(gr, "ExtraSlotAmount_Inscription"),
+            "alchemy": _gi(gr, "BaseAlchemyGold"),
+            "cubeExp": _gi(gr, "BaseCubeExp"),
+            "mkt": bool(mkt_by_grade.get(g, False)),
+        })
+
+    # ---- STAGE FARM MODEL (StageInfoData + StageLevelInfoData + MonsterInfoData, read-only) ----
+    # Per (stage, difficulty): the datamined wave/monster composition + the per-StageLevel scaling multipliers give
+    # an ESTIMATED total HP-to-clear and gold/exp per clear. These are ESTIMATES used for RELATIVE ranking and are
+    # labelled "estimated" in the UI; the player's own MEASURED rates are always preferred when available. The drop
+    # boxes + soulstone are EXACT game references (which chest each stage yields), consumed by the Dropfinder.
+    # No EXP-level-penalty table exists in the game's data (it lives in game code), so none is fabricated.
+    mon_base = {}
+    for r in rows("MonsterInfoData.txt"):
+        def _i(v):
+            try:
+                return int(float(v))
+            except (TypeError, ValueError):
+                return 0
+        mon_base[r["MonsterKey"]] = {"hp": _i(r.get("MaxLife")), "g": _i(r.get("RewardGold")), "x": _i(r.get("RewardExp"))}
+    slvl = {}
+    for r in rows("StageLevelInfoData.txt"):
+        try:
+            slvl[int(r["StageLevel"])] = {"hp": int(r["MonsterHpMultiplier"]), "g": int(r["MonsterGoldMultiplier"]), "x": int(r["MonsterExpMultiplier"])}
+        except (TypeError, ValueError, KeyError):
+            pass
+
+    def _num(v, d=0):
+        try:
+            return int(float(v))
+        except (TypeError, ValueError):
+            return d
+    stage_farm = {}
+    for r in rows("StageInfoData.txt"):
+        key = r["StageKey"]
+        lvl = _num(r.get("StageLevel"))
+        mul = slvl.get(lvl, {"hp": 100, "g": 100, "x": 100})
+        waves = _num(r.get("WaveAmount"))
+        wmon = _num(r.get("WaveMonsterAmount"))
+        pool = []
+        for tok in (r.get("Monsters") or "").split():
+            if "_" in tok:
+                mk, w = tok.split("_", 1)
+                pool.append((mk, _num(w, 1)))
+        tw = sum(w for _, w in pool) or 1
+        avg_hp = sum(mon_base.get(mk, {}).get("hp", 0) * w for mk, w in pool) / tw if pool else 0
+        avg_g = sum(mon_base.get(mk, {}).get("g", 0) * w for mk, w in pool) / tw if pool else 0
+        avg_x = sum(mon_base.get(mk, {}).get("x", 0) * w for mk, w in pool) / tw if pool else 0
+        spawns = waves * wmon
+        bk = r.get("BossMonsterKey")
+        bb = mon_base.get(bk, {"hp": 0, "g": 0, "x": 0})
+        # The StageLevel + boss multiplier columns are PER-MILLE (divide by 1000), NOT percent. CALIBRATED against
+        # the game's own datamined totals: Act 1-1 = 56 total HP and Act 2-6 Nightmare = ~1.6M total HP both come out
+        # exactly with /1000 (and were 10x/15x too high with /100). Two anchors spanning 5 orders of magnitude agree.
+        bhpm = _num(r.get("BossHpMultiplier"), 1000) or 1000
+        bgm = _num(r.get("BossGoldMultiplier"), 1000) or 1000
+        bxm = _num(r.get("BossExpMultiplier"), 1000) or 1000
+        boss_hp = bb["hp"] * bhpm / 1000.0
+        boss_g = bb["g"] * bgm / 1000.0
+        boss_x = bb["x"] * bxm / 1000.0
+        hp = round((spawns * avg_hp + boss_hp) * mul["hp"] / 1000.0)
+        gold = round((spawns * avg_g + boss_g) * mul["g"] / 1000.0)
+        exp = round((spawns * avg_x + boss_x) * mul["x"] / 1000.0)
+        di = _num(key) // 1000 - 1
+        ent = {
+            "lvl": lvl, "act": _num(r.get("Act")), "no": _num(r.get("StageNo")), "di": di,
+            "waves": waves, "wmon": wmon, "spawns": spawns,
+            "hp": hp, "gold": gold, "exp": exp,
+            "boss": monsters.get(bk, {}).get("n") or (("#" + str(bk)) if bk else ""),
+        }
+        mbox = (r.get("MonsterDropItemKey") or "").strip()
+        bbox = (r.get("BossDropItemKey") or "").strip()
+        first = (r.get("FirstClearDropKey") or "").strip()
+        soul = (r.get("SoulstoneItemKey") or "").strip()
+        if mbox:
+            ent["mbox"] = mbox
+            ent["mrate"] = _num(r.get("MonsterDropItemRate"))
+        if bbox:
+            ent["bbox"] = bbox
+            ent["brate"] = _num(r.get("BossDropItemRate"))
+        if first:
+            ent["first"] = first
+        if soul:
+            ent["soul"] = soul
+            ent["souln"] = _num(r.get("SoulstoneAmount"))
+        stage_farm[key] = ent
 
     out = {
         "version": {"game": GAME_VERSION, "save": old.get("version", {}).get("save")},
@@ -416,6 +535,8 @@ def main():
         "drops": drops,
         "levels": levels,
         "stages": stages,
+        "rarity": rarity,          # rarity guide (GradeInfoData): slots / alchemy gold / cube XP / marketable
+        "stageFarm": stage_farm,   # per-stage estimated HP / gold / exp per clear + drop boxes + soulstone (120 stages)
         "crafting": crafting,
         "synth": synth,
         "synthBands": synth_bands,
@@ -456,7 +577,8 @@ def main():
     print(f"drops {len(drops)} DropKeys (boxes + recipe pools) | {drop_member_refs} member refs")
     print(f"recipes: crafting {len(crafting)} | synth pools {len(synth)} | band groups {len(synth_bands)} | cube subs {len(cube_subs)} | extraction {len(extraction)}")
     print(f"levels {len(levels)} (hero XP-to-next curve, calibrated vs live save)")
-    print(f"stages {len(stages)} (StageName_<key> from localization; decode act=floor(k/100)-10, stage=k%100)")
+    print(f"stages {len(stages)} (StageName_<key> from localization; key = difficulty*1000 + act*100 + stageNo)")
+    print(f"rarity {len(rarity)} grades (GradeInfoData: slots/alchemy/cubeXP + calibrated marketable) | stageFarm {len(stage_farm)} stages (StageInfo+StageLevel+Monster; estimated HP/gold/exp + drop boxes)")
     print(f"wrote {path} ({os.path.getsize(path)//1024} KB)")
 
 

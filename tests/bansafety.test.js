@@ -47,11 +47,11 @@ test('invariant 3: the app talks only to the crew API (never the game / Apps Scr
 test('invariant 4: the crew payload whitelist drops everything but the calibrated brag-stats', () => {
   process.env.DATABASE_URL = '';
   const { cleanStats } = require('../api/_lib.js');
-  const ALLOWED = new Set(['maxStage', 'maxStageLabel', 'lifeGold', 'kills', 'gold', 'topHeroes', 'runesLeveled',
+  const ALLOWED = new Set(['maxStage', 'maxStageLabel', 'curStage', 'lifeGold', 'kills', 'gold', 'topHeroes', 'runesLeveled',
     'runesTotal', 'trophies', 'tiers', 'runeStats', 'statList', 'rareDrops', 'playHours', 'ver']);
   const cleaned = cleanStats({
-    maxStage: 2103, lifeGold: 1, kills: 1, topHeroes: [{ cls: 'Hunter', level: 20, secretUid: 999 }], runesLeveled: 5,
-    tiers: { LEGENDARY: 5 }, ver: '1.0.28',
+    maxStage: 2103, curStage: 2101, lifeGold: 1, kills: 1, topHeroes: [{ cls: 'Hunter', level: 20, secretUid: 999 }], runesLeveled: 5,
+    tiers: { LEGENDARY: 5 }, ver: '1.0.30',
     steamId: '7656', authTicket: 'x', auth: 'y', ticket: 'z', save: '{raw}', rawSave: 'bytes', password: 'p',
     inventory: [1], itemSaveDatas: [{}], psd: {}, currentStage: 2103, deviceId: 'd',
   });

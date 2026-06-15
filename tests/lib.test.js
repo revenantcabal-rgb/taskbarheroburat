@@ -5,12 +5,12 @@ const assert = require('node:assert');
 process.env.DATABASE_URL = '';   // these helpers need no database
 const { cleanStats, stageIndex, canonMemberId, normName } = require('../api/_lib.js');
 
-test('cleanStats whitelist: only the 15 calibrated brag-stat keys survive (ban-safety payload gate)', () => {
-  const allowed = new Set(['maxStage', 'maxStageLabel', 'lifeGold', 'kills', 'gold', 'topHeroes', 'runesLeveled',
+test('cleanStats whitelist: only the calibrated brag-stat keys survive (ban-safety payload gate)', () => {
+  const allowed = new Set(['maxStage', 'maxStageLabel', 'curStage', 'lifeGold', 'kills', 'gold', 'topHeroes', 'runesLeveled',
     'runesTotal', 'trophies', 'tiers', 'runeStats', 'statList', 'rareDrops', 'playHours', 'ver']);
   const out = cleanStats({
-    maxStage: 2103, lifeGold: 1, kills: 1, topHeroes: [{ cls: 'Hunter', level: 20, uid: 9, equippedItemIds: [1] }],
-    runesLeveled: 5, tiers: { LEGENDARY: 1, HACK_TIER: 9999 }, statList: [{ k: 'IncreaseExpAmount', v: 7 }], ver: '1.0.28',
+    maxStage: 2103, curStage: 2101, lifeGold: 1, kills: 1, topHeroes: [{ cls: 'Hunter', level: 20, uid: 9, equippedItemIds: [1] }],
+    runesLeveled: 5, tiers: { LEGENDARY: 1, HACK_TIER: 9999 }, statList: [{ k: 'IncreaseExpAmount', v: 7 }], ver: '1.0.30',
     // smuggled — must all be dropped:
     steamId: '76561190000000000', authTicket: 'deadbeef', save: '{raw}', password: 'emuMqG3bLYJ938ZDCfieWJ', inventory: [1, 2, 3], psd: {},
   });

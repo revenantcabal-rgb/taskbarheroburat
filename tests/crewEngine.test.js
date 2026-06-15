@@ -1,6 +1,7 @@
 'use strict';
 /* Committed unit tests for the shared crew module (src/engine/crewEngine.js) — run by `node --test` in CI.
-   Covers the duplicate-row fix (identity + dedupe) and the PvP Arena math. */
+   Covers the duplicate-row fix (identity + dedupe) and the stage-index decode. (The PvP Arena math was removed
+   in v1.0.30 — the crew is cooperative, not competitive — so its tests are gone with it.) */
 const test = require('node:test');
 const assert = require('node:assert');
 const CE = require('../src/engine/crewEngine.js');
@@ -38,38 +39,10 @@ test('dedupeBoard is a no-op on already-unique boards (merged 0)', () => {
   assert.strictEqual(merged, 0);
 });
 
-const YOU = { name: 'You', stats: { maxStage: 2103, lifeGold: 2455000, kills: 72091, topHeroes: [{ cls: 'Hunter', level: 20 }], runesLeveled: 56, tiers: { LEGENDARY: 5 } }, momentum: { goldPerHr: 96000 } };
-const BRO = { name: 'Bro', stats: { maxStage: 2108, lifeGold: 2100400, kills: 80112, topHeroes: [{ cls: 'Slayer', level: 22 }], runesLeveled: 61, tiers: { LEGENDARY: 2, IMMORTAL: 1 } }, momentum: { goldPerHr: 128000 } };
-
-test('arena duel scores by weighted categories and is deterministic', () => {
-  const d = CE.duel(YOU, BRO);
-  assert.strictEqual(d.winner, 'b');
-  assert.strictEqual(d.aWins, 2);   // You wins Wealth + Arsenal
-  assert.strictEqual(d.bWins, 5);   // Bro wins Progression/Combat/Heroes/Runes/Momentum
-  assert.deepStrictEqual(CE.duel(YOU, BRO), d, 'same inputs -> same result');
-});
-
-test('arena power is finite 0..9999 and tiers map to an id + css class', () => {
-  for (const m of [YOU, BRO, { name: 'empty', stats: {} }, { name: 'partial', stats: { maxStage: 1110 } }]) {
-    const p = CE.arenaPower(m);
-    assert.ok(Number.isFinite(p) && p >= 0 && p <= 9999, 'power out of range: ' + p);
-    const t = CE.arenaTier(p);
-    assert.ok(t.id && t.cl && typeof t.min === 'number');
+test('the removed Arena math is gone — no PvP surface remains on the module', () => {
+  for (const k of ['duel', 'ladder', 'arenaPower', 'arenaTier', 'CATS', 'gearScore', 'topHeroLv', 'TIERS', 'RARITY']) {
+    assert.strictEqual(CE[k], undefined, 'crewEngine still exposes removed Arena export: ' + k);
   }
-});
-
-test('identical fighters resolve via the power tiebreak (no crash, points tie)', () => {
-  const d = CE.duel({ name: 'a', stats: YOU.stats }, { name: 'b', stats: YOU.stats });
-  assert.strictEqual(d.aPts, d.bPts);
-  assert.ok(d.winner === 'a' || d.winner === 'b');
-});
-
-test('ladder is a round-robin sorted by wins then power', () => {
-  const IDLE = { name: 'Idle', stats: { maxStage: 1110, lifeGold: 512000, kills: 31000, topHeroes: [{ cls: 'Sorcerer', level: 16 }], runesLeveled: 30, tiers: { LEGENDARY: 1 } } };
-  const L = CE.ladder([YOU, BRO, IDLE]);
-  assert.strictEqual(L.length, 3);
-  for (let i = 1; i < L.length; i++) assert.ok(L[i - 1].w >= L[i].w, 'ladder not sorted by wins');
-  assert.ok(L.every((e) => e.m && typeof e.w === 'number' && typeof e.l === 'number' && e.tier));
 });
 
 test('stageIdx decodes difficulty-prefixed keys monotonically', () => {
