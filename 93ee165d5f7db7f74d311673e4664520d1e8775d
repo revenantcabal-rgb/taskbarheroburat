@@ -1,0 +1,9 @@
+v1.0.30 desktop release + blue-chest investigation (final state)
+- Desktop installer REBUILT to include the new "blue chest" Tips card; release assets replaced
+  (gh release upload --clobber); latest.yml sha512 re-verified == the published exe (auto-update OK);
+  v1.0.30 tag moved to this commit; release marked Latest. The in-app "What's new" mentions the tip.
+- Blue-chest claims settled with REAL data (owner's on-disk save + Player.log, read-only): no 20-min/
+  12-min timer exists; Normal vs Stage-Boss chests are independent (separate drop-chance runes 15/14/0 +
+  separate caps); measured drops this session 27 common vs 2 blue. Only lever = Drop Chance Stage Boss
+  Chest runes. Exact personal cadence still needs the live Loot-tab tracker (static files undercount).
+  Full write-up: BLUE-CHEST-DROP-RATE-FINDINGS.md §5 + BOTTOM LINE #4-#6.
