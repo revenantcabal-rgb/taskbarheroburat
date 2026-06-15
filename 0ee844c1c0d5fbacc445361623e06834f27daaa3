@@ -1,0 +1,11 @@
+v1.0.30 verification & deploy note
+- Accuracy: stageFarm HP/reward multipliers corrected to PER-MILLE (/1000). Calibrated vs the game's own
+  datamined totals: Act 1-1 = 56 HP, Act 2-6 Nightmare = 1,605,950 (~1.6M) HP. Farming per-hour figures are
+  anchored to the player's measured perStageData; validated on the real save (2-6 measured 1,248,948 gold/hr,
+  avg clear ~327s, anchor reproduces measured exactly).
+- Ban-safety: 4/4 invariants pass (no process-memory/injection, no game-save writes, crew-API-only network,
+  payload whitelist). All new Farming/Atlas code is pure DB/save reads — READ-ONLY.
+- Tests: 21 node tests pass; verify_save PASS. 14 tabs render, 0 console errors (verified in-browser ?demo
+  and against the live AppData save).
+- Deploy: pushed to revenantcabal-rgb/taskbarheroburat main -> Vercel project taskbarheroburat auto-deploys
+  (Neon Postgres attached; crew API serves the new curStage brag-stat once live). GitHub Pages updates on push.
