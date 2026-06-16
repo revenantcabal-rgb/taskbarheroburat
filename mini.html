@@ -2,7 +2,7 @@
 <html data-theme="dark">
 <head>
 <meta charset="utf-8">
-<title>TBH HUD mini</title>
+<title>TBH HUD 迷你</title>
 <style>
   /* v1.0.16 (P4) — the mini-HUD: a dumb display fed by the dashboard window over IPC. It computes NOTHING
      from the save itself (one engine, one data lane); only the offline-idle clock ticks locally from the
@@ -35,35 +35,38 @@
 </head>
 <body>
 <div class="top"><span class="ttl">TBH HUD</span><span class="sample" id="sample" hidden>SAMPLE</span>
-  <button class="x" id="closeBtn" title="Close the mini-HUD">✕</button></div>
-<div id="content"><div class="empty">Waiting for the dashboard…<br>(it reads your save and feeds this window)</div></div>
+  <button class="x" id="closeBtn" title="关闭迷你 HUD">✕</button></div>
+<div id="content"><div class="empty">等待仪表盘…<br>（它读取你的存档并反馈到此窗口）</div></div>
 <script>
 'use strict';
+/* 迷你 HUD 语言检测：与 dashboard 共享 localStorage.tbh_lang，默认中文。 */
+var ZH=(function(){try{return localStorage.getItem('tbh_lang')!=='en';}catch(e){return true;}})();
+function L(en,zh){return ZH?zh:en;}
 var P=null;
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
 function fmtDur(sec){sec=Math.max(0,Math.floor(sec));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
-  if(h>0)return h+'h '+(m<10?'0':'')+m+'m'; if(m>0)return m+'m '+(s<10?'0':'')+s+'s'; return s+'s';}
+  if(h>0)return h+(ZH?'小时 ':'h ')+(m<10?'0':'')+m+(ZH?'分':'m'); if(m>0)return m+(ZH?'分 ':'m ')+(s<10?'0':'')+s+(ZH?'秒':'s'); return s+(ZH?'秒':'s');}
 function offLine(){
   if(!P||!P.savedMs)return '—';
   var idle=(Date.now()-P.savedMs)/1000;
   if(P.capSec!=null){
-    if(idle>=P.capSec)return 'AT CAP ('+fmtDur(P.capSec)+')';
-    return fmtDur(idle)+' <small>cap in '+fmtDur(P.capSec-idle)+'</small>';
+    if(idle>=P.capSec)return L('AT CAP (','已满（')+fmtDur(P.capSec)+')';
+    return fmtDur(idle)+' <small>'+L('cap in ','还有 ')+fmtDur(P.capSec-idle)+L('',' 到上限')+'</small>';
   }
-  return fmtDur(idle)+' <small>idle</small>';
+  return fmtDur(idle)+' <small>'+L('idle','挂机')+'</small>';
 }
 function render(){
   var c=document.getElementById('content');
   document.getElementById('sample').hidden=!(P&&P.sample);
   if(!P){return;}
   document.documentElement.dataset.theme=(P.theme==='light')?'light':'dark';
-  var rune=P.rune?((P.rune.afford?'✓ ':'')+P.rune.n+' <small>'+(P.rune.afford?'affordable · ':'save ')+fmt(P.rune.cost)+'g</small>'):'—';
+  var rune=P.rune?((P.rune.afford?'✓ ':'')+P.rune.n+' <small>'+(P.rune.afford?L('affordable · ','可负担 · '):L('save ','攒 '))+fmt(P.rune.cost)+(ZH?'金':'g')+'</small>'):'—';
   c.innerHTML='<div class="rows">'+
-    '<div class="cell"><div class="k">Gold</div><div class="v gold">'+fmt(P.gold)+'</div></div>'+
-    '<div class="cell"><div class="k">Session gold/hr</div><div class="v good">'+(P.gph==null?'measuring…':fmt(P.gph))+'</div></div>'+
-    '<div class="cell w"><div class="k">Stage</div><div class="v">'+(P.stage||'—')+(P.wave?(' <small>wave '+P.wave+'</small>'):'')+(P.stageName?(' <small>'+P.stageName+'</small>'):'')+'</div></div>'+
-    '<div class="cell"><div class="k">Since last save</div><div class="v" id="offv">'+offLine()+'</div></div>'+
-    '<div class="cell"><div class="k">Next rune</div><div class="v acc" title="Cheapest next rune step from the dashboard\'s plan">'+rune+'</div></div>'+
+    '<div class="cell"><div class="k">'+L('Gold','金币')+'</div><div class="v gold">'+fmt(P.gold)+'</div></div>'+
+    '<div class="cell"><div class="k">'+L('Session gold/hr','本次金币/小时')+'</div><div class="v good">'+(P.gph==null?L('measuring…','测量中…'):fmt(P.gph))+'</div></div>'+
+    '<div class="cell w"><div class="k">'+L('Stage','关卡')+'</div><div class="v">'+(P.stage||'—')+(P.wave?(' <small>'+L('wave ','第 ')+P.wave+L('',' 波')+'</small>'):'')+(P.stageName?(' <small>'+P.stageName+'</small>'):'')+'</div></div>'+
+    '<div class="cell"><div class="k">'+L('Since last save','自上次存档')+'</div><div class="v" id="offv">'+offLine()+'</div></div>'+
+    '<div class="cell"><div class="k">'+L('Next rune','下一符文')+'</div><div class="v acc" title="'+L("Cheapest next rune step from the dashboard's plan",'仪表盘计划中最便宜的下一级符文')+'">'+rune+'</div></div>'+
     '</div>';
 }
 if(window.tbhNative&&window.tbhNative.onMiniData){
