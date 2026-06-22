@@ -1,0 +1,13 @@
+v1.0.36 verification & deploy note
+- Driven by the owner's "close the gap analysis" after an 8/10 self-rating. Six items:
+  P1 (1) live-data: OWN the ban-safe limit (no memory reader — would break ban-safety invariants); added DERIVED
+     Damage rate + Avg clear (measured kills/hr × datamined HP) to the Live tab, clearly labelled.
+  P1 (2) renderer E2E: NEW Playwright harness (tests/e2e/serve.js + dashboard.spec.js) drives dashboard?demo through
+     all 13 tabs (0 console errors) + the i18n-restore + Farming-penalty regression hotspots; CI e2e job; npm run e2e.
+  P2 (3) farming gold-find: Gold/hr now applies your gold-find % + flat gold runes (rune-derived, editable); test added.
+  P2 (4) Steam Market: ban-safe link-out on marketable Legendary+ gear (Codex); main.js setWindowOpenHandler -> default browser.
+  P3 (5) crew DB: /api/health now reports the DB endpoint-id (no creds) as a silent-revert tripwire (no risky env surgery).
+  P3 (6) i18n: mini.html bilingual (shared tbh_lang); all new strings EN+zh.
+- Tests: 30 unit + 4 Playwright E2E pass; ban-safety 4/4 (Steam link + shell.openExternal trip nothing).
+- DESKTOP RELEASE: v1.0.36 (gh release --latest) TBH-HUD-Setup-1.0.36.exe (72.2 MB) + latest.yml (sha512 verified to
+  match the exe). package.json + APP_VERSION both 1.0.36. Client + one api/health observability line; nothing touches the game.
