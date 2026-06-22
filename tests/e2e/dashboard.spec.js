@@ -71,3 +71,36 @@ test('language toggle EN -> 中文 -> EN restores English chrome (guards the v1.
   await expect(page.locator('body')).toContainText(/Overview/);
   await expect(page.locator('body')).not.toContainText('总览');
 });
+
+test('Live tab derives a Damage rate + Avg clear from a measured kill pace (ban-safe, no memory read)', async ({ page }) => {
+  await loadDemo(page);
+  // the demo carries no session kill-pace by default, so the derived-metric code path is otherwise dormant —
+  // fabricate a measured pace, exactly as it exists after a minute of real play, and confirm the cards render.
+  await page.evaluate(() => {
+    window.session = {
+      t0: Date.now() - 600000,
+      earned0: (window.current.lifeGold != null ? window.current.lifeGold : window.current.gold) - 1000,
+      kills0: (window.current.kills || 0) - 500,
+    };
+    window.setTab('live'); window.renderLive(window.current);
+  });
+  await expect(page.locator('#tab-live')).toContainText('Damage rate');
+  await expect(page.locator('#tab-live')).toContainText('Avg clear');
+  await expect(page.locator('#tab-live')).toContainText(/not a memory read/i); // it must stay honestly labelled
+});
+
+test('marketable items get a ban-safe Steam Market link (a plain anchor, never a fetch)', async ({ page }) => {
+  await loadDemo(page);
+  const href = await page.evaluate(() => {
+    const cat = (typeof window.buildCatalog === 'function') ? window.buildCatalog() : [];
+    const mk = cat.filter((e) => e.mkt && e.name)[0];
+    if (!mk) return null;
+    window.openCodexDetail(mk, false);
+    const a = document.querySelector('.cxmodal a[href*="steamcommunity.com/market"]');
+    const out = a ? a.getAttribute('href') : null;
+    if (typeof window.closeCodexDetail === 'function') window.closeCodexDetail();
+    return out;
+  });
+  expect(href, 'a Steam Market link should render on a marketable item').toContain('steamcommunity.com/market');
+  expect(href).toContain('appid=3678970');
+});
