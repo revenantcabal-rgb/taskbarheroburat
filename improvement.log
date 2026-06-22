@@ -1,6 +1,29 @@
 # TBH HUD — improvement.log
-Updated 2026-06-23 (session 33 · app v1.0.34). Read-only companion for "TBH: Task Bar Hero" (v1.00.11 baseline; live game v1.00.19).
+Updated 2026-06-23 (session 34 · app v1.0.35). Read-only companion for "TBH: Task Bar Hero" (v1.00.11 baseline; live game v1.00.19).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S34 (v1.0.35) — Farming tab made wiki-EXACT (the EXP level-penalty was missing)
+Owner: "the farming tab is providing false info — it doesn't match taskbarhero.wiki/tools/farming; you're not getting
+the math right." MICROSCOPIC gap analysis — a background agent re-derived the LIVE wiki's SvelteKit bundles (route node
+`72.*.js` planner + chunk `D5oM4w2X.js` stat engine) in Python and verified numerically; cross-checked against our own
+1:1 PowerShell port in the Act Jumper tool (jumper-optimizer/stagedata). FINDINGS: the HUD's stage DATA was already
+wiki-EXACT (0% error on HP/EXP/Gold/waves/spawns/level across all 4 difficulties — the old "estimated/per-mille" memo
+was stale), but the MATH had 3 gaps: (1) THE BIG ONE — the HUD never applied the EXP "kept" level-penalty curve (the
+wiki's `Ht()`), so EXP/hr was the FULL base regardless of your level → overstated on every off-level stage (the HUD had
+deliberately shown a vague "fit" chip instead, on golden-rule grounds). (2) Clear-time model was `hp/dps+fixedOverhead`
+vs the wiki's `hpSeconds*HP + waveSeconds*waves` (per-wave overhead, OLS from TWO timed clears). (3) The HUD ranked all
+120 stages incl. the 12 act bosses (waves=0, boss-only, Soulstone-gated) which the wiki EXCLUDES. FIX: ported the wiki
+engine EXACTLY into `saveEngine.js` — `farmExpKept` (Ht port), `farmSolveModelD` (OLS hp+waves, needs >=2 clears),
+`farmRank` = `(exp + flatRuneEXP)*kept*(1+EXP%/100)/sec*3600` for EXP and `gold/sec*3600` (no penalty) for gold, act
+bosses excluded — and MIRRORED in dashboard.html. Rebuilt the Farming tab UI: auto-filled + editable Hero level & EXP
+bonus % (rune-only auto, editable for gear/pet), two-clear-time calibration (1-1 + a ceiling), a new "EXP kept" column,
+and a "best stage that keeps 100% EXP" headline. HONESTY: the kept curve is the WIKI AUTHOR'S model of the in-game
+penalty (corroborated by our measured ~10-14x over-level falloff), surfaced as "matches the reference tool", NOT claimed
+as a datamined fact (golden rule preserved). NEW `tests/farming.test.js` asserts our engine reproduces the wiki's THREE
+independently-derived worked examples (EXP/hr 677,024 / 67,659,811 / 906,967,089), the Ht spot values, act-boss
+exclusion, gold-no-penalty, and flat rune EXP — **29/29 tests pass**. Verified in-browser (?demo): 0 console errors,
+EXP/hr 677,024 reproduced LIVE, 108 stages (act bosses gone), the kept column renders, hero/EXP% inputs work. CLIENT-
+ONLY (dashboard.html + saveEngine.js + the existing exact gamedata) — NO api/crew/Neon change. See [[tbh-farming-atlas-data]].
 
 ## S33 (v1.0.34) — crew DB outage diagnosed + crew API hardened (incident) · auto-update published
 Owner-reported: the Crew tab showed "database error" (game had just patched to v1.00.19 — UNRELATED; save-reading works

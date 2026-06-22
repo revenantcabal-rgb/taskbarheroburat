@@ -3723,7 +3723,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.34';
+var APP_VERSION='1.0.35';
 var CREW_API='https://taskbarheroburat.vercel.app/api';   // canonical crew endpoint — owner's own Vercel project (Neon DB attached v1.0.29); one DB so crews never split
 
 /* ============================================================================
@@ -3733,6 +3733,11 @@ var CREW_API='https://taskbarheroburat.vercel.app/api';   // canonical crew endp
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.35',d:'2026-06-23',sec:{
+    Changed:[
+      'Farming optimizer now matches the community tool at taskbarhero.wiki/tools/farming 1:1. EXP/hr finally applies the level-penalty: you keep ~100% EXP at or just above a stage\'s level and far less when you out-level it — shown in a new "EXP kept" column — so the rankings tell the truth instead of overstating EXP on stages you\'ve out-grown. Clear time is solved from two timed clears (your damage rate + per-wave overhead), exactly like the reference tool; act-boss stages are excluded (boss-only, not repeat-farmed); and your hero level + EXP-bonus % auto-fill from your save (editable). Verified number-for-number against the live tool\'s own output.'],
+    Fixed:[
+      'EXP/hr was previously shown WITHOUT the over/under-level penalty, badly overstating EXP on stages far from your level. Corrected.']}},
   {v:'1.0.34',d:'2026-06-23',sec:{
     Changed:[
       'Crew leaderboard — lighter and more reliable. The crew server now caches the board and activity feed and sends far less data per refresh, and the HUD pauses crew updates while its window is hidden. This fixes the load that had exhausted the crew server\'s free database tier (the cause of recent Crew-tab errors). Your game data and the rest of the HUD were never affected — the save reader runs entirely on your PC.'],
@@ -4788,23 +4793,34 @@ function showConnectHint(name){var p=$('tab-'+name);if(!p)return;
    No EXP-level-penalty % is shown (that curve lives in game code, not the data files) — instead each stage's LEVEL
    and a level-fit hint are surfaced, since the game pays the most EXP near your level. Numbers are labelled "est". */
 var FARM_DIFF=['Normal','Nightmare','Hell','Torment'];
-var farmState={mode:'auto',metric:'exp',diff:'all',act:'all',cal:[{stage:'',min:'',sec:''}],showAll:false};
+var farmState={mode:'auto',metric:'exp',diff:'all',act:'all',cal:[{stage:'',min:'',sec:''}],showAll:false,hero:'',expPct:''};
 function farmList(){ var sf=DB.stageFarm||{}; return Object.keys(sf).map(function(k){return {k:k,f:sf[k]};})
   .filter(function(x){return x.f&&x.f.hp>0;}).sort(function(a,b){return (stageIdx(a.k)||0)-(stageIdx(b.k)||0);}); }
 function farmHeroLvl(d){ var m=0; ((d&&d.heroes)||[]).forEach(function(h){ if((h.level||0)>m)m=h.level||0; }); return m||null; }
-// Clear-speed model = {dps (HP/s), ov (fixed seconds per clear: loading/walking/boss/transition)}. ONE timed clear
-// gives dps only (ov assumed 0 -> very fast stages look too good); TWO+ timed clears of different-HP stages let us
-// SOLVE both via a least-squares fit of  sec = hp/dps + ov  (exactly why the reference tool asks for two times).
-function farmSolveTimes(cal){
-  var pts=[]; (cal||[]).forEach(function(s){ var f=(DB.stageFarm||{})[s.stage]; var sec=(parseInt(s.min||0,10)||0)*60+(parseInt(s.sec||0,10)||0); if(f&&f.hp>0&&sec>0) pts.push({hp:f.hp,sec:sec,stage:s.stage}); });
-  if(!pts.length) return null;
-  if(pts.length===1) return {dps:pts[0].hp/pts[0].sec, ov:0, n:1, single:true};
-  var n=pts.length,sx=0,sy=0,sxx=0,sxy=0; pts.forEach(function(p){sx+=p.hp;sy+=p.sec;sxx+=p.hp*p.hp;sxy+=p.hp*p.sec;});
-  var denom=n*sxx-sx*sx, m=denom?((n*sxy-sx*sy)/denom):0, b=(sy-m*sx)/n;
-  if(!(m>0)) return {dps:pts[0].hp/pts[0].sec, ov:0, n:1, single:true};   // non-physical slope -> fall back to a single point
-  return {dps:1/m, ov:Math.max(0,b), n:n, single:false};
-}
-function farmClearSec(f,model){ return f.hp/model.dps + (model.ov||0); }
+// ── FARMING ENGINE — wiki-faithful (EXACT mirror of saveEngine.farm*; verified vs taskbarhero.wiki 2026-06-23) ──
+// clear sec = hpSeconds*HP + waveSeconds*waves (OLS, >=2 clears) · EXP/hr = (exp+flatRuneEXP)*kept*(1+EXP%/100)/sec*3600
+// · gold/hr = gold/sec*3600 (NO level penalty). `kept` is the reference tool's over/under-level EXP model (Ht), not a
+// raw game value — labelled as such; corroborated by our measured ~10-14x over-level falloff. Act bosses excluded.
+function expKeptD(hero,stageLvl){ hero=+hero; stageLvl=+stageLvl; if(!(hero>0))return 1;
+  var over=hero>=stageLvl, r=over?0.5:0.4, i=Math.log(hero+1)/10+1, a=Math.trunc(i*(over?2:5)), o=Math.trunc(i*(over?5:6)), s=Math.abs(hero-stageLvl);
+  if(s<=a)return 1; if(s<=a+o){var e=(s-a)/o;return Math.max(1-(1-r)*e*e,0.01);}
+  return Math.max(Math.pow(0.01/r,(s-a-o)/Math.max(hero/3,1))*r,0.01); }
+function farmSolveModelD(points){ var pts=(points||[]).filter(function(p){return p&&p.hp>0&&p.sec>0;}); if(pts.length<2)return null;
+  var Sxx=0,Sxw=0,Sww=0,Sxy=0,Swy=0; pts.forEach(function(p){var hp=+p.hp,w=+p.waves||0,sec=+p.sec; Sxx+=hp*hp;Sxw+=hp*w;Sww+=w*w;Sxy+=hp*sec;Swy+=w*sec;});
+  var det=Sxx*Sww-Sxw*Sxw; if(Math.abs(det)<0.001)return null;
+  var hpS=(Sxy*Sww-Swy*Sxw)/det, wS=(Sxx*Swy-Sxw*Sxy)/det;
+  if(wS<0){wS=0;hpS=Sxy/Sxx;} if(!isFinite(hpS)||hpS<=0)return null;
+  return {hpSeconds:hpS,waveSeconds:Math.max(0,wS),dps:1/hpS,n:pts.length}; }
+function farmStageTimeD(model,f){ return (+model.hpSeconds)*(+f.hp)+(+model.waveSeconds)*(+f.waves||0); }
+// EXP-rune stats from the save's rune Stat List (rune-only, like the in-game Stat List; the EXP% field is editable
+// so users with gear/pet/passive EXP can match the wiki's full figure). {pct=% , addExp, addExpNormal, addExpStageBoss}.
+function farmExpStats(d){ var by={}; ((d&&d.runeStats)||[]).forEach(function(s){by[s.eff]=s.total;});
+  return {pct:(by['Increase Exp Amount']||0)/10, addExp:by['Additional Exp']||0, addExpNormal:by['Additional Exp Normal Monster']||0, addExpStageBoss:by['Additional Exp Stage Boss']||0}; }
+// build a {hpSeconds,waveSeconds} clear model from the player's MEASURED per-stage clear times (Auto mode). >=2 stages
+// solves both terms; 1 stage gives hpSeconds only (no separable wave overhead). Returns null if nothing measured.
+function farmModelFromMeas(meas){ var pts=[]; Object.keys(meas||{}).forEach(function(k){ var f=(DB.stageFarm||{})[k], m=meas[k]; if(f&&f.hp>0&&m&&m.clearSec>0) pts.push({hp:f.hp,waves:f.waves,sec:m.clearSec}); });
+  if(!pts.length)return null; var mdl=farmSolveModelD(pts); if(mdl){mdl.single=false;return mdl;}
+  return {hpSeconds:pts[0].sec/pts[0].hp, waveSeconds:0, dps:pts[0].hp/pts[0].sec, n:1, single:true}; }
 // AUTO engine — anchored to the player's OWN MEASURED per-stage rates (perStageData: real gold/hr, kills/hr, xp/hr
 // from save snapshots, INCLUDING their buffs). This is what makes the per-hour numbers ACCURATE rather than raw
 // base values: kills/hr give the real clear speed (buff-free), and goldYield/xpYield map the datamined base reward
@@ -4839,26 +4855,26 @@ function farmFitOrder(gap){ var k=farmFitKind(gap); return k==='good'?0:(k==='na
 // build one display row per stage. `meas` (auto only) supplies MEASURED gold/xp/clear-time where the player has
 // actually farmed that stage; otherwise the value is projected from the calibrated model (+ goldYield/xpYield in
 // auto). measured=true -> real; goldBase/xpBase=true -> raw base reward (no buff anchor, manual/un-anchored).
-function farmRows(model,heroLvl,meas){
-  meas=meas||{};
-  return farmList().map(function(x){ var f=x.f, key=x.k, m=meas[key];
-    var sec=(m&&m.clearSec>0)?m.clearSec:farmClearSec(f,model);
-    var gMeasured=!!(m&&m.goldHr>0), xMeasured=!!(m&&m.xpHr>0);
-    var goldHr=gMeasured?m.goldHr:(sec>0?(f.gold*(model.goldYield||1)*3600/sec):0);
-    var expHr=xMeasured?m.xpHr:(sec>0?(f.exp*(model.xpYield||1)*3600/sec):0);
-    return {k:key,f:f,sec:sec,goldHr:goldHr,expHr:expHr,gap:farmFitGap(f,heroLvl),
-      measured:!!(m&&m.clearSec>0),gMeasured:gMeasured,xMeasured:xMeasured,
-      goldBase:!gMeasured&&!model.goldYield, xpBase:!xMeasured&&!model.xpYield}; });
+// One row per FARMABLE stage (act bosses excluded, like the wiki). The clear time is the player's MEASURED time for
+// that stage when available (Auto), else the model's prediction. EXP/hr applies the kept level-penalty + EXP% + flat
+// rune EXP; Gold/hr is the base reward (no level penalty). model.expStats carries the rune EXP figures + the EXP%.
+function farmRows(model,heroLvl,meas){ meas=meas||{};
+  var es=(model&&model.expStats)||{}, expMult=(es.pct>0)?(1+es.pct/100):1;
+  return farmList().filter(function(x){return +x.f.no!==10;}).map(function(x){ var f=x.f, key=x.k, m=meas[key];
+    var sec=(m&&m.clearSec>0)?m.clearSec:farmStageTimeD(model,f);
+    var kept=heroLvl>0?expKeptD(heroLvl,f.lvl):1, sp=+f.spawns||0;
+    var mt=(+es.addExp||0)*(sp+1)+(+es.addExpNormal||0)*sp+(+es.addExpStageBoss||0);
+    return {k:key,f:f,sec:sec,kept:kept,gap:farmFitGap(f,heroLvl),measured:!!(m&&m.clearSec>0),
+      goldHr:sec>0?(f.gold/sec*3600):0,
+      expHr:sec>0?((f.exp+mt)*kept*expMult/sec*3600):0}; });
 }
 function farmRank(model,heroLvl,meas){
-  if(!model||!(model.dps>0)) return [];
+  if(!model||!(model.hpSeconds>0)) return [];
   var rows=farmRows(model,heroLvl,meas);
   if(farmState.diff!=='all') rows=rows.filter(function(r){return r.f.di===+farmState.diff;});
   if(farmState.act!=='all') rows=rows.filter(function(r){return r.f.act===+farmState.act;});
-  // Gold has no level penalty -> rank by gold/hr. For EXP, the game pays most near your level, so good-fit stages
-  // rank first (then by exp/hr) — otherwise a far-under-level stage would top the XP list, which is the opposite
-  // of the truth. Without a save (no hero level) every fit is 'na' and EXP falls back to pure exp/hr.
-  rows.sort(function(a,b){ return farmState.metric==='gold' ? (b.goldHr-a.goldHr) : ((farmFitOrder(a.gap)-farmFitOrder(b.gap))||(b.expHr-a.expHr)); });
+  // EXP/hr already bakes in the level-penalty (kept), so rank purely by the chosen /hr — the penalty does the work.
+  rows.sort(function(a,b){ return farmState.metric==='gold' ? (b.goldHr-a.goldHr) : (b.expHr-a.expHr); });
   return rows;
 }
 // ===================== BOX-FARMING RECOMMENDER (v1.0.31) =================================================
@@ -4922,79 +4938,92 @@ function renderFarming(d){
   bar.appendChild(mseg);
   p.appendChild(bar);
 
-  var heroLvl=farmHeroLvl(d), model=null, calInfo='', meas={};
+  // hero level + EXP bonus % drive the wiki model — auto-filled from your save, editable (add gear/pet EXP to match in-game)
+  var autoHero=farmHeroLvl(d), autoStats=farmExpStats(d);
+  var heroLvl=(farmState.hero!==''&&farmState.hero!=null)?(parseInt(farmState.hero,10)||0):(autoHero||0);
+  var expPct=(farmState.expPct!==''&&farmState.expPct!=null)?(parseFloat(farmState.expPct)||0):(autoStats.pct||0);
+  var expStats={pct:expPct,addExp:autoStats.addExp,addExpNormal:autoStats.addExpNormal,addExpStageBoss:autoStats.addExpStageBoss};
+  var inRow=el('<div class="farmcal" style="margin:0 0 6px;flex-wrap:wrap"></div>');
+  var lh=el('<label>'+loc('Hero level','英雄等级')+'</label>'); var ih=el('<input type="number" min="1" max="200" style="width:84px" placeholder="'+(autoHero||31)+'" value="'+esc(farmState.hero!==''?farmState.hero:(autoHero||''))+'">');
+  ih.addEventListener('change',function(){ farmState.hero=ih.value; renderFarming(current); }); lh.appendChild(ih); inRow.appendChild(lh);
+  var le=el('<label>'+loc('EXP bonus %','经验加成 %')+'</label>'); var ie=el('<input type="number" min="0" step="1" style="width:96px" placeholder="0" value="'+esc(farmState.expPct!==''?farmState.expPct:(autoStats.pct||''))+'">');
+  ie.addEventListener('change',function(){ farmState.expPct=ie.value; renderFarming(current); }); le.appendChild(ie); inRow.appendChild(le);
+  if(farmState.hero!==''||farmState.expPct!==''){ var rst=el('<button class="ghost" type="button" style="align-self:flex-end">↺ '+loc('auto','自动')+'</button>'); rst.addEventListener('click',function(){ farmState.hero='';farmState.expPct='';renderFarming(current); }); inRow.appendChild(rst); }
+  p.appendChild(inRow);
+  p.appendChild(el('<div class="fine" style="margin:-2px 0 10px">'+loc('Auto-filled from your save (rune EXP) — editable; add gear/pet/passive EXP to match your in-game total. EXP/hr uses the reference tool\'s level-penalty model; Gold/hr is the base reward (no level penalty).','已根据存档（符文经验）自动填充，可编辑——加上装备/宠物/被动经验以匹配游戏内总值。经验/小时采用参考工具的等级惩罚模型；金币/小时为基础奖励（无等级惩罚）。')+'</div>'));
+
+  var model=null, calInfo='', meas={};
   if(farmState.mode==='auto'){
-    if(!d){ p.appendChild(el('<div class="connect-hint"><div class="ch-ico">⚙</div><div class="ch-title">'+loc('Connect your save for Auto mode','连接存档以使用自动模式')+'</div><div class="ch-sub">'+loc('Auto reads your hero level and your measured clear pace from your own save. No save handy? Switch to <b>Manual</b> above and enter one clear time — it works with no save at all.','自动模式读取你的英雄等级与实测速度。没有存档？切到上方的“手动”，输入一次通关时间即可。')+'</div></div>'));
+    if(!d){ p.appendChild(el('<div class="connect-hint"><div class="ch-ico">⚙</div><div class="ch-title">'+loc('Connect your save for Auto mode','连接存档以使用自动模式')+'</div><div class="ch-sub">'+loc('Auto reads your hero level + EXP bonus and your measured clear pace from your save. No save? Switch to <b>Manual</b> and enter two clear times.','自动模式从存档读取英雄等级、经验加成与实测速度。没有存档？切到“手动”输入两次通关时间。')+'</div></div>'));
       farmReboot(p,d,null,heroLvl,'auto',''); return; }
-    var eng=farmAutoEngine(d); model=eng.model; meas=eng.meas||{};
-    if(model){ var refLbl=esc(stageActLabel(model.refStage)), measN=Object.keys(meas).filter(function(k){return meas[k].clearSec>0;}).length;
-      calInfo=loc('Calibrated from your <b>measured</b> pace on ','已用你在 ')+'<b>'+refLbl+'</b>'+
-        (model.refKph>0?(' ('+fmtShort(model.refKph)+' '+loc('kills/hr','击杀/小时')+')'):'')+
-        (model.goldYield?loc(' — gold &amp; XP anchored to your real earnings',' — 金币与经验已锚定到你的真实收益'):loc(' — clear speed measured; rewards shown as base',' — 速度已实测；奖励为基础值'))+
-        (measN>1?(' · '+measN+loc(' stages measured directly',' 个关卡为直接实测')):''); }
+    var eng=farmAutoEngine(d); meas=eng.meas||{}; model=farmModelFromMeas(meas);
+    if(model){ model.expStats=expStats;
+      var measN=Object.keys(meas).filter(function(k){return meas[k].clearSec>0;}).length;
+      calInfo=loc('Clear speed measured from your save','速度来自你的存档实测')+(measN>0?(' · '+measN+loc(' stage(s) timed directly',' 个关卡直接计时')):'')+(model.single?loc(' — time a second, very different stage in Manual for a sharper model',' — 在手动模式给另一难度的关卡计时会更准'):''); }
   } else {
-    // manual calibration — one OR several timed clears (two+ also measures your per-clear overhead)
-    p.appendChild(el('<div class="crewnote" style="margin:0 0 8px">'+loc('Time one full clear of any stage (first wave to the boss dying) and enter it. <b>Add a second stage</b> — ideally a much faster or slower one — and the model also learns your fixed per-clear overhead, making every estimate far more accurate.','给任意关卡的一次完整通关计时（从第一波到击败 Boss）并填入。再加一个（最好快慢差别大的）关卡，模型还能学到你每次通关的固定耗时，使估算更准。')+'</div>'));
-    var stOpts=[['',loc('— pick a stage you timed —','— 选择计时关卡 —')]].concat(farmList().map(function(x){ return [x.k, 'Act '+x.f.act+'-'+x.f.no+' · '+FARM_DIFF[x.f.di]+' (Lv '+x.f.lvl+')']; }));
+    p.appendChild(el('<div class="crewnote" style="margin:0 0 8px">'+loc('Time one full clear of <b>two</b> stages (first wave to the boss dying) — ideally one fast and one slow. The tool solves your damage rate AND per-wave overhead from the two times, exactly like the reference tool.','给<b>两个</b>关卡各计时一次完整通关（从第一波到击败 Boss），最好一快一慢。工具据此解出你的伤害速率与每波耗时，与参考工具一致。')+'</div>'));
+    var stOpts=[['',loc('— pick a stage you timed —','— 选择计时关卡 —')]].concat(farmList().filter(function(x){return +x.f.no!==10;}).map(function(x){ return [x.k, 'Act '+x.f.act+'-'+x.f.no+' · '+FARM_DIFF[x.f.di]+' (Lv '+x.f.lvl+')']; }));
+    while(farmState.cal.length<2) farmState.cal.push({stage:'',min:'',sec:''});
     farmState.cal.forEach(function(row,i){
       var box=el('<div class="farmcal" style="margin-bottom:8px"></div>');
-      var l1=el('<label>'+loc('Stage','关卡')+(farmState.cal.length>1?(' '+(i+1)):'')+'</label>'); var sel=cxSelect(stOpts,row.stage,function(v){ row.stage=v; renderFarming(current); }); sel.classList.add('wide'); l1.appendChild(sel); box.appendChild(l1);
+      var l1=el('<label>'+loc('Stage','关卡')+' '+(i+1)+'</label>'); var sel=cxSelect(stOpts,row.stage,function(v){ row.stage=v; renderFarming(current); }); sel.classList.add('wide'); l1.appendChild(sel); box.appendChild(l1);
       var lM=el('<label>'+loc('Min','分')+'</label>'); var im=el('<input type="number" min="0" placeholder="0" value="'+esc(row.min)+'">'); im.addEventListener('input',function(){row.min=im.value;}); lM.appendChild(im); box.appendChild(lM);
       var lS=el('<label>'+loc('Sec','秒')+'</label>'); var is=el('<input type="number" min="0" max="59" placeholder="0" value="'+esc(row.sec)+'">'); is.addEventListener('input',function(){row.sec=is.value;}); lS.appendChild(is); box.appendChild(lS);
-      if(farmState.cal.length>1){ var rm=el('<button class="ghost" type="button" title="'+loc('Remove','移除')+'" style="align-self:flex-end">✕</button>'); rm.addEventListener('click',function(){ farmState.cal.splice(i,1); renderFarming(current); }); box.appendChild(rm); }
+      if(farmState.cal.length>2){ var rm=el('<button class="ghost" type="button" title="'+loc('Remove','移除')+'" style="align-self:flex-end">✕</button>'); rm.addEventListener('click',function(){ farmState.cal.splice(i,1); renderFarming(current); }); box.appendChild(rm); }
       p.appendChild(box);
     });
     var btns=el('<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>');
     if(farmState.cal.length<4){ var add=el('<button class="ghost" type="button">+ '+loc('Add another stage (optional)','添加关卡（可选）')+'</button>'); add.addEventListener('click',function(){ farmState.cal.push({stage:'',min:'',sec:''}); renderFarming(current); }); btns.appendChild(add); }
     var go=el('<button class="primary" type="button">'+loc('Rank stages','排序关卡')+'</button>'); go.addEventListener('click',function(){ renderFarming(current); }); btns.appendChild(go);
     p.appendChild(btns);
-    model=farmSolveTimes(farmState.cal);
-    if(model){ calInfo=model.single?loc('Calibrated from 1 clear time — add a second for better accuracy','已用 1 次通关时间校准 — 再加一个会更准')
-      :(loc('Calibrated from ','已用 ')+model.n+loc(' clear times · measured overhead ~',' 次通关时间校准 · 实测固定耗时 ~')+fmtClear(model.ov)+loc('/clear','/次')); }
+    var pts=farmState.cal.map(function(s){ var f=(DB.stageFarm||{})[s.stage]; var sec=(parseInt(s.min||0,10)||0)*60+(parseInt(s.sec||0,10)||0); return (f&&f.hp>0&&sec>0)?{hp:f.hp,waves:f.waves,sec:sec}:null; }).filter(Boolean);
+    model=farmSolveModelD(pts); if(model){ model.expStats=expStats; calInfo=loc('Calibrated from ','已用 ')+model.n+loc(' clear times · ~',' 次通关时间 · 每波约 ')+model.waveSeconds.toFixed(2)+loc('s/wave overhead','秒'); }
   }
   farmReboot(p,d,model,heroLvl,farmState.mode,calInfo,meas);
 }
-// the results half (reco cards + ranked table) — shared by both modes; null/invalid model => show a calibrate prompt
+// the results half (full-EXP headline + reco cards + ranked table) — wiki-faithful; null model => calibrate prompt
 function farmReboot(p,d,model,heroLvl,mode,calInfo,meas){
   meas=meas||{};
-  if(!model||!(model.dps>0)){
-    if(mode==='auto'&&d) p.appendChild(el('<div class="empty">'+loc('Measuring your pace… play for a minute on your current stage and this fills in. (Or switch to <b>Manual</b> and enter a clear time.)','正在测量你的速度……在当前关卡游玩约一分钟即可。或切换到“手动”输入通关时间。')+'</div>'));
+  if(!model||!(model.hpSeconds>0)){
+    if(mode==='auto'&&d) p.appendChild(el('<div class="empty">'+loc('Measuring your pace… play a minute on your current stage and this fills in. (Or switch to <b>Manual</b> and enter two clear times.)','正在测量你的速度……在当前关卡游玩约一分钟即可。或切到“手动”输入两次通关时间。')+'</div>'));
+    else if(mode==='manual') p.appendChild(el('<div class="empty">'+loc('Enter <b>two</b> clear times above to rank every stage.','在上方输入<b>两次</b>通关时间以排序所有关卡。')+'</div>'));
     farmAtlasCrossLink(p); return;
   }
   if(calInfo) p.appendChild(el('<div class="filterpill" style="cursor:default;margin-bottom:14px">📐 '+calInfo+'</div>'));
-  // ── AVG CLEAR TIME headline — the most-asked number, surfaced up front. For the stage you're on (or the reference
-  //    stage) this is MEASURED from your own kills/hr; the per-stage table column shows it for every stage.
-  if(d&&d.stage&&(DB.stageFarm||{})[String(d.stage)]){
+  var allRows=farmRows(model,heroLvl,meas);
+  // full-EXP headline (the wiki's "X keeps 100% EXP"): the highest-EXP/hr stage you still keep ALL your EXP on
+  if(heroLvl>0){ var full=allRows.filter(function(r){return r.kept>=0.999;}).sort(function(a,b){return b.expHr-a.expHr;})[0];
+    if(full){ var fn=stageName(full.k); fn=(LANG==='zh'&&ZG.game&&ZG.game[fn])?ZG.game[fn]:fn;
+      p.appendChild(el('<div class="recobig" style="margin-bottom:14px;cursor:default"><div class="recolbl">✨ '+loc('Best stage that still keeps 100% EXP','仍保留 100% 经验的最佳关卡')+'</div>'+
+        '<div class="recostage">'+esc('Act '+full.f.act+'-'+full.f.no)+' · '+esc(localizeStageText(FARM_DIFF[full.f.di]))+(fn?(' · '+esc(fn)):'')+'</div>'+
+        '<div class="recohero">'+fmtShort(Math.round(full.expHr))+' '+loc('EXP/hr','经验/时')+' <span style="font-size:12px;color:var(--text-dim);font-weight:600">'+loc('Lv ','等级 ')+full.f.lvl+' · ~'+fmtClear(full.sec)+'</span></div></div>')); } }
+  // ── current-stage headline ──
+  if(d&&d.stage&&(DB.stageFarm||{})[String(d.stage)]&&+((DB.stageFarm||{})[String(d.stage)].no)!==10){
     var cf=(DB.stageFarm||{})[String(d.stage)], cm=meas[String(d.stage)];
-    var csec=(cm&&cm.clearSec>0)?cm.clearSec:farmClearSec(cf,model);
-    var measuredNow=!!(cm&&cm.clearSec>0);
-    p.appendChild(el('<div class="recobig" style="margin-bottom:14px;cursor:default"><div class="recolbl">⏱ '+loc('Average clear time — where you are now','平均通关时间 — 你当前所在')+'</div>'+
+    var csec=(cm&&cm.clearSec>0)?cm.clearSec:farmStageTimeD(model,cf), measuredNow=!!(cm&&cm.clearSec>0), ck=heroLvl>0?expKeptD(heroLvl,cf.lvl):1;
+    p.appendChild(el('<div class="recobig" style="margin-bottom:14px;cursor:default"><div class="recolbl">⏱ '+loc('Where you are now','你当前所在')+'</div>'+
       '<div class="recostage">'+esc(stageActLabel(d.stage))+(stageName(d.stage)?(' · '+esc((LANG==='zh'&&ZG.game&&ZG.game[stageName(d.stage)])||stageName(d.stage))):'')+'</div>'+
-      '<div class="recohero">~'+fmtClear(csec)+loc(' per clear','/次')+' <span style="font-size:12px;color:var(--text-dim);font-weight:600">'+(measuredNow?loc('measured','实测'):loc('estimated','估算'))+'</span></div>'+
-      '<div class="recosub">'+loc('Stage HP ','关卡血量 ')+fmtShort(cf.hp)+' · '+(cf.spawns?(cf.spawns+loc(' monsters + boss',' 怪物 + Boss')):loc('boss only','仅 Boss'))+' · '+loc('Lv ','等级 ')+cf.lvl+'</div></div>'));
+      '<div class="recohero">~'+fmtClear(csec)+loc(' per clear','/次')+' <span style="font-size:12px;color:var(--text-dim);font-weight:600">'+(measuredNow?loc('measured','实测'):loc('estimated','估算'))+(heroLvl>0?(' · '+loc('EXP kept ','保留经验 ')+Math.round(ck*100)+'%'):'')+'</span></div>'+
+      '<div class="recosub">'+loc('Stage HP ','关卡血量 ')+fmtShort(cf.hp)+(cf.spawns?(' · '+cf.spawns+loc(' monsters + boss',' 怪物 + Boss')):'')+' · '+loc('Lv ','等级 ')+cf.lvl+'</div></div>'));
   }
-  // recommendation cards (only meaningful with a save — uses your cleared progress + hero level)
+  // reco cards: best EXP/hr + best gold/hr among stages you've CLEARED (ignores the table filters)
   if(d){
     var maxIdx=stageIdx(d.maxStage);
-    // the recommendation considers everything you've actually CLEARED (proven farmable), ignoring the table filters
-    var all=farmRows(model,heroLvl,meas);
-    var reach=all.filter(function(r){ return maxIdx==null||(stageIdx(r.k)||0)<=maxIdx; }); if(!reach.length)reach=all;
+    var reach=allRows.filter(function(r){ return maxIdx==null||(stageIdx(r.k)||0)<=maxIdx; }); if(!reach.length)reach=allRows;
     var goldPick=reach.slice().sort(function(a,b){return b.goldHr-a.goldHr;})[0];
-    // best XP fit = a good-fit stage you've cleared with the highest exp/hr (good-fit first, then exp/hr)
-    var xpPick=reach.slice().sort(function(a,b){ return (farmFitOrder(a.gap)-farmFitOrder(b.gap))||(b.expHr-a.expHr); })[0];
+    var xpPick=reach.slice().sort(function(a,b){return b.expHr-a.expHr;})[0];
     var reco=el('<div class="farmreco"></div>');
-    function recoCard(r,kind){ if(!r)return null;
-      var gold=kind==='gold'; var nm=stageName(r.k); nm=(LANG==='zh'&&ZG.game&&ZG.game[nm])?ZG.game[nm]:nm;
+    function recoCard(r,gold){ if(!r)return null; var nm=stageName(r.k); nm=(LANG==='zh'&&ZG.game&&ZG.game[nm])?ZG.game[nm]:nm;
       var c=el('<div class="recobig'+(gold?' gold':'')+'"></div>');
-      c.innerHTML='<div class="recolbl">'+(gold?('🪙 '+loc('Best gold right now','当前最佳金币')):('✨ '+loc('Best XP fit right now','当前最佳经验')))+'</div>'+
+      c.innerHTML='<div class="recolbl">'+(gold?('🪙 '+loc('Best gold you can farm','你可刷的最佳金币')):('✨ '+loc('Best EXP you can farm','你可刷的最佳经验')))+'</div>'+
         '<div class="recostage">'+esc('Act '+r.f.act+'-'+r.f.no)+' · '+esc(localizeStageText(FARM_DIFF[r.f.di]))+'</div>'+
-        '<div class="recosub">'+(nm?esc(nm)+' · ':'')+loc('Lv ','等级 ')+r.f.lvl+' · ~'+fmtClear(r.sec)+loc('/clear','/次')+' '+farmFitChip(r.gap)+'</div>'+
-        '<div class="recohero">'+(gold?(fmtShort(Math.round(r.goldHr))+' '+loc('gold/hr','金币/小时')):(fmtShort(Math.round(r.expHr))+' '+loc('XP/hr','经验/小时')))+' <span style="font-size:12px;color:var(--text-dim);font-weight:600">'+((gold?r.gMeasured:r.xMeasured)?loc('measured','实测'):loc('est','估算'))+'</span></div>';
+        '<div class="recosub">'+(nm?esc(nm)+' · ':'')+loc('Lv ','等级 ')+r.f.lvl+' · ~'+fmtClear(r.sec)+loc('/clear','/次')+((!gold&&heroLvl>0)?(' · '+loc('EXP kept ','保留经验 ')+Math.round(r.kept*100)+'%'):'')+'</div>'+
+        '<div class="recohero">'+(gold?(fmtShort(Math.round(r.goldHr))+' '+loc('gold/hr','金币/小时')):(fmtShort(Math.round(r.expHr))+' '+loc('EXP/hr','经验/小时')))+'</div>';
       c.addEventListener('click',function(){ setTab('atlas'); atlasState.tab='boxes'; atlasState.stage=r.k; renderAtlas(current); });
       c.style.cursor='pointer'; c.title=loc('See this stage\'s loot boxes in the Atlas','在图谱中查看该关卡的掉落箱');
       return c;
     }
-    var gc=recoCard(goldPick,'gold'), xc=recoCard(xpPick,'xp');
+    var xc=recoCard(xpPick,false), gc=recoCard(goldPick,true);
     if(xc)reco.appendChild(xc); if(gc)reco.appendChild(gc);
     if(reco.children.length) p.appendChild(reco);
   }
@@ -5010,13 +5039,14 @@ function farmReboot(p,d,model,heroLvl,mode,calInfo,meas){
   var shown=farmState.showAll?rows:rows.slice(0,30);
   var wrap=el('<div style="overflow-x:auto"></div>');
   var t=el('<table class="farmtbl"></table>');
-  t.appendChild(el('<thead><tr><th>#</th><th>'+loc('Stage','关卡')+'</th><th>'+loc('Lv','等级')+'</th><th title="'+loc('Average time for one full clear','一次完整通关的平均时间')+'">'+loc('Avg clear','平均通关')+'</th><th class="farmgold">'+loc('Gold/hr','金币/时')+'</th><th class="farmexp fexpcol">'+loc('XP/hr','经验/时')+'</th><th>'+loc('Fit','匹配')+'</th></tr></thead>'));
+  t.appendChild(el('<thead><tr><th>#</th><th>'+loc('Stage','关卡')+'</th><th>'+loc('Lv','等级')+'</th><th title="'+loc('Average time for one full clear','一次完整通关的平均时间')+'">'+loc('Avg clear','平均通关')+'</th><th class="farmgold">'+loc('Gold/hr','金币/时')+'</th><th class="farmexp fexpcol">'+loc('EXP/hr','经验/时')+'</th><th title="'+loc('Share of EXP you keep at your level (the reference tool model)','在你等级下保留的经验占比（参考工具模型）')+'">'+loc('EXP kept','保留经验')+'</th></tr></thead>'));
   var tb=el('<tbody></tbody>');
-  var measDot=' <span title="'+loc('measured directly from your own farming of this stage','直接来自你对该关卡的实测')+'" style="color:var(--good);font-weight:800">●</span>';
+  var measDot=' <span title="'+loc('clear time measured directly from your own farming of this stage','通关时间直接来自你对该关卡的实测')+'" style="color:var(--good);font-weight:800">●</span>';
   shown.forEach(function(r,i){
+    var kp=Math.round(r.kept*100), kc=r.kept>=0.999?'var(--good)':(r.kept>=0.5?'#f99c00':'#ff2357');
     var tr=el('<tr'+(i===0?' class="best"':'')+'></tr>');
     tr.innerHTML='<td class="frank">'+(i+1)+'</td><td>'+farmStageCell(r)+'</td><td>'+r.f.lvl+'</td><td>~'+fmtClear(r.sec)+(r.measured?measDot:'')+'</td>'+
-      '<td class="farmgold">'+fmtShort(Math.round(r.goldHr))+(r.gMeasured?measDot:'')+'</td><td class="farmexp fexpcol">'+fmtShort(Math.round(r.expHr))+(r.xMeasured?measDot:'')+'</td><td>'+(farmFitChip(r.gap)||'—')+'</td>';
+      '<td class="farmgold">'+fmtShort(Math.round(r.goldHr))+'</td><td class="farmexp fexpcol">'+fmtShort(Math.round(r.expHr))+'</td><td style="color:'+kc+';font-weight:700">'+(heroLvl>0?(kp+'%'):'—')+'</td>';
     tr.style.cursor='pointer'; tr.title=loc('Open this stage in the Atlas (loot boxes)','在图谱中打开该关卡');
     tr.addEventListener('click',function(){ setTab('atlas'); atlasState.tab='boxes'; atlasState.stage=r.k; renderAtlas(current); });
     tb.appendChild(tr);
@@ -5024,10 +5054,7 @@ function farmReboot(p,d,model,heroLvl,mode,calInfo,meas){
   t.appendChild(tb); wrap.appendChild(t); p.appendChild(wrap);
   if(rows.length>30&&!farmState.showAll){ var more=el('<button class="ghost" type="button" style="margin-top:10px">'+loc('Show all ','显示全部 ')+rows.length+loc(' stages','个关卡')+'</button>'); more.addEventListener('click',function(){farmState.showAll=true;renderFarming(current);}); p.appendChild(more); }
   var anyMeas=rows.some(function(r){return r.measured;});
-  var legend=anyMeas?('<span style="color:var(--good);font-weight:800">●</span> '+loc('= measured directly from your own play. Other rows are projected from your measured pace using the game\'s datamined HP &amp; reward ratios.','= 直接来自你自己的游玩实测；其余为按你的实测速度结合游戏数据化血量与奖励比例的推算。')):'';
-  var rewardNote=model.goldYield?loc('Gold/hr and XP/hr are <b>anchored to your real measured earnings</b> on your reference stage (so they include your gold/XP bonuses) and scaled to other stages by the game\'s datamined reward ratios.','金币/小时与经验/小时已<b>锚定到你在参考关卡的真实实测收益</b>（含金币/经验加成），并按游戏数据化奖励比例换算到其他关卡。')
-    :loc('Gold/hr and XP/hr are <b>base estimates</b> from the game\'s datamined per-stage rewards (they exclude your gold/XP bonuses) — connect a save and farm a little for measured, buff-inclusive numbers.','金币/小时与经验/小时为游戏数据化奖励的<b>基础估算</b>（不含你的加成）——连接存档并刷一会即可获得含加成的实测数值。');
-  p.appendChild(el('<div class="crewnote" style="margin-top:14px">'+(legend?(legend+'<br>'):'')+'<b>'+loc('How to read this','如何理解')+':</b> '+rewardNote+' '+loc('<b>EXP and level:</b> the game gives the most EXP at or just above a stage\'s level and <b>reduces it when you out-level a stage</b> — the exact curve is not in the game\'s data files, so we never invent a percentage; instead the <b>Fit</b> column flags stages near your level and the XP ranking puts good-fit stages first. For raw gold, deeper stages you can clear generally pay more.','<b>经验与等级：</b>游戏在接近关卡等级时给予最高经验，等级过高会衰减——确切曲线不在数据中，故不臆造百分比；改用 <b>匹配</b> 列标记接近你等级的关卡，经验排序优先适配关卡。')+'</div>'));
+  p.appendChild(el('<div class="crewnote" style="margin-top:14px">'+(anyMeas?('<span style="color:var(--good);font-weight:800">●</span> '+loc('= clear time measured directly from your own play; other times are projected from your model.','= 通关时间直接来自你的实测；其余为模型推算。')+'<br>'):'')+'<b>'+loc('How this works','原理')+':</b> '+loc('This reproduces <b>taskbarhero.wiki/tools/farming</b>. Clear time = your damage-rate × stage HP + a per-wave overhead, solved from your timed clears. <b>EXP/hr</b> applies the reference tool\'s <b>level-penalty model</b> (the “EXP kept” column): you keep ~100% at or just above a stage\'s level and far less when you out-level it — this curve is the wiki\'s model of the in-game penalty, not a raw datamined value. <b>Gold/hr</b> has no level penalty. Stage HP/EXP/Gold are the game\'s own datamined values; act-boss stages are excluded (boss-only, not repeat-farmed), exactly as the reference tool omits them.','此功能复刻 <b>taskbarhero.wiki/tools/farming</b>。通关时间 = 你的伤害速率 × 关卡血量 + 每波耗时，由你的计时解出。<b>经验/小时</b>采用参考工具的<b>等级惩罚模型</b>（“保留经验”列）：在接近关卡等级时约保留 100%，等级过高则大幅衰减——该曲线为 wiki 对游戏内惩罚的建模，并非原始数据化数值。<b>金币/小时</b>无等级惩罚。关卡血量/经验/金币均为游戏数据化数值；章节 Boss 关卡（仅 Boss、不重复刷）已排除，与参考工具一致。')+'</div>'));
   farmAtlasCrossLink(p);
 }
 function farmAtlasCrossLink(p){

@@ -232,6 +232,92 @@ function perStageRates(points){
 }
 
 // ============================================================================
+// FARMING OPTIMIZER — an EXACT reproduction of taskbarhero.wiki/tools/farming.
+// Verified line-for-line (2026-06-23) against the live tool's bundles: route node `72.*.js`
+// (the planner) + chunk `D5oM4w2X.js` (the stat engine). The model:
+//   clear seconds = hpSeconds*HP + waveSeconds*waves          (OLS over >=2 timed clears)
+//   kept (level)  = farmExpKept(heroLevel, stageLevel)        -> 1.0 .. 0.01
+//   EXP/hr        = (stageEXP + flatRuneEXP) * kept * (1 + expBonus%/100) / sec * 3600
+//   Gold/hr       = stageGold / sec * 3600                    (gold has NO level penalty)
+// HONESTY: the `kept` curve is the WIKI AUTHOR'S model of the in-game over/under-level EXP
+// penalty (corroborated by our measured ~10-14x over-level falloff), NOT a raw game table —
+// surfaced as "matches the reference tool", never as a datamined fact. Act-boss stages
+// (stageNo 10) are EXCLUDED exactly as the wiki omits them (boss-only, waves=0, Soulstone-gated,
+// not repeat-farmed) — feeding them through the wave model would falsify their numbers.
+
+// farmExpKept: EXACT port of the wiki's Ht(hero, stageLevel). A full-EXP band (widening slowly
+// with hero level) -> a quadratic shoulder -> exponential decay to a 1% floor. Over-levelling
+// (hero>=stage) is penalised far harder than under-levelling (narrower band, higher decay floor).
+function farmExpKept(hero, stageLvl){
+  hero=+hero; stageLvl=+stageLvl;
+  if(!(hero>0)) return 1;
+  const over = hero>=stageLvl;
+  const r = over?0.5:0.4;
+  const i = Math.log(hero+1)/10 + 1;
+  const a = Math.trunc(i*(over?2:5));
+  const o = Math.trunc(i*(over?5:6));
+  const s = Math.abs(hero-stageLvl);
+  if(s<=a) return 1;
+  if(s<=a+o){ const e=(s-a)/o; return Math.max(1-(1-r)*e*e, 0.01); }
+  return Math.max(Math.pow(0.01/r, (s-a-o)/Math.max(hero/3,1))*r, 0.01);
+}
+
+// farmSolveModel: OLS fit of  sec = hpSeconds*HP + waveSeconds*waves  over the calibration clears
+// (the wiki's Bt()). REQUIRES >=2 points (1 -> null): with one timed clear you cannot separate the
+// damage-rate from the per-wave overhead, which is exactly why the tool asks for two clear times.
+// points: [{hp,waves,sec}]. Returns {hpSeconds,waveSeconds,dps,n} or null.
+function farmSolveModel(points){
+  const pts=(points||[]).filter(p=>p&&p.hp>0&&p.sec>0);
+  if(pts.length<2) return null;
+  let Sxx=0,Sxw=0,Sww=0,Sxy=0,Swy=0;
+  for(const p of pts){ const hp=+p.hp, w=+p.waves||0, sec=+p.sec;
+    Sxx+=hp*hp; Sxw+=hp*w; Sww+=w*w; Sxy+=hp*sec; Swy+=w*sec; }
+  const det=Sxx*Sww-Sxw*Sxw;
+  if(Math.abs(det)<0.001) return null;
+  let hpSeconds=(Sxy*Sww-Swy*Sxw)/det;
+  let waveSeconds=(Sxx*Swy-Sxw*Sxy)/det;
+  if(waveSeconds<0){ waveSeconds=0; hpSeconds=Sxy/Sxx; }   // negative wave-tax is non-physical -> refit HP-only (wiki)
+  if(!isFinite(hpSeconds)||hpSeconds<=0) return null;
+  return {hpSeconds, waveSeconds:Math.max(0,waveSeconds), dps:1/hpSeconds, n:pts.length};
+}
+function farmStageTime(model, st){ return (+model.hpSeconds)*(+st.hp) + (+model.waveSeconds)*(+st.waves||0); }
+
+// farmRank: rank stages by EXP/hr or Gold/hr. `stages`=array of {key,lvl,hp,waves,spawns,exp,gold,no,di,act}.
+// opts: {model, hero, expStats:{pct,addExp,addExpNormal,addExpStageBoss}, metric:'exp'|'gold',
+//        measured:{keyStr:sec}, ceilingKey, diffFilter(0..3|-1), actFilter(1..3|0)}.
+// EXP bonus % (expStats.pct) is the wiki's editable `et` field; the flat rune-EXP terms are its Mt().
+// `measured` lets a stage you actually timed override the modeled clear time (HUD convenience; the
+// wiki does the same with calibration points). Gold uses the base reward (no level penalty).
+function farmRank(stages, opts){
+  opts=opts||{}; const model=opts.model; if(!model||!(model.hpSeconds>0)) return [];
+  const hero=+opts.hero||0, es=opts.expStats||{}, metric=opts.metric==='gold'?'gold':'exp';
+  const expMult=(es.pct>0)?(1+es.pct/100):1, measured=opts.measured||{};
+  const ceilingKey=(opts.ceilingKey!=null&&opts.ceilingKey!=='')?+opts.ceilingKey:null;
+  const rows=[];
+  for(const st of (stages||[])){
+    if(+st.no===10) continue;                                   // act boss — excluded like the wiki
+    if(!(st.hp>0)) continue;
+    if(ceilingKey!=null && +st.key>ceilingKey) continue;
+    let sec=measured[String(st.key)], isMeas=!!(sec>0);
+    if(!(sec>0)) sec=farmStageTime(model, st);
+    if(!(sec>0)) continue;
+    const kept=hero>0?farmExpKept(hero, st.lvl):1;
+    const spawns=+st.spawns||0;
+    const mt=(+es.addExp||0)*(spawns+1) + (+es.addExpNormal||0)*spawns + (+es.addExpStageBoss||0);
+    const expHr=(+st.exp + mt)*kept*expMult/sec*3600;
+    const goldHr=(+st.gold)/sec*3600;
+    const score=metric==='gold'?goldHr:expHr;
+    if(!(score>0)) continue;
+    rows.push({key:+st.key, st, sec, kept, expHr, goldHr, score, measured:isMeas});
+  }
+  rows.sort((a,b)=>(b.score-a.score)||(a.key-b.key));
+  let out=rows;
+  if(opts.diffFilter!=null && +opts.diffFilter>=0) out=out.filter(r=>r.st.di===+opts.diffFilter);
+  if(opts.actFilter) out=out.filter(r=>r.st.act===+opts.actFilter);
+  return out;
+}
+
+// ============================================================================
 // Build advisor (goal #6 deepened; beats tbh-copilot with authoritative data). All save-derived, no fabrication.
 
 // gearGaps: "you own better gear than you're wearing." Per hero, per equipped item, find an UNEQUIPPED owned item
@@ -479,4 +565,4 @@ function enchantStatus(psd){
 // account-wide runes/pet apply on top (shown separately). No fabricated composite — just the real numbers added up.
 function statTotals(sources){ const s=sources||{}; return sumStats([].concat(s.base||[],s.gear||[],s.tree||[])); }
 
-module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,gtGroupFromEnchants,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,craftRecipesFor,synthPoolsFor,cubeUsesOf,cubeSubFor,synthBandsFor,cubeUnlocks,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};
+module.exports={setDB,RARITY,decryptEs3,safeJsonParse,loadFromDecryptedText,loadSave,snapshot,snapshotFromPsd,gold,heroes,inventory,ownedItems,byRarity,trophies,tierCounts,lootDiff,runes,aggregates,summary,rates,trendPoint,buildTrends,perStageRates,farmExpKept,farmSolveModel,farmStageTime,farmRank,onlineOffline,gearGaps,redundantDupes,maxWearersGt,runePlan,enchantStatus,enchantStones,gtGroup,gtGroupFromEnchants,statTotals,runeStatList,statListFull,STAT_LIST,cumXp,accountXp,netTicksToDate,itemInfo,gearStats,heroClass,skillName,heroSources,accountBuffs,killsByMonster,sumStats,iconId,statName,resolveMods,boxContents,dropSources,craftRecipesFor,synthPoolsFor,cubeUsesOf,cubeSubFor,synthBandsFor,cubeUnlocks,parseOfflineEvents,offlineStatus,xpToNext,stageLabel,GOLD_KEY};

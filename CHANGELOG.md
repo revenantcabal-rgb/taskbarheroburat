@@ -4,6 +4,19 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.35 — 2026-06-23
+
+### Changed
+- **Farming optimizer now matches [taskbarhero.wiki/tools/farming](https://taskbarhero.wiki/tools/farming) 1:1.**
+  EXP/hr now applies the reference tool's **level-penalty model** — you keep ~100% EXP at or just above a stage's
+  level and far less when you out-level it (new **"EXP kept"** column) — so rankings reflect the EXP you'd actually
+  earn instead of overstating it on out-grown stages. Clear time is solved from **two timed clears** (damage rate +
+  per-wave overhead), act-boss stages are **excluded** (boss-only, not repeat-farmed), and **hero level + EXP-bonus %**
+  auto-fill from your save (editable). Verified number-for-number against the live tool (EXP/hr, Gold/hr, the kept curve).
+
+### Fixed
+- EXP/hr previously omitted the over/under-level penalty, badly overstating EXP on stages far from your level.
+
 ## v1.0.34 — 2026-06-23
 
 ### Changed

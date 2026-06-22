@@ -6,7 +6,14 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-23, after session 33 (v1.0.34). **v1.0.34 — crew DB outage fixed + crew API hardened (incident).**
+_Last updated: 2026-06-23, after session 34 (v1.0.35). **v1.0.35 — Farming optimizer made wiki-EXACT.** The Farming tab
+now reproduces taskbarhero.wiki/tools/farming 1:1: EXP/hr applies the reference tool's level-penalty curve (the wiki's
+`Ht()`, new "EXP kept" column) instead of the full base — fixing overstated EXP on off-level stages — with the wiki's
+`hpSeconds*HP + waveSeconds*waves` clear model (two timed clears), act bosses excluded, and hero level + EXP-bonus %
+auto-filled/editable. Our stage DATA was already wiki-exact (0% error); only the MATH was ported. The kept curve is the
+wiki's model of the in-game penalty (corroborated by measured ~10-14x over-level falloff), labelled as such — not a
+datamined fact. `tests/farming.test.js` proves the engine matches the wiki's own worked examples; 29/29 tests pass.
+Client-only (no API/Neon change). Previous note (session 33, v1.0.34): **crew DB outage fixed + crew API hardened (incident).**
 The Crew tab's "database error" was the Neon **free-tier data-transfer quota** (HTTP 402), proven by a new `/api/health`
 probe — Vercel hosting + the save reader were fine, and the game's v1.00.19 patch was unrelated. Hardened the crew API:
 `/api/health` diagnostic, **edge-caching** on /leaderboard + /feed, a **slimmer history query**, softer error copy, and
