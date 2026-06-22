@@ -1,0 +1,18 @@
+v1.0.34 verification & deploy note
+- Incident: crew "database error" = Neon FREE-TIER data-transfer quota (HTTP 402), proven by the NEW
+  GET /api/health probe (db:down, errorClass:suspended_or_quota). Vercel hosting + save-reading were fine;
+  the game v1.00.19 patch was unrelated. Root cause: /leaderboard pulled every member's full stats jsonb + 8
+  history snapshots each, on a 30s poll.
+- Fixes (read-only; server + client; nothing touches the game): api/health.js (sanitized DB probe, no secrets);
+  all 5 endpoints' 500 text softened "database error" -> "crew service temporarily unavailable"; edge-cache
+  /leaderboard + /feed 200s (s-maxage=20, swr=40, Vary:Origin) so polls hit Vercel's CDN not Neon; /leaderboard
+  history trimmed to the 4 scalars momentum needs (stats->>'lifeGold' ...); client pauses crew polling while
+  hidden (!document.hidden).
+- Ban-safety: 21/21 node tests pass (static scan extended to api/health.js). API commits auto-deployed to
+  taskbarheroburat and verified live (softened text returns; /api/health pinpointed the 402).
+- DESKTOP RELEASE: v1.0.34 published (gh release create --latest) with TBH-HUD-Setup-1.0.34.exe (72.2 MB) +
+  latest.yml (sha512 independently verified to match the exe). package.json + dashboard APP_VERSION both 1.0.34;
+  in-app What's-new + CHANGELOG/PROGRESS/improvement.log updated. v1.0.6+ installs auto-update.
+- PENDING (owner): crew DB restore — a fresh Neon ap-southeast-1 pooled DB was provided + connection-tested OK;
+  set Vercel env DATABASE_URL to it + redeploy (needs a token for mathew-mercado-s-projects, or set in dashboard).
+  The crew fix is server-side, so it reaches every installed HUD with no app update.
