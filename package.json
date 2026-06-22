@@ -1,12 +1,13 @@
 {
   "name": "tbh-hud",
-  "version": "1.0.35",
+  "version": "1.0.36",
   "description": "Read-only companion HUD for TBH: Task Bar Hero",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win",
-    "test": "node --test \"tests/**/*.test.js\""
+    "test": "node --test \"tests/**/*.test.js\"",
+    "e2e": "playwright test"
   },
   "author": "revenantcabal",
   "license": "MIT",

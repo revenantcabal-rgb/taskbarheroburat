@@ -4,6 +4,23 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.36 — 2026-06-23
+
+### Added
+- **Live tab — derived combat metrics.** A **Damage rate** and **Avg clear**, computed from your measured kill pace ×
+  the stage's datamined HP — the closest a ban-safe tool gets to "live DPS" without ever reading game memory.
+- **Steam Market links.** Marketable gear (Legendary+) gets a **"View on Steam Market"** link on its Codex page →
+  live listings & price in your browser. (The HUD still never fetches anything itself; the link just opens your browser.)
+- **Farming — Gold find %.** A new field (auto-filled from your runes, editable); **Gold/hr now includes your
+  gold-find bonus** instead of only the base reward.
+
+### Changed
+- The desktop **mini-HUD** now follows your language setting (English / 简体中文).
+
+### Fixed
+- **Reliability:** the renderer now has an automated **end-to-end test suite** (Playwright) that drives every tab and
+  fails the build on any console error — closing the gap that let past UI regressions ship.
+
 ## v1.0.35 — 2026-06-23
 
 ### Changed

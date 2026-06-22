@@ -80,6 +80,17 @@ test('gold has NO level penalty (kept never touches goldHr)', () => {
   assert.strictEqual(hi.goldHr, lo.goldHr, 'gold/hr identical regardless of hero level');
 });
 
+test('gold-find multiplier + flat gold runes scale Gold/hr (gold-find IS applied, not just base)', () => {
+  const m = farmSolveModel([{ hp: 56, waves: 10, sec: 8 }, { hp: 2920129, waves: 23, sec: 120 }]);
+  const base = farmRank([S[2305]], { model: m, hero: 50, metric: 'gold' })[0];
+  const boosted = farmRank([S[2305]], { model: m, hero: 50, metric: 'gold', goldStats: { pct: 100 } })[0];
+  assert.ok(rel(boosted.goldHr, base.goldHr * 2) < 1e-9, '+100% gold-find doubles gold/hr');
+  // +1 flat AdditionalGold on 2305 (spawns 322) -> +323 gold/clear (322 normal mobs + 1 stage boss)
+  const flat = farmRank([S[2305]], { model: m, hero: 50, metric: 'gold', goldStats: { addGold: 1 } })[0];
+  const perBase = base.goldHr * base.sec / 3600, perFlat = flat.goldHr * flat.sec / 3600;
+  assert.ok(Math.abs((perFlat - perBase) - 323) < 1e-6, 'AdditionalGold +1 adds 323 gold/clear on 2305');
+});
+
 test('flat rune EXP (Mt) adds per-kill EXP across spawns + the stage boss', () => {
   const m = farmSolveModel([{ hp: 56, waves: 10, sec: 8 }, { hp: 2920129, waves: 23, sec: 120 }]);
   // +1 AdditionalExp on 1-1 (spawns 10) -> +11 EXP/clear (10 normal mobs + 1 stage boss)

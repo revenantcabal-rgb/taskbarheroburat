@@ -1,6 +1,29 @@
 # TBH HUD — improvement.log
-Updated 2026-06-23 (session 34 · app v1.0.35). Read-only companion for "TBH: Task Bar Hero" (v1.00.11 baseline; live game v1.00.19).
+Updated 2026-06-23 (session 35 · app v1.0.36). Read-only companion for "TBH: Task Bar Hero" (v1.00.11 baseline; live game v1.00.19).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S35 (v1.0.36) — gap-analysis hardening pass (E2E · live derived metrics · farming gold-find · Steam Market · mini i18n)
+Owner asked to close the build's gap analysis (after I rated it 8/10). Six items, priority order. **P1:** (1) LIVE-DATA
+STORY — DECIDED to OWN the ban-safe limit (NO memory reader: it would break the ban-safety invariants/tests that are the
+project's whole value). Instead added DERIVED live combat metrics to the Live tab: Damage rate + Avg clear from measured
+kills/hr × the stage's datamined HP/spawns, clearly labelled "derived · not a memory read"; footnote reworded. (2)
+RENDERER E2E — the ~5,800-line UI had ZERO automated coverage (past UI regressions shipped: the v1.0.23 i18n restore, the
+v1.0.22 blank mini-HUD). NEW Playwright harness: `tests/e2e/serve.js` (zero-dep static server) + `tests/e2e/dashboard.spec.js`
+drives the real `dashboard.html?demo` through ALL 13 tabs asserting zero console errors, plus the regression hotspots
+(EN→中文→EN i18n restore, the Farming penalty column). `playwright.config.js` rewritten (chromium + node webServer);
+`npm run e2e`; CI gained an `e2e` job (installs chromium, runs Playwright). **P2:** (3) FARMING GOLD-FIND — `Increase
+Gold Amount` IS in the rune data, so added a Gold-find % field (auto-filled from runes, editable) + flat gold runes;
+`farmRank`/`farmRows` now compute `gold*goldMult + flatGold` (was base-only). Test added: +100% gold doubles gold/hr;
+AdditionalGold +1 = +323/clear on 2-6 NM. EXP% stays rune-only auto-fill + editable (full gear/pet/passive aggregation
+would risk fabrication — golden rule; field is editable to match a maxed account). (4) STEAM MARKET — ban-safe LINK-OUT
+(no foreign fetch → invariant 3 stays airtight): marketable Legendary+ gear gets a "View on Steam Market" link (market
+search, appid 3678970) on its Codex page; added `win.webContents.setWindowOpenHandler` in main.js so external links open
+in the user's DEFAULT BROWSER. **P3:** (5) CREW DB — avoided risky live-env surgery on the working crew; instead added the
+DB endpoint-id (sanitized, NO creds) to `/api/health` so a silent revert to the dead DB is instantly visible (the manual
+old-integration disconnect stays documented in OPS-PRIVATE). (6) i18n TAIL — mini.html made bilingual (reads the shared
+`tbh_lang`, EN fallback); every NEW string this session ships EN + 简体中文. VERIFIED: **30 unit tests + 4 E2E pass**;
+ban-safety 4/4 (the Steam link + shell.openExternal trip no invariant); 0 console errors across all 13 tabs. Client +
+one tiny api/health observability line; nothing touches the game. See [[tbh-farming-atlas-data]].
 
 ## S34 (v1.0.35) — Farming tab made wiki-EXACT (the EXP level-penalty was missing)
 Owner: "the farming tab is providing false info — it doesn't match taskbarhero.wiki/tools/farming; you're not getting

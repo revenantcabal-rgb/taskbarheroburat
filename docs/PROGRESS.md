@@ -6,7 +6,14 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-23, after session 34 (v1.0.35). **v1.0.35 — Farming optimizer made wiki-EXACT.** The Farming tab
+_Last updated: 2026-06-23, after session 35 (v1.0.36). **v1.0.36 — gap-analysis hardening pass.** Closed the build's top
+gaps (after an 8/10 self-rating): (P1) the renderer finally has automated coverage — a NEW Playwright E2E suite drives
+every tab + the i18n/Farming regression hotspots, wired into CI (past UI bugs shipped because only the engine was
+tested); the Live tab now shows DERIVED combat metrics (Damage rate + Avg clear from measured kill pace × datamined HP)
+— the ban-safe answer to "no live DPS" (firm decision: never read game memory). (P2) Farming Gold/hr now applies your
+gold-find % (rune-derived, editable) instead of base-only; marketable Legendary+ gear gets a ban-safe "View on Steam
+Market" link. (P3) /api/health reports the DB endpoint-id (silent-revert tripwire); the mini-HUD is bilingual. 30 unit
++ 4 E2E pass; ban-safety 4/4. Previous note (session 34, v1.0.35): **Farming optimizer made wiki-EXACT.** The Farming tab
 now reproduces taskbarhero.wiki/tools/farming 1:1: EXP/hr applies the reference tool's level-penalty curve (the wiki's
 `Ht()`, new "EXP kept" column) instead of the full base — fixing overstated EXP on off-level stages — with the wiki's
 `hpSeconds*HP + waveSeconds*waves` clear model (two timed clears), act bosses excluded, and hero level + EXP-bonus %

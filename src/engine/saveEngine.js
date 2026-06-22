@@ -283,15 +283,15 @@ function farmSolveModel(points){
 function farmStageTime(model, st){ return (+model.hpSeconds)*(+st.hp) + (+model.waveSeconds)*(+st.waves||0); }
 
 // farmRank: rank stages by EXP/hr or Gold/hr. `stages`=array of {key,lvl,hp,waves,spawns,exp,gold,no,di,act}.
-// opts: {model, hero, expStats:{pct,addExp,addExpNormal,addExpStageBoss}, metric:'exp'|'gold',
-//        measured:{keyStr:sec}, ceilingKey, diffFilter(0..3|-1), actFilter(1..3|0)}.
-// EXP bonus % (expStats.pct) is the wiki's editable `et` field; the flat rune-EXP terms are its Mt().
-// `measured` lets a stage you actually timed override the modeled clear time (HUD convenience; the
-// wiki does the same with calibration points). Gold uses the base reward (no level penalty).
+// opts: {model, hero, expStats:{pct,addExp,addExpNormal,addExpStageBoss}, goldStats:{pct,addGold,addGoldNormal,
+//        addGoldStageBoss}, metric:'exp'|'gold', measured:{keyStr:sec}, ceilingKey, diffFilter(0..3|-1), actFilter(1..3|0)}.
+// EXP bonus % (expStats.pct) is the wiki's editable `et`; the flat rune-EXP terms are its Mt(). `measured` lets a
+// stage you actually timed override the modeled clear time. Gold has NO level penalty, but DOES take your gold-find
+// multiplier (goldStats.pct) + flat gold runes when provided (omit -> base reward, matching the wiki's no-save case).
 function farmRank(stages, opts){
   opts=opts||{}; const model=opts.model; if(!model||!(model.hpSeconds>0)) return [];
-  const hero=+opts.hero||0, es=opts.expStats||{}, metric=opts.metric==='gold'?'gold':'exp';
-  const expMult=(es.pct>0)?(1+es.pct/100):1, measured=opts.measured||{};
+  const hero=+opts.hero||0, es=opts.expStats||{}, gs=opts.goldStats||{}, metric=opts.metric==='gold'?'gold':'exp';
+  const expMult=(es.pct>0)?(1+es.pct/100):1, goldMult=(gs.pct>0)?(1+gs.pct/100):1, measured=opts.measured||{};
   const ceilingKey=(opts.ceilingKey!=null&&opts.ceilingKey!=='')?+opts.ceilingKey:null;
   const rows=[];
   for(const st of (stages||[])){
@@ -304,8 +304,9 @@ function farmRank(stages, opts){
     const kept=hero>0?farmExpKept(hero, st.lvl):1;
     const spawns=+st.spawns||0;
     const mt=(+es.addExp||0)*(spawns+1) + (+es.addExpNormal||0)*spawns + (+es.addExpStageBoss||0);
+    const gFlat=(+gs.addGold||0)*(spawns+1) + (+gs.addGoldNormal||0)*spawns + (+gs.addGoldStageBoss||0);
     const expHr=(+st.exp + mt)*kept*expMult/sec*3600;
-    const goldHr=(+st.gold)/sec*3600;
+    const goldHr=((+st.gold)*goldMult + gFlat)/sec*3600;
     const score=metric==='gold'?goldHr:expHr;
     if(!(score>0)) continue;
     rows.push({key:+st.key, st, sec, kept, expHr, goldHr, score, measured:isMeas});

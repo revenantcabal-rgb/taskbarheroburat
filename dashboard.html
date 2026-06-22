@@ -3723,7 +3723,7 @@ function renderAdvisor(d){
    never anything not listed in the panel); turning it off stops pushes instantly.
    Backend: Vercel serverless + Neon Postgres, gated by a shared crew code.
    ========================================================================== */
-var APP_VERSION='1.0.35';
+var APP_VERSION='1.0.36';
 var CREW_API='https://taskbarheroburat.vercel.app/api';   // canonical crew endpoint — owner's own Vercel project (Neon DB attached v1.0.29); one DB so crews never split
 
 /* ============================================================================
@@ -3733,6 +3733,15 @@ var CREW_API='https://taskbarheroburat.vercel.app/api';   // canonical crew endp
    works identically on GitHub Pages, Vercel and the file://-loaded desktop app.
    ========================================================================== */
 var CHANGELOG=[
+  {v:'1.0.36',d:'2026-06-23',sec:{
+    Added:[
+      'Live tab now shows a derived Damage rate and Avg clear, computed from your measured kill pace × the stage\'s datamined HP — the closest a ban-safe tool can get to "live DPS" without ever reading game memory.',
+      'Marketable gear (Legendary+) now has a "View on Steam Market" link on its Codex page — it opens live listings & price in your browser. The HUD still never fetches anything itself.',
+      'Farming: a new Gold find % field (auto-filled from your runes, editable) — Gold/hr now includes your gold-find bonus instead of showing only the base reward.'],
+    Changed:[
+      'The desktop mini-HUD now follows your language setting (English / 简体中文).'],
+    Fixed:[
+      'Reliability: the whole interface now has an automated end-to-end test suite that drives every tab and fails the build on any error — so visual regressions are caught before they ever reach you.']}},
   {v:'1.0.35',d:'2026-06-23',sec:{
     Changed:[
       'Farming optimizer now matches the community tool at taskbarhero.wiki/tools/farming 1:1. EXP/hr finally applies the level-penalty: you keep ~100% EXP at or just above a stage\'s level and far less when you out-level it — shown in a new "EXP kept" column — so the rankings tell the truth instead of overstating EXP on stages you\'ve out-grown. Clear time is solved from two timed clears (your damage rate + per-wave overhead), exactly like the reference tool; act-boss stages are excluded (boss-only, not repeat-farmed); and your hero level + EXP-bonus % auto-fill from your save (editable). Verified number-for-number against the live tool\'s own output.'],
@@ -4733,7 +4742,15 @@ function openCodexDetail(e,owned){
   var flags=[];if(e.steam)flags.push('Steam item');
   if(e.mkt)flags.push('tradeable / marketable on the Steam Community Market');
   else if(e.cat==='GEAR'||e.cat==='MATERIAL')flags.push('not marketable');
-  if(flags.length)html+=sec('Trading','<div class="cxnote">'+esc(flags.join(' · '))+'</div>');
+  if(flags.length){
+    var tradeInner='<div class="cxnote">'+esc(flags.join(' · '))+'</div>';
+    // Marketable items get a ban-safe link OUT to the Steam Community Market (a plain href the user clicks — the HUD
+    // never fetches a price itself, keeping the renderer's "crew-API-only" network contract airtight). Opens a search
+    // for this item's name on the game's market (appid 3678970) so you can see live listings + price in your browser.
+    if(e.mkt){ var mq=encodeURIComponent(e.name||'');
+      tradeInner+='<div style="margin-top:7px"><a class="chip mkt" href="https://steamcommunity.com/market/search?appid=3678970&amp;q='+mq+'" target="_blank" rel="noopener" title="'+loc('Opens the Steam Community Market in your browser — see live listings &amp; price for this item','在浏览器中打开 Steam 社区市场 — 查看该物品的实时挂单与价格')+'">💰 '+loc('View on Steam Market','在 Steam 市场查看')+' ↗</a></div>'; }
+    html+=sec('Trading',tradeInner);
+  }
 
   var sections=el('<div></div>');sections.innerHTML=html;
   var mo=el('<div class="cxmodal"></div>');
@@ -4793,7 +4810,7 @@ function showConnectHint(name){var p=$('tab-'+name);if(!p)return;
    No EXP-level-penalty % is shown (that curve lives in game code, not the data files) — instead each stage's LEVEL
    and a level-fit hint are surfaced, since the game pays the most EXP near your level. Numbers are labelled "est". */
 var FARM_DIFF=['Normal','Nightmare','Hell','Torment'];
-var farmState={mode:'auto',metric:'exp',diff:'all',act:'all',cal:[{stage:'',min:'',sec:''}],showAll:false,hero:'',expPct:''};
+var farmState={mode:'auto',metric:'exp',diff:'all',act:'all',cal:[{stage:'',min:'',sec:''}],showAll:false,hero:'',expPct:'',goldPct:''};
 function farmList(){ var sf=DB.stageFarm||{}; return Object.keys(sf).map(function(k){return {k:k,f:sf[k]};})
   .filter(function(x){return x.f&&x.f.hp>0;}).sort(function(a,b){return (stageIdx(a.k)||0)-(stageIdx(b.k)||0);}); }
 function farmHeroLvl(d){ var m=0; ((d&&d.heroes)||[]).forEach(function(h){ if((h.level||0)>m)m=h.level||0; }); return m||null; }
@@ -4815,7 +4832,8 @@ function farmStageTimeD(model,f){ return (+model.hpSeconds)*(+f.hp)+(+model.wave
 // EXP-rune stats from the save's rune Stat List (rune-only, like the in-game Stat List; the EXP% field is editable
 // so users with gear/pet/passive EXP can match the wiki's full figure). {pct=% , addExp, addExpNormal, addExpStageBoss}.
 function farmExpStats(d){ var by={}; ((d&&d.runeStats)||[]).forEach(function(s){by[s.eff]=s.total;});
-  return {pct:(by['Increase Exp Amount']||0)/10, addExp:by['Additional Exp']||0, addExpNormal:by['Additional Exp Normal Monster']||0, addExpStageBoss:by['Additional Exp Stage Boss']||0}; }
+  return {pct:(by['Increase Exp Amount']||0)/10, addExp:by['Additional Exp']||0, addExpNormal:by['Additional Exp Normal Monster']||0, addExpStageBoss:by['Additional Exp Stage Boss']||0,
+          goldPct:(by['Increase Gold Amount']||0)/10, addGold:by['Additional Gold']||0, addGoldNormal:by['Additional Gold Normal Monster']||0, addGoldStageBoss:by['Additional Gold Stage Boss']||0}; }
 // build a {hpSeconds,waveSeconds} clear model from the player's MEASURED per-stage clear times (Auto mode). >=2 stages
 // solves both terms; 1 stage gives hpSeconds only (no separable wave overhead). Returns null if nothing measured.
 function farmModelFromMeas(meas){ var pts=[]; Object.keys(meas||{}).forEach(function(k){ var f=(DB.stageFarm||{})[k], m=meas[k]; if(f&&f.hp>0&&m&&m.clearSec>0) pts.push({hp:f.hp,waves:f.waves,sec:m.clearSec}); });
@@ -4859,13 +4877,14 @@ function farmFitOrder(gap){ var k=farmFitKind(gap); return k==='good'?0:(k==='na
 // that stage when available (Auto), else the model's prediction. EXP/hr applies the kept level-penalty + EXP% + flat
 // rune EXP; Gold/hr is the base reward (no level penalty). model.expStats carries the rune EXP figures + the EXP%.
 function farmRows(model,heroLvl,meas){ meas=meas||{};
-  var es=(model&&model.expStats)||{}, expMult=(es.pct>0)?(1+es.pct/100):1;
+  var es=(model&&model.expStats)||{}, gs=(model&&model.goldStats)||{}, expMult=(es.pct>0)?(1+es.pct/100):1, goldMult=(gs.pct>0)?(1+gs.pct/100):1;
   return farmList().filter(function(x){return +x.f.no!==10;}).map(function(x){ var f=x.f, key=x.k, m=meas[key];
     var sec=(m&&m.clearSec>0)?m.clearSec:farmStageTimeD(model,f);
     var kept=heroLvl>0?expKeptD(heroLvl,f.lvl):1, sp=+f.spawns||0;
     var mt=(+es.addExp||0)*(sp+1)+(+es.addExpNormal||0)*sp+(+es.addExpStageBoss||0);
+    var gFlat=(+gs.addGold||0)*(sp+1)+(+gs.addGoldNormal||0)*sp+(+gs.addGoldStageBoss||0);
     return {k:key,f:f,sec:sec,kept:kept,gap:farmFitGap(f,heroLvl),measured:!!(m&&m.clearSec>0),
-      goldHr:sec>0?(f.gold/sec*3600):0,
+      goldHr:sec>0?((f.gold*goldMult+gFlat)/sec*3600):0,
       expHr:sec>0?((f.exp+mt)*kept*expMult/sec*3600):0}; });
 }
 function farmRank(model,heroLvl,meas){
@@ -4943,21 +4962,25 @@ function renderFarming(d){
   var heroLvl=(farmState.hero!==''&&farmState.hero!=null)?(parseInt(farmState.hero,10)||0):(autoHero||0);
   var expPct=(farmState.expPct!==''&&farmState.expPct!=null)?(parseFloat(farmState.expPct)||0):(autoStats.pct||0);
   var expStats={pct:expPct,addExp:autoStats.addExp,addExpNormal:autoStats.addExpNormal,addExpStageBoss:autoStats.addExpStageBoss};
+  var goldPct=(farmState.goldPct!==''&&farmState.goldPct!=null)?(parseFloat(farmState.goldPct)||0):(autoStats.goldPct||0);
+  var goldStats={pct:goldPct,addGold:autoStats.addGold,addGoldNormal:autoStats.addGoldNormal,addGoldStageBoss:autoStats.addGoldStageBoss};
   var inRow=el('<div class="farmcal" style="margin:0 0 6px;flex-wrap:wrap"></div>');
-  var lh=el('<label>'+loc('Hero level','英雄等级')+'</label>'); var ih=el('<input type="number" min="1" max="200" style="width:84px" placeholder="'+(autoHero||31)+'" value="'+esc(farmState.hero!==''?farmState.hero:(autoHero||''))+'">');
+  var lh=el('<label>'+loc('Hero level','英雄等级')+'</label>'); var ih=el('<input type="number" min="1" max="200" style="width:80px" placeholder="'+(autoHero||31)+'" value="'+esc(farmState.hero!==''?farmState.hero:(autoHero||''))+'">');
   ih.addEventListener('change',function(){ farmState.hero=ih.value; renderFarming(current); }); lh.appendChild(ih); inRow.appendChild(lh);
-  var le=el('<label>'+loc('EXP bonus %','经验加成 %')+'</label>'); var ie=el('<input type="number" min="0" step="1" style="width:96px" placeholder="0" value="'+esc(farmState.expPct!==''?farmState.expPct:(autoStats.pct||''))+'">');
+  var le=el('<label>'+loc('EXP bonus %','经验加成 %')+'</label>'); var ie=el('<input type="number" min="0" step="1" style="width:84px" placeholder="0" value="'+esc(farmState.expPct!==''?farmState.expPct:(autoStats.pct||''))+'">');
   ie.addEventListener('change',function(){ farmState.expPct=ie.value; renderFarming(current); }); le.appendChild(ie); inRow.appendChild(le);
-  if(farmState.hero!==''||farmState.expPct!==''){ var rst=el('<button class="ghost" type="button" style="align-self:flex-end">↺ '+loc('auto','自动')+'</button>'); rst.addEventListener('click',function(){ farmState.hero='';farmState.expPct='';renderFarming(current); }); inRow.appendChild(rst); }
+  var lg=el('<label>'+loc('Gold find %','金币加成 %')+'</label>'); var ig=el('<input type="number" min="0" step="1" style="width:84px" placeholder="0" value="'+esc(farmState.goldPct!==''?farmState.goldPct:(autoStats.goldPct||''))+'">');
+  ig.addEventListener('change',function(){ farmState.goldPct=ig.value; renderFarming(current); }); lg.appendChild(ig); inRow.appendChild(lg);
+  if(farmState.hero!==''||farmState.expPct!==''||farmState.goldPct!==''){ var rst=el('<button class="ghost" type="button" style="align-self:flex-end">↺ '+loc('auto','自动')+'</button>'); rst.addEventListener('click',function(){ farmState.hero='';farmState.expPct='';farmState.goldPct='';renderFarming(current); }); inRow.appendChild(rst); }
   p.appendChild(inRow);
-  p.appendChild(el('<div class="fine" style="margin:-2px 0 10px">'+loc('Auto-filled from your save (rune EXP) — editable; add gear/pet/passive EXP to match your in-game total. EXP/hr uses the reference tool\'s level-penalty model; Gold/hr is the base reward (no level penalty).','已根据存档（符文经验）自动填充，可编辑——加上装备/宠物/被动经验以匹配游戏内总值。经验/小时采用参考工具的等级惩罚模型；金币/小时为基础奖励（无等级惩罚）。')+'</div>'));
+  p.appendChild(el('<div class="fine" style="margin:-2px 0 10px">'+loc('Auto-filled from your save\'s runes — editable; add your gear/pet/passive bonuses to match your in-game totals. EXP/hr uses the reference tool\'s level-penalty model; Gold/hr applies your gold-find % (gold has no level penalty).','已根据存档符文自动填充，可编辑——加上装备/宠物/被动加成以匹配游戏内总值。经验/小时采用参考工具的等级惩罚模型；金币/小时计入你的金币加成（金币无等级惩罚）。')+'</div>'));
 
   var model=null, calInfo='', meas={};
   if(farmState.mode==='auto'){
     if(!d){ p.appendChild(el('<div class="connect-hint"><div class="ch-ico">⚙</div><div class="ch-title">'+loc('Connect your save for Auto mode','连接存档以使用自动模式')+'</div><div class="ch-sub">'+loc('Auto reads your hero level + EXP bonus and your measured clear pace from your save. No save? Switch to <b>Manual</b> and enter two clear times.','自动模式从存档读取英雄等级、经验加成与实测速度。没有存档？切到“手动”输入两次通关时间。')+'</div></div>'));
       farmReboot(p,d,null,heroLvl,'auto',''); return; }
     var eng=farmAutoEngine(d); meas=eng.meas||{}; model=farmModelFromMeas(meas);
-    if(model){ model.expStats=expStats;
+    if(model){ model.expStats=expStats; model.goldStats=goldStats;
       var measN=Object.keys(meas).filter(function(k){return meas[k].clearSec>0;}).length;
       calInfo=loc('Clear speed measured from your save','速度来自你的存档实测')+(measN>0?(' · '+measN+loc(' stage(s) timed directly',' 个关卡直接计时')):'')+(model.single?loc(' — time a second, very different stage in Manual for a sharper model',' — 在手动模式给另一难度的关卡计时会更准'):''); }
   } else {
@@ -4977,7 +5000,7 @@ function renderFarming(d){
     var go=el('<button class="primary" type="button">'+loc('Rank stages','排序关卡')+'</button>'); go.addEventListener('click',function(){ renderFarming(current); }); btns.appendChild(go);
     p.appendChild(btns);
     var pts=farmState.cal.map(function(s){ var f=(DB.stageFarm||{})[s.stage]; var sec=(parseInt(s.min||0,10)||0)*60+(parseInt(s.sec||0,10)||0); return (f&&f.hp>0&&sec>0)?{hp:f.hp,waves:f.waves,sec:sec}:null; }).filter(Boolean);
-    model=farmSolveModelD(pts); if(model){ model.expStats=expStats; calInfo=loc('Calibrated from ','已用 ')+model.n+loc(' clear times · ~',' 次通关时间 · 每波约 ')+model.waveSeconds.toFixed(2)+loc('s/wave overhead','秒'); }
+    model=farmSolveModelD(pts); if(model){ model.expStats=expStats; model.goldStats=goldStats; calInfo=loc('Calibrated from ','已用 ')+model.n+loc(' clear times · ~',' 次通关时间 · 每波约 ')+model.waveSeconds.toFixed(2)+loc('s/wave overhead','秒'); }
   }
   farmReboot(p,d,model,heroLvl,farmState.mode,calInfo,meas);
 }
@@ -5054,7 +5077,7 @@ function farmReboot(p,d,model,heroLvl,mode,calInfo,meas){
   t.appendChild(tb); wrap.appendChild(t); p.appendChild(wrap);
   if(rows.length>30&&!farmState.showAll){ var more=el('<button class="ghost" type="button" style="margin-top:10px">'+loc('Show all ','显示全部 ')+rows.length+loc(' stages','个关卡')+'</button>'); more.addEventListener('click',function(){farmState.showAll=true;renderFarming(current);}); p.appendChild(more); }
   var anyMeas=rows.some(function(r){return r.measured;});
-  p.appendChild(el('<div class="crewnote" style="margin-top:14px">'+(anyMeas?('<span style="color:var(--good);font-weight:800">●</span> '+loc('= clear time measured directly from your own play; other times are projected from your model.','= 通关时间直接来自你的实测；其余为模型推算。')+'<br>'):'')+'<b>'+loc('How this works','原理')+':</b> '+loc('This reproduces <b>taskbarhero.wiki/tools/farming</b>. Clear time = your damage-rate × stage HP + a per-wave overhead, solved from your timed clears. <b>EXP/hr</b> applies the reference tool\'s <b>level-penalty model</b> (the “EXP kept” column): you keep ~100% at or just above a stage\'s level and far less when you out-level it — this curve is the wiki\'s model of the in-game penalty, not a raw datamined value. <b>Gold/hr</b> has no level penalty. Stage HP/EXP/Gold are the game\'s own datamined values; act-boss stages are excluded (boss-only, not repeat-farmed), exactly as the reference tool omits them.','此功能复刻 <b>taskbarhero.wiki/tools/farming</b>。通关时间 = 你的伤害速率 × 关卡血量 + 每波耗时，由你的计时解出。<b>经验/小时</b>采用参考工具的<b>等级惩罚模型</b>（“保留经验”列）：在接近关卡等级时约保留 100%，等级过高则大幅衰减——该曲线为 wiki 对游戏内惩罚的建模，并非原始数据化数值。<b>金币/小时</b>无等级惩罚。关卡血量/经验/金币均为游戏数据化数值；章节 Boss 关卡（仅 Boss、不重复刷）已排除，与参考工具一致。')+'</div>'));
+  p.appendChild(el('<div class="crewnote" style="margin-top:14px">'+(anyMeas?('<span style="color:var(--good);font-weight:800">●</span> '+loc('= clear time measured directly from your own play; other times are projected from your model.','= 通关时间直接来自你的实测；其余为模型推算。')+'<br>'):'')+'<b>'+loc('How this works','原理')+':</b> '+loc('This reproduces <b>taskbarhero.wiki/tools/farming</b>. Clear time = your damage-rate × stage HP + a per-wave overhead, solved from your timed clears. <b>EXP/hr</b> applies the reference tool\'s <b>level-penalty model</b> (the “EXP kept” column): you keep ~100% at or just above a stage\'s level and far less when you out-level it — this curve is the wiki\'s model of the in-game penalty, not a raw datamined value. <b>Gold/hr</b> has no level penalty but includes your gold-find %. Stage HP/EXP/Gold are the game\'s own datamined values; act-boss stages are excluded (boss-only, not repeat-farmed), exactly as the reference tool omits them.','此功能复刻 <b>taskbarhero.wiki/tools/farming</b>。通关时间 = 你的伤害速率 × 关卡血量 + 每波耗时，由你的计时解出。<b>经验/小时</b>采用参考工具的<b>等级惩罚模型</b>（“保留经验”列）：在接近关卡等级时约保留 100%，等级过高则大幅衰减——该曲线为 wiki 对游戏内惩罚的建模，并非原始数据化数值。<b>金币/小时</b>无等级惩罚但计入你的金币加成。关卡血量/经验/金币均为游戏数据化数值；章节 Boss 关卡（仅 Boss、不重复刷）已排除，与参考工具一致。')+'</div>'));
   farmAtlasCrossLink(p);
 }
 function farmAtlasCrossLink(p){
@@ -5287,6 +5310,14 @@ function renderLive(d){
   grid.appendChild(el(card('liveGold',loc('Gold this session','本次金币'), m.sg!=null?('+'+fmt(m.sg)):'—', m.gph!=null?('<span class="livehot">📈 '+fmtShort(m.gph)+'/h</span>'):loc('measuring…','测量中…'))));
   grid.appendChild(el(card('liveKills',loc('Kills this session','本次击杀'), m.sk!=null?('+'+fmt(m.sk)):'—', m.kph!=null?('💀 '+fmtShort(m.kph)+'/h'):loc('measuring…','测量中…'))));
   grid.appendChild(el(card('liveStage',loc('Current stage','当前关卡'), esc(stageActLabel(d.stage)), (stageName(d.stage)?esc(stageName(d.stage)):'')+(d.wave?(' · '+loc('wave ','波次 ')+d.wave):''))));
+  // DERIVED combat metrics — computed from your MEASURED kill pace × the stage's datamined HP/spawns, NOT a memory
+  // read. This is the closest a ban-safe tool gets to "live DPS": clears/hr from kills/hr, then HP cleared per second.
+  var liveCf=(DB.stageFarm||{})[String(d.stage)];
+  if(liveCf&&liveCf.hp>0&&+liveCf.no!==10&&m.kph>0){
+    var liveClearsHr=m.kph/((liveCf.spawns||0)+1), liveAvgSec=liveClearsHr>0?3600/liveClearsHr:null, liveDmg=liveClearsHr*liveCf.hp/3600;
+    grid.appendChild(el(card('liveClear',loc('Avg clear (derived)','平均通关（推算）'), liveAvgSec?('~'+fmtClear(liveAvgSec)):'—', loc('from your measured kill pace','源自你的实测击杀速度'))));
+    grid.appendChild(el(card('liveDmg',loc('Damage rate (derived)','伤害速率（推算）'), fmtShort(Math.round(liveDmg))+'/s', loc('HP cleared per second · not a memory read','每秒清除血量 · 非内存读取'))));
+  }
   p.appendChild(grid);
   if(lastSaveFileMs&&m.gph!=null){
     p.appendChild(el('<div class="liveproj"><span class="livepulse" aria-hidden="true"></span>'+loc('Since your last save write ','自上次存档写入 ')+'(<span id="liveSavedAgo">'+fmtAgo(lastSaveFileMs)+'</span>): <b id="liveProj">+0</b> '+loc('gold projected','金币（推算）')+' <span class="livesub2">— '+loc('at your measured pace; confirms on the next save write','按测量速度推算；下次写入时确认')+'</span></div>'));
@@ -5307,7 +5338,7 @@ function renderLive(d){
     sec.appendChild(list);
   }
   p.appendChild(sec);
-  p.appendChild(el('<div class="crewnote" style="margin-top:14px">'+loc('Everything here is read from your own save file and Player.log — the same read-only sources the rest of the HUD uses. No game memory is read or written, so there is no live DPS or clear-time (those would require touching the game), but every number above is real and updates as you play.','以上全部来自你自己的存档与 Player.log — 与 HUD 其余部分相同的只读来源。不读写游戏内存，因此没有实时 DPS（那需要触碰游戏），但以上数字均为真实并随游戏更新。')+'</div>'));
+  p.appendChild(el('<div class="crewnote" style="margin-top:14px">'+loc('Everything here is read from your own save file and Player.log — the same read-only sources the rest of the HUD uses. <b>We never read game memory</b> (that is what keeps the HUD ban-safe), so there is no instant frame-by-frame DPS. Instead the <b>Damage rate</b> and <b>Avg clear</b> above are honestly <b>derived</b> from your measured kill pace × the stage\'s datamined HP — not invented, not read from the game — and every other number is read straight from your save. This is also why the Farming tab measures your pace (or asks for a clear time) rather than reading live damage.','以上全部来自你自己的存档与 Player.log — 与 HUD 其余部分相同的只读来源。<b>我们从不读取游戏内存</b>（这正是 HUD 封号安全的原因），因此没有逐帧实时 DPS。上方的<b>伤害速率</b>与<b>平均通关</b>是由你的实测击杀速度 × 关卡数据化血量<b>推算</b>得出——非臆造、非读取游戏——其余数字均直接来自你的存档。这也是刷怪页要测量你的速度（或询问通关时间）而非读取实时伤害的原因。')+'</div>'));
   liveTick();   // prime the ticking values right away
 }
 // 1 Hz updater — patches ONLY the live text nodes (no re-render, so DOM + scroll stay put)

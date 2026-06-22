@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -58,6 +58,13 @@ function createWindow() {
   });
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, '..', 'dashboard.html'));
+  // External links (the footer GitHub link + the Steam Market link on marketable items) open in the user's DEFAULT
+  // BROWSER, never a bare in-app window. This is the ONLY outbound navigation the app makes — and it's the user
+  // clicking through to their own browser, so the read-only / ban-safe contract is unchanged (no in-app fetch).
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) { shell.openExternal(url); return { action: 'deny' }; }
+    return { action: 'deny' };
+  });
   // the mini-HUD is a companion of the main window — never an orphan
   win.on('closed', () => { win = null; if (miniWin && !miniWin.isDestroyed()) miniWin.close(); });
 }

@@ -22,14 +22,19 @@ function scrub(msg) { return String(msg || '').replace(/postgres(?:ql)?:\/\/[^\s
 
 module.exports = async (req, res) => {
   if (applyCors(req, res)) return;
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
   const envVar = process.env.DATABASE_URL ? 'DATABASE_URL' : (process.env.POSTGRES_URL ? 'POSTGRES_URL' : 'none');
+  // the DB endpoint ID only (e.g. "ep-super-pine-aojs229a") — NO host suffix, user or password. This makes a silent
+  // revert to a dead/old database (e.g. an old Neon integration re-injecting its env vars) instantly visible.
+  const hostM = url.match(/@([a-z0-9-]+)/i);
+  const dbHost = hostM ? hostM[1] : null;
   const s = sql();
-  if (!s) return sendJson(res, 503, { ok: true, db: 'unconfigured', envVar, hint: 'no DATABASE_URL / POSTGRES_URL set on this deployment' });
+  if (!s) return sendJson(res, 503, { ok: true, db: 'unconfigured', envVar, dbHost, hint: 'no DATABASE_URL / POSTGRES_URL set on this deployment' });
   const t0 = Date.now();
   try {
     const r = await s`SELECT now() AS ts`;
-    return sendJson(res, 200, { ok: true, db: 'up', envVar, ms: Date.now() - t0, ts: (r[0] && r[0].ts) || null });
+    return sendJson(res, 200, { ok: true, db: 'up', envVar, dbHost, ms: Date.now() - t0, ts: (r[0] && r[0].ts) || null });
   } catch (e) {
-    return sendJson(res, 503, { ok: true, db: 'down', envVar, errorClass: classify(e && e.message), detail: scrub(e && e.message), ms: Date.now() - t0 });
+    return sendJson(res, 503, { ok: true, db: 'down', envVar, dbHost, errorClass: classify(e && e.message), detail: scrub(e && e.message), ms: Date.now() - t0 });
   }
 };

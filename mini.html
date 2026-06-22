@@ -39,6 +39,8 @@
 <div id="content"><div class="empty">Waiting for the dashboard…<br>(it reads your save and feeds this window)</div></div>
 <script>
 'use strict';
+// shares the dashboard's language (file:// localStorage, same Electron session). EN fallback if unavailable.
+function ml(en,zh){try{return (localStorage.getItem('tbh_lang')==='zh')?zh:en;}catch(e){return en;}}
 var P=null;
 function fmt(n){return n==null?'—':Number(n).toLocaleString();}
 function fmtDur(sec){sec=Math.max(0,Math.floor(sec));var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
@@ -47,23 +49,23 @@ function offLine(){
   if(!P||!P.savedMs)return '—';
   var idle=(Date.now()-P.savedMs)/1000;
   if(P.capSec!=null){
-    if(idle>=P.capSec)return 'AT CAP ('+fmtDur(P.capSec)+')';
-    return fmtDur(idle)+' <small>cap in '+fmtDur(P.capSec-idle)+'</small>';
+    if(idle>=P.capSec)return ml('AT CAP (','已封顶 (')+fmtDur(P.capSec)+')';
+    return fmtDur(idle)+' <small>'+ml('cap in ','封顶剩 ')+fmtDur(P.capSec-idle)+'</small>';
   }
-  return fmtDur(idle)+' <small>idle</small>';
+  return fmtDur(idle)+' <small>'+ml('idle','空闲')+'</small>';
 }
 function render(){
   var c=document.getElementById('content');
   document.getElementById('sample').hidden=!(P&&P.sample);
   if(!P){return;}
   document.documentElement.dataset.theme=(P.theme==='light')?'light':'dark';
-  var rune=P.rune?((P.rune.afford?'✓ ':'')+P.rune.n+' <small>'+(P.rune.afford?'affordable · ':'save ')+fmt(P.rune.cost)+'g</small>'):'—';
+  var rune=P.rune?((P.rune.afford?'✓ ':'')+P.rune.n+' <small>'+(P.rune.afford?ml('affordable · ','可购买 · '):ml('save ','需 '))+fmt(P.rune.cost)+'g</small>'):'—';
   c.innerHTML='<div class="rows">'+
-    '<div class="cell"><div class="k">Gold</div><div class="v gold">'+fmt(P.gold)+'</div></div>'+
-    '<div class="cell"><div class="k">Session gold/hr</div><div class="v good">'+(P.gph==null?'measuring…':fmt(P.gph))+'</div></div>'+
-    '<div class="cell w"><div class="k">Stage</div><div class="v">'+(P.stage||'—')+(P.wave?(' <small>wave '+P.wave+'</small>'):'')+(P.stageName?(' <small>'+P.stageName+'</small>'):'')+'</div></div>'+
-    '<div class="cell"><div class="k">Since last save</div><div class="v" id="offv">'+offLine()+'</div></div>'+
-    '<div class="cell"><div class="k">Next rune</div><div class="v acc" title="Cheapest next rune step from the dashboard\'s plan">'+rune+'</div></div>'+
+    '<div class="cell"><div class="k">'+ml('Gold','金币')+'</div><div class="v gold">'+fmt(P.gold)+'</div></div>'+
+    '<div class="cell"><div class="k">'+ml('Session gold/hr','本次金币/时')+'</div><div class="v good">'+(P.gph==null?ml('measuring…','测量中…'):fmt(P.gph))+'</div></div>'+
+    '<div class="cell w"><div class="k">'+ml('Stage','关卡')+'</div><div class="v">'+(P.stage||'—')+(P.wave?(' <small>'+ml('wave ','波次 ')+P.wave+'</small>'):'')+(P.stageName?(' <small>'+P.stageName+'</small>'):'')+'</div></div>'+
+    '<div class="cell"><div class="k">'+ml('Since last save','距上次存档')+'</div><div class="v" id="offv">'+offLine()+'</div></div>'+
+    '<div class="cell"><div class="k">'+ml('Next rune','下一符文')+'</div><div class="v acc" title="'+ml('Cheapest next rune step from the dashboard\'s plan','来自仪表盘计划的最便宜下一符文')+'">'+rune+'</div></div>'+
     '</div>';
 }
 if(window.tbhNative&&window.tbhNative.onMiniData){
@@ -72,6 +74,12 @@ if(window.tbhNative&&window.tbhNative.onMiniData){
 document.getElementById('closeBtn').addEventListener('click',function(){
   if(window.tbhNative&&window.tbhNative.miniClose)window.tbhNative.miniClose();
 });
+// localize the static chrome (close-button title + the waiting placeholder) on load, per the shared language
+(function(){try{
+  document.getElementById('closeBtn').title=ml('Close the mini-HUD','关闭迷你 HUD');
+  var em=document.querySelector('#content .empty');
+  if(em)em.innerHTML=ml('Waiting for the dashboard…','等待仪表盘…')+'<br>'+ml('(it reads your save and feeds this window)','（它读取你的存档并向此窗口提供数据）');
+}catch(e){}})();
 // only the idle clock ticks locally — everything else waits for the next save read
 setInterval(function(){var v=document.getElementById('offv');if(v&&P&&P.savedMs)v.innerHTML=offLine();},1000);
 </script>

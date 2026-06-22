@@ -22,3 +22,18 @@ jobs:
         run: npm install --no-save @neondatabase/serverless@^0.10.4
       - name: Run tests
         run: node --test "tests/**/*.test.js"
+
+  e2e:
+    runs-on: ubuntu-latest
+    # Renderer E2E (Playwright) — drives the real dashboard.html in demo mode through every tab + the
+    # known regression hotspots (i18n restore, the Farming penalty column). The unit job covers the engine;
+    # this covers the ~5,800-line UI that node --test cannot reach.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright + chromium
+        run: npm install --no-save @playwright/test@^1.60.0 && npx playwright install --with-deps chromium
+      - name: Run renderer E2E
+        run: npx playwright test
