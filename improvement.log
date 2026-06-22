@@ -1,6 +1,30 @@
 # TBH HUD — improvement.log
-Updated 2026-06-16 (session 32 · app v1.0.33). Read-only companion for "TBH: Task Bar Hero" (v1.00.11).
+Updated 2026-06-23 (session 33 · app v1.0.34). Read-only companion for "TBH: Task Bar Hero" (v1.00.11 baseline; live game v1.00.19).
 Repo: revenantcabal-rgb/taskbarheroburat. Full detail: CLAUDE.md (facts + per-session DONE), docs/PROGRESS.md.
+
+## S33 (v1.0.34) — crew DB outage diagnosed + crew API hardened (incident) · auto-update published
+Owner-reported: the Crew tab showed "database error" (game had just patched to v1.00.19 — UNRELATED; save-reading works
+fine, all other tabs populate). ROOT CAUSE, proven with a NEW `GET /api/health` probe shipped this session: the Neon
+Postgres behind the crew API returned **HTTP 402 "you have exceeded the data transfer quota"** on every query — the
+FREE-TIER monthly egress cap. Vercel hosting + the serverless functions were healthy (the no-code path 400s cleanly);
+only the DB layer threw. Egress blowout cause: while the Crew tab is open the client polls /leaderboard (+/feed) every
+30s and /leaderboard pulled every member's full `stats` jsonb + 8 history snapshots EACH per poll. FIXES (read-only,
+server + client; nothing touches the game): (1) NEW `api/health.js` — sanitized DB liveness probe → `db:up/down` + which
+env var is set + a coarse error CLASS (auth_failed/endpoint_disabled/suspended_or_quota/unreachable), no secrets ever
+echoed; one-URL outage diagnosis. (2) Softened all 5 endpoints' 500 text "database error" → "crew service temporarily
+unavailable". (3) EDGE-CACHE /leaderboard + /feed 200 responses (`s-maxage=20, stale-while-revalidate=40` + `Vary:
+Origin`) so repeated polls are served by Vercel's CDN, not Neon — the main egress lever; errors are never cached. (4)
+Slimmed the /leaderboard history query to the 4 scalars momentum/sparkline need (`stats->>'lifeGold'` …) instead of
+pulling the full jsonb 8×/member. (5) CLIENT: the HUD now pauses crew polling while its window is hidden
+(`!document.hidden`). 21 tests pass (ban-safety static scan extended to api/health.js); both API commits auto-deployed
+to taskbarheroburat.vercel.app and were verified LIVE (leaderboard returns the softened text; /api/health pinpointed
+the 402). DB RESTORE: owner chose "fresh free DB" — a new Neon ap-southeast-1 POOLED DB was provided and connection-
+tested OK from here; the remaining step is to set Vercel env `DATABASE_URL` to it + redeploy (needs a Vercel token for
+mathew-mercado-s-projects, OR the owner sets it in the dashboard). The crew fix is SERVER-side, so it reaches every
+installed HUD with NO app update; v1.0.34 was published anyway (client hidden-pause + patch notes) so "Check for
+updates" stays current. Also set up an ACCOUNT GUARD for this folder (use-account.ps1 + a SessionStart hook auto-pin
+gh→revenantcabal-rgb and the repo's git identity, since gh had drifted to another account). Full runbook + the confirmed
+402 detail live in OPS-PRIVATE.local.md.
 
 ## S32 (v1.0.32 + v1.0.33) — faster live updates · UNIFIED chest log (all types · colour · level) · refresh + export
 Owner-driven ("loot isn't recording instantly"; then "log EVERY chest — common/blue/act-boss — with level + colour").

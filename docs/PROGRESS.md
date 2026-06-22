@@ -6,7 +6,14 @@ Keep this file honest and current — update it at the end of every working sess
 
 Legend: ✅ done · 🟡 partial · ⛔ deferred/blocked (reason given)
 
-_Last updated: 2026-06-16, after session 32 (v1.0.33). **v1.0.32+33 — faster live updates + UNIFIED chest log.**
+_Last updated: 2026-06-23, after session 33 (v1.0.34). **v1.0.34 — crew DB outage fixed + crew API hardened (incident).**
+The Crew tab's "database error" was the Neon **free-tier data-transfer quota** (HTTP 402), proven by a new `/api/health`
+probe — Vercel hosting + the save reader were fine, and the game's v1.00.19 patch was unrelated. Hardened the crew API:
+`/api/health` diagnostic, **edge-caching** on /leaderboard + /feed, a **slimmer history query**, softer error copy, and
+the HUD now **pauses crew polling when hidden** — together cutting the egress that exhausted the quota. DB restore in
+progress (a fresh Neon DB was provided + connection-tested; pending the Vercel `DATABASE_URL` swap + redeploy). Account
+guard added for this folder (use-account.ps1 + SessionStart hook auto-pin gh→revenantcabal-rgb + the repo git identity).
+Previous note (session 32, v1.0.32+33): **faster live updates + UNIFIED chest log.**
 v1.0.32: live-save poll tightened (browser 4s→1.2s via a cached-handle fast poll; Electron watchdog 5s→2s) so a drop
 shows within ~1–2s of the game writing the save — the floor is the game's own save cadence (read-only can't beat it).
 v1.0.33: the Loot tab now logs EVERY chest — Common (grey) / Stage Boss blue / Act Boss (gold) — with type, colour and

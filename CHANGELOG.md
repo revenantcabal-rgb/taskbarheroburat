@@ -4,6 +4,18 @@ All notable changes to the read-only TBH: Task Bar Hero companion. The same note
 (✨ **What's new** in the header) and on each [GitHub Release](https://github.com/revenantcabal-rgb/taskbarheroburat/releases).
 Every release is **read-only** — the HUD never writes to the game, its saves, or its memory.
 
+## v1.0.34 — 2026-06-23
+
+### Changed
+- **Crew leaderboard — lighter and more reliable.** The crew server now **edge-caches** the board and activity feed
+  and sends far less data per refresh, and the HUD **pauses crew updates while its window is hidden**. This fixes the
+  load that had exhausted the crew server's free database tier (the cause of recent Crew-tab errors). Your game data
+  and the rest of the HUD were never affected — the save reader runs entirely on your PC.
+
+### Fixed
+- The Crew tab now shows a clear **"crew service temporarily unavailable — retrying"** message instead of a raw
+  database error. (Backend also gained a `/api/health` self-diagnostic and a slimmer leaderboard query.)
+
 ## v1.0.33 — 2026-06-16
 
 ### Added
