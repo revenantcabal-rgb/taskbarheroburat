@@ -26,17 +26,28 @@ module.exports = async (req, res) => {
     const rows = await s`SELECT member_id, name, stats, achievement, updated_at
                          FROM tbh_crew_members WHERE crew_code = ${code}
                          ORDER BY updated_at DESC LIMIT 50`;
-    // recent snapshot history per member (one query) → momentum + a lifetime-gold sparkline
-    const hrows = await s`SELECT member_id, stats, created_at FROM (
-                            SELECT member_id, stats, created_at,
+    // recent snapshot history per member (one query) → momentum + a lifetime-gold sparkline.
+    // Extract ONLY the 4 scalars momentum/sparkline need, server-side — never pull the full stats jsonb 8×/member.
+    // (That repeated jsonb egress is what exhausted the Neon free-tier data-transfer quota; 2026-06-23 incident.)
+    const hrows = await s`SELECT member_id, g, k, s, ph, created_at FROM (
+                            SELECT member_id,
+                                   (stats->>'lifeGold')::float8  AS g,
+                                   (stats->>'kills')::float8     AS k,
+                                   (stats->>'maxStage')::int     AS s,
+                                   (stats->>'playHours')::float8 AS ph,
+                                   created_at,
                                    row_number() OVER (PARTITION BY member_id ORDER BY id DESC) rn
                             FROM tbh_crew_history WHERE crew_code = ${code}
                           ) t WHERE rn <= ${HIST_PER_MEMBER} ORDER BY member_id, created_at ASC`;
     const byMember = {};
     for (const h of hrows) {
-      const st = h.stats || {};
-      (byMember[h.member_id] = byMember[h.member_id] || []).push({ t: h.created_at, g: st.lifeGold, k: st.kills, s: st.maxStage, ph: st.playHours });
+      (byMember[h.member_id] = byMember[h.member_id] || []).push({ t: h.created_at, g: h.g, k: h.k, s: h.s, ph: h.ph });
     }
+    // edge-cache the board: repeated polls (every 30s, across all crew members' clients) are served by Vercel's
+    // CDN instead of re-hitting Neon — the main egress lever. ~20s staleness is fine for a friends board, and
+    // errors are never cached (this header is only set on the success path).
+    res.setHeader('Cache-Control', 'public, s-maxage=20, stale-while-revalidate=40');
+    res.setHeader('Vary', 'Origin');
     return sendJson(res, 200, {
       ok: true,
       members: rows.map((r) => {

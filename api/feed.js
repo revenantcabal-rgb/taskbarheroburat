@@ -26,6 +26,9 @@ module.exports = async (req, res) => {
     const rows = await s`SELECT name, kind, text, created_at
                          FROM tbh_crew_events WHERE crew_code = ${code}
                          ORDER BY id DESC LIMIT ${FEED_LIMIT}`;
+    // edge-cache the feed alongside the board (polled together every 30s) — served by Vercel's CDN, not Neon.
+    res.setHeader('Cache-Control', 'public, s-maxage=20, stale-while-revalidate=40');
+    res.setHeader('Vary', 'Origin');
     return sendJson(res, 200, {
       ok: true,
       events: rows.map((r) => ({ name: r.name, kind: r.kind, text: r.text, t: r.created_at })),
