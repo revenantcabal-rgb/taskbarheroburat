@@ -1,0 +1,16 @@
+v1.0.35 verification & deploy note
+- Owner report: Farming tab "providing false info / not matching taskbarhero.wiki/tools/farming". Microscopic gap
+  analysis (a background agent re-derived the LIVE wiki bundles — node 72.* planner + chunk D5oM4w2X.* stat engine —
+  in Python; cross-checked vs our 1:1 Act-Jumper port). DATA was already wiki-exact (0% error). MATH had 3 gaps:
+  (1) no EXP "kept" level-penalty curve (the wiki's Ht()) -> EXP/hr overstated on off-level stages; (2) clear model
+  hp/dps+fixedOverhead vs wiki hpSeconds*HP+waveSeconds*waves (2 timed clears); (3) act bosses (stageNo 10) not excluded.
+- Fix: ported the wiki engine EXACTLY into saveEngine.js (farmExpKept=Ht, farmSolveModelD=OLS hp+waves, farmRank=
+  (exp+flatRuneEXP)*kept*(1+EXP%/100)/sec*3600 ; gold/sec*3600 no penalty ; act bosses excluded) + mirrored in
+  dashboard.html. Rebuilt the tab: auto-filled/editable hero level + EXP%, two-clear calibration, "EXP kept" column,
+  "keeps 100% EXP" headline. The kept curve = the wiki author's model (corroborated by our measured ~10-14x falloff),
+  labelled as such, NOT a datamined fact (golden rule).
+- Tests: NEW tests/farming.test.js reproduces the wiki's 3 worked examples (EXP/hr 677,024 / 67,659,811 / 906,967,089)
+  + Ht spot values + act-boss exclusion + gold-no-penalty + flat rune EXP. 29/29 node tests pass. In-browser (?demo):
+  0 console errors, EXP/hr 677,024 reproduced live, 108 stages (act bosses gone), kept column renders.
+- DESKTOP RELEASE: v1.0.35 (gh release create --latest) TBH-HUD-Setup-1.0.35.exe (72.2 MB) + latest.yml (sha512
+  independently verified to match the exe). package.json + APP_VERSION both 1.0.35. Client-only: NO api/crew/Neon change.
