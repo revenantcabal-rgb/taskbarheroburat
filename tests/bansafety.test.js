@@ -13,7 +13,7 @@ const read = (rel) => { try { return fs.readFileSync(path.join(ROOT, rel), 'utf8
 
 const SHIPPED = ['dashboard.html', 'mini.html', 'index.html', 'src/main.js', 'src/preload.js',
   'src/engine/saveEngine.js', 'src/engine/crewEngine.js',
-  'api/_lib.js', 'api/progress.js', 'api/leaderboard.js', 'api/feed.js', 'api/prune.js', 'api/enchant-report.js'];
+  'api/_lib.js', 'api/progress.js', 'api/leaderboard.js', 'api/feed.js', 'api/prune.js', 'api/enchant-report.js', 'api/health.js'];
 const SRC = {}; SHIPPED.forEach((f) => { SRC[f] = read(f); });
 const allText = SHIPPED.map((f) => SRC[f]).join('\n');
 

@@ -32,6 +32,6 @@ module.exports = async (req, res) => {
     });
   } catch (e) {
     console.error('feed error', e);
-    return sendJson(res, 500, { ok: false, error: 'database error' });
+    return sendJson(res, 500, { ok: false, error: 'crew service temporarily unavailable' });
   }
 };

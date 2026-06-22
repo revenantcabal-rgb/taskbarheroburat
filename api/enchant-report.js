@@ -65,6 +65,6 @@ module.exports = async (req, res) => {
     return sendJson(res, 200, { ok: true, stored });
   } catch (e) {
     console.error('enchant-report error', e);
-    return sendJson(res, 500, { ok: false, error: 'database error' });
+    return sendJson(res, 500, { ok: false, error: 'crew service temporarily unavailable' });
   }
 };
